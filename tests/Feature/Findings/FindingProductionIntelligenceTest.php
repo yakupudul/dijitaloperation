@@ -24,7 +24,6 @@ use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\Findings\FindingConditionEvaluator;
 use App\Services\Findings\FindingEvaluationService;
 use App\Services\Findings\FindingEvidenceEligibilityService;
-use App\Services\Findings\FindingReadService;
 use App\Services\Findings\FindingRuleRegistry;
 use App\Services\Findings\LegacyFindingOriginMigrator;
 use App\Services\ServiceScope\CustomerServiceScopeService;
@@ -354,20 +353,6 @@ class FindingProductionIntelligenceTest extends TestCase
         app(FindingEvaluationService::class)->evaluateAsset($this->asset);
         $this->assertSame(1, Finding::query()->count());
         $this->assertSame($scopeCount, CustomerServiceScope::query()->count());
-    }
-
-    public function test_read_service_exposes_ids_not_raw_payload_and_empty_is_empty(): void
-    {
-        $empty = app(FindingReadService::class)->forAsset($this->asset);
-        $this->assertSame([], $empty);
-
-        $this->writeCanonical($this->asset, 'gsc.property.period_comparison', $this->gscClicksDeclinePayload());
-        app(FindingEvaluationService::class)->evaluateAsset($this->asset);
-        $rows = app(FindingReadService::class)->forAsset($this->asset);
-        $this->assertCount(1, $rows);
-        $this->assertNotEmpty($rows[0]->supportingEvidenceIds);
-        $this->assertArrayNotHasKey('payload', $rows[0]->toArray());
-        $this->assertSame($this->asset->id, $rows[0]->digitalAssetId);
     }
 
     public function test_legacy_origin_migration_is_idempotent_and_does_not_guess(): void

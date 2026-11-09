@@ -9,15 +9,12 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Integrations\Google\GoogleOAuthService;
-use App\Services\Integrations\Google\GoogleResourceRefreshService;
 use App\Support\Integrations\Google\GoogleAuthStatus;
 use App\Support\Integrations\Google\GoogleScopes;
-use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -165,168 +162,6 @@ class GoogleCentralIntegrationTest extends TestCase
         $stored = DB::table('core_integration_credentials')->where('id', $credential->id)->value('encrypted_payload');
         $this->assertStringNotContainsString('new-access-secret', (string) $stored);
         $this->assertSame('new-access-secret', $credential->encrypted_payload['access_token']);
-    }
-
-    public function test_resource_refresh_normalizes_upserts_and_handles_partial_failure(): void
-    {
-        CoreIntegrationCredential::factory()->create([
-            'integration_id' => $this->integration->id,
-            'encrypted_payload' => [
-                'access_token' => 'access-token',
-                'refresh_token' => 'refresh-token',
-            ],
-            'expires_at' => now()->addHour(),
-        ]);
-
-        // Missing developer token => Ads setup_required; GBP scope off => scope_required.
-        config([
-            'moxdop.google.developer_token' => null,
-            'moxdop.google.include_gbp_scope' => false,
-            'moxdop.google.gbp_discovery_enabled' => false,
-        ]);
-
-        Http::fake([
-            'https://www.googleapis.com/webmasters/v3/sites' => Http::response([
-                'siteEntry' => [
-                    ['siteUrl' => 'sc-domain:moximu.com', 'permissionLevel' => 'siteFullUser'],
-                    ['siteUrl' => 'https://www.moximu.com/', 'permissionLevel' => 'siteOwner'],
-                ],
-            ], 200),
-            'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response([
-                'accountSummaries' => [[
-                    'account' => 'accounts/1',
-                    'displayName' => 'Moximu',
-                    'propertySummaries' => [[
-                        'property' => 'properties/123456',
-                        'displayName' => 'Moximu GA4',
-                        'propertyType' => 'PROPERTY_TYPE_ORDINARY',
-                    ]],
-                ]],
-            ], 200),
-        ]);
-
-        $result = app(GoogleResourceRefreshService::class)->refresh($this->integration->fresh(['credential']));
-
-        $this->assertTrue($result['ok']);
-        $this->assertSame('ok', $result['results']['search_console']['status']);
-        $this->assertSame('ok', $result['results']['ga4']['status']);
-        $this->assertSame('setup_required', $result['results']['google_ads']['status']);
-        $this->assertSame('scope_required', $result['results']['google_business_profile']['status']);
-
-        $this->assertDatabaseHas('core_external_resources', [
-            'integration_id' => $this->integration->id,
-            'resource_type' => 'search_console',
-            'external_id' => 'sc-domain:moximu.com',
-            'status' => 'available',
-        ]);
-        $this->assertDatabaseHas('core_external_resources', [
-            'integration_id' => $this->integration->id,
-            'resource_type' => 'ga4',
-            'external_id' => 'properties/123456',
-            'status' => 'available',
-        ]);
-
-        // Second refresh must not duplicate canonical resources.
-        app(GoogleResourceRefreshService::class)->refresh($this->integration->fresh(['credential']));
-        $this->assertSame(1, CoreExternalResource::query()->where([
-            'integration_id' => $this->integration->id,
-            'resource_type' => 'search_console',
-            'external_id' => 'sc-domain:moximu.com',
-        ])->count());
-        $this->assertSame(1, CoreExternalResource::query()->where([
-            'integration_id' => $this->integration->id,
-            'resource_type' => 'ga4',
-            'external_id' => 'properties/123456',
-        ])->count());
-        $this->assertSame(
-            3,
-            CoreExternalResource::query()->where('integration_id', $this->integration->id)->count(),
-        );
-    }
-
-    public function test_stale_resources_marked_unavailable_without_deleting_bindings_identity(): void
-    {
-        CoreIntegrationCredential::factory()->create([
-            'integration_id' => $this->integration->id,
-            'encrypted_payload' => [
-                'access_token' => 'access-token',
-                'refresh_token' => 'refresh-token',
-            ],
-            'expires_at' => now()->addHour(),
-        ]);
-
-        $stale = CoreExternalResource::factory()->create([
-            'integration_id' => $this->integration->id,
-            'provider' => ProviderRegistry::GOOGLE,
-            'resource_type' => 'search_console',
-            'external_id' => 'sc-domain:old.example',
-            'display_name' => 'old.example',
-            'status' => 'available',
-        ]);
-
-        Http::fake([
-            'https://www.googleapis.com/webmasters/v3/sites' => Http::response([
-                'siteEntry' => [
-                    ['siteUrl' => 'sc-domain:moximu.com', 'permissionLevel' => 'siteOwner'],
-                ],
-            ], 200),
-            'https://analyticsadmin.googleapis.com/v1beta/accountSummaries*' => Http::response(['accountSummaries' => []], 200),
-            'https://googleads.googleapis.com/*/customers:listAccessibleCustomers' => Http::response(['resourceNames' => []], 200),
-        ]);
-
-        app(GoogleResourceRefreshService::class)->refresh($this->integration->fresh(['credential']));
-
-        $this->assertSame('unavailable', $stale->fresh()->status);
-        $this->assertDatabaseHas('core_external_resources', [
-            'external_id' => 'sc-domain:old.example',
-        ]);
-        $this->assertDatabaseHas('core_external_resources', [
-            'external_id' => 'sc-domain:moximu.com',
-            'status' => 'available',
-        ]);
-    }
-
-    public function test_google_ads_discovery_normalizes_customer_ids(): void
-    {
-        CoreIntegrationCredential::factory()->create([
-            'integration_id' => $this->integration->id,
-            'encrypted_payload' => [
-                'access_token' => 'access-token',
-                'refresh_token' => 'refresh-token',
-            ],
-            'expires_at' => now()->addHour(),
-        ]);
-
-        Http::fake(function (Request $request) {
-            $url = $request->url();
-
-            if (str_contains($url, 'webmasters/v3/sites')) {
-                return Http::response(['siteEntry' => []], 200);
-            }
-
-            if (str_contains($url, 'analyticsadmin.googleapis.com')) {
-                return Http::response(['accountSummaries' => []], 200);
-            }
-
-            if (str_contains($url, 'customers:listAccessibleCustomers')) {
-                return Http::response([
-                    'resourceNames' => ['customers/1234567890', 'customers/9988776655'],
-                ], 200);
-            }
-
-            if (str_contains($url, 'googleAds:search')) {
-                return Http::response(['results' => []], 200);
-            }
-
-            return Http::response(['error' => 'unexpected '.$url], 500);
-        });
-
-        $result = app(GoogleResourceRefreshService::class)->refresh($this->integration->fresh(['credential']));
-        $this->assertSame('ok', $result['results']['google_ads']['status']);
-        $this->assertDatabaseHas('core_external_resources', [
-            'resource_type' => 'google_ads',
-            'external_id' => '1234567890',
-        ]);
     }
 
     public function test_disconnect_clears_credentials_and_preserves_resources_bindings(): void

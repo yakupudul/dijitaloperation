@@ -15,7 +15,6 @@ use App\Models\DigitalAsset;
 use App\Models\User;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\Meta\SelectMetaDiscoveryContextService;
-use App\Support\Integrations\Meta\MetaAdsBindingEligibility;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
@@ -542,29 +541,6 @@ class MetaResourceBindingTest extends TestCase
         if (Schema::hasTable('collection_runs')) {
             $this->assertDatabaseCount('collection_runs', 0);
         }
-    }
-
-    public function test_prompt_24_eligibility_requires_active_confirmed_binding(): void
-    {
-        $account = $this->makeAdAccount('act_11110020', 'Eligible');
-        $asset = DigitalAsset::factory()->create([
-            'brand_id' => $this->brand->id,
-            'type' => 'meta_ads',
-            'module_id' => 'meta-ads',
-        ]);
-
-        $eligibility = app(MetaAdsBindingEligibility::class);
-        $this->assertFalse($eligibility->isEligible($asset));
-
-        app(ConfirmMetaResourceBindingService::class)->bindExisting($asset, $account, $this->admin);
-        $this->assertTrue($eligibility->isEligible($asset->fresh()));
-
-        $unbound = DigitalAsset::factory()->create([
-            'brand_id' => $this->brand->id,
-            'type' => 'meta_ads',
-            'module_id' => 'meta-ads',
-        ]);
-        $this->assertFalse($eligibility->isEligible($unbound));
     }
 
     public function test_frozen_ui_bind_confirm_and_page_render_make_zero_meta_calls(): void

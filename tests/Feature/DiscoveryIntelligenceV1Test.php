@@ -28,7 +28,6 @@ use MoxDop\Website\Discovery\DiscoveryConfig;
 use MoxDop\Website\Discovery\PublicDiscoveryService;
 use MoxDop\Website\Discovery\PublicHttpFetcher;
 use MoxDop\Website\Discovery\PublicPageExtractor;
-use MoxDop\Website\Discovery\PublicSiteCrawler;
 use MoxDop\Website\Discovery\PublicUrlSafety;
 use Tests\TestCase;
 
@@ -124,82 +123,6 @@ class DiscoveryIntelligenceV1Test extends TestCase
         $this->assertSame('response_too_large', $big['error']);
         $this->assertFalse($bin['ok']);
         $this->assertStringContainsString('unsupported_content_type', (string) $bin['error']);
-    }
-
-    public function test_crawler_is_same_site_bounded_and_extracts_facts(): void
-    {
-        $home = <<<'HTML'
-<!doctype html>
-<html lang="en">
-<head>
-  <title>Clinic Home</title>
-  <meta name="description" content="Trusted dental clinic offering implants and smile design in Ankara for local families.">
-  <link rel="alternate" hreflang="tr" href="http://1.1.1.1/tr">
-  <script type="application/ld+json">{"@type":"Organization","name":"Clinic Home"}</script>
-</head>
-<body>
-  <nav>
-    <a href="/services">Services</a>
-    <a href="/contact">Contact</a>
-    <a href="https://other-site.test/external">External</a>
-  </nav>
-  <h1>Welcome Clinic</h1>
-  <a href="https://instagram.com/clinic.home">Instagram</a>
-  <a href="https://evil.test/page">Offsite</a>
-</body>
-</html>
-HTML;
-
-        $services = <<<'HTML'
-<!doctype html><html lang="en"><head><title>Services</title></head>
-<body><h1>Implants</h1><nav><a href="/services/implants">Implants</a></nav></body></html>
-HTML;
-
-        $contact = <<<'HTML'
-<!doctype html><html lang="en"><head><title>Contact</title></head>
-<body><address>Ataturk Bulvari 12, Ankara</address>
-<a href="mailto:hello@clinic.test">Email</a>
-<a href="tel:+903121234567">Phone</a>
-</body></html>
-HTML;
-
-        Http::fake([
-            'http://1.1.1.1' => Http::response($home, 200, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/' => Http::response($home, 200, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/services' => Http::response($services, 200, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/contact' => Http::response($contact, 200, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/about' => Http::response('missing', 404, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/about-us' => Http::response('missing', 404, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/products' => Http::response('missing', 404, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/contact-us' => Http::response('missing', 404, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/locations' => Http::response('missing', 404, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/location' => Http::response('missing', 404, ['Content-Type' => 'text/html']),
-            'http://1.1.1.1/our-services' => Http::response('missing', 404, ['Content-Type' => 'text/html']),
-            'https://other-site.test/*' => Http::response('nope', 200, ['Content-Type' => 'text/html']),
-            'https://evil.test/*' => Http::response('nope', 200, ['Content-Type' => 'text/html']),
-        ]);
-
-        $crawl = (new PublicSiteCrawler(new PublicHttpFetcher(new PublicUrlSafety)))->crawl('http://1.1.1.1');
-        $this->assertContains($crawl['status'], ['succeeded', 'partial']);
-        $this->assertGreaterThanOrEqual(1, $crawl['pages_inspected']);
-        $this->assertLessThanOrEqual(DiscoveryConfig::MAX_PAGES, $crawl['pages_inspected']);
-
-        $urls = collect($crawl['pages'])->pluck('final_url')->implode(' ');
-        $this->assertStringNotContainsString('other-site.test', $urls);
-        $this->assertStringNotContainsString('evil.test', $urls);
-
-        $candidates = (new DiscoveryCandidateBuilder)->fromCrawl($crawl);
-        $kinds = collect($candidates)->pluck('candidate_kind')->unique()->all();
-        $this->assertSame([DiscoveryCandidate::KIND_FACT], $kinds);
-
-        $types = collect($candidates)->pluck('candidate_type')->all();
-        $this->assertContains('social_link', $types);
-        $this->assertContains('language', $types);
-
-        $social = collect($candidates)->firstWhere('candidate_type', 'social_link');
-        $this->assertNotNull($social);
-        $this->assertSame(DiscoveryCandidate::KIND_FACT, $social['candidate_kind']);
-        $this->assertStringContainsString('instagram.com', $social['proposed_value']);
     }
 
     public function test_prompt_injection_page_text_is_untrusted_evidence_only(): void

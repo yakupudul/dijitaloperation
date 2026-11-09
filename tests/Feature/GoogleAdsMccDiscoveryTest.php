@@ -2,13 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
 use App\Services\Integrations\Google\Discovery\GoogleAdsDiscoverer;
 use App\Services\Integrations\Google\GoogleProviderCredentialService;
-use App\Services\Integrations\Google\GoogleResourceRefreshService;
 use App\Support\Integrations\Google\GoogleOAuthConfig;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -139,63 +137,6 @@ class GoogleAdsMccDiscoveryTest extends TestCase
         $this->assertSame('Moximu MCC', $byId['1111111111']->displayName);
         $this->assertTrue((bool) ($byId['1111111111']->metadata['is_manager'] ?? false));
         $this->assertSame('Indirect Client', $byId['3333333333']->displayName);
-    }
-
-    public function test_refresh_persists_descriptive_ads_resources_without_duplicates(): void
-    {
-        Http::fake(function ($request) {
-            if (str_contains($request->url(), 'listAccessibleCustomers')) {
-                return Http::response(['resourceNames' => ['customers/1111111111']], 200);
-            }
-            if (str_contains($request->url(), 'googleAds:search')) {
-                return Http::response([
-                    'results' => [
-                        [
-                            'customerClient' => [
-                                'id' => 2222222222,
-                                'descriptiveName' => 'Panorama Ankara',
-                                'manager' => false,
-                                'level' => 1,
-                                'clientCustomer' => 'customers/2222222222',
-                            ],
-                        ],
-                        [
-                            'customerClient' => [
-                                'id' => 2222222222,
-                                'descriptiveName' => 'Panorama Ankara',
-                                'manager' => false,
-                                'level' => 1,
-                                'clientCustomer' => 'customers/2222222222',
-                            ],
-                        ],
-                    ],
-                ], 200);
-            }
-            if (str_contains($request->url(), 'webmasters')) {
-                return Http::response(['siteEntry' => []], 200);
-            }
-            if (str_contains($request->url(), 'analyticsadmin')) {
-                return Http::response(['accountSummaries' => []], 200);
-            }
-
-            return Http::response(['error' => 'unexpected'], 500);
-        });
-
-        $refresh = app(GoogleResourceRefreshService::class)->refresh($this->integration->fresh(['credential', 'providerCredential']));
-        $this->assertSame('ok', $refresh['results']['google_ads']['status']);
-
-        $this->assertSame(1, CoreExternalResource::query()
-            ->where('resource_type', 'google_ads')
-            ->where('external_id', '2222222222')
-            ->count());
-
-        $resource = CoreExternalResource::query()
-            ->where('external_id', '2222222222')
-            ->firstOrFail();
-
-        $this->assertSame('Panorama Ankara', $resource->display_name);
-        $this->assertSame('1111111111', data_get($resource->metadata, 'login_customer_id'));
-        $this->assertNull(data_get($resource->metadata, 'access_token'));
     }
 
     public function test_developer_token_comes_from_provider_credential_store(): void

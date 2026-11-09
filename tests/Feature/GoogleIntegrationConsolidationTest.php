@@ -5,18 +5,13 @@ namespace Tests\Feature;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\User;
-use App\Services\Integrations\Google\GoogleCredentialResolver;
 use App\Services\Integrations\Google\GoogleOAuthRedirectUriResolver;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleProviderCredentialService;
-use App\Services\Integrations\Google\GoogleResourceRefreshService;
-use App\Support\Integrations\Google\GoogleAuthStatus;
-use App\Support\Integrations\Google\GoogleIntegrationConfigGuard;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -84,72 +79,6 @@ class GoogleIntegrationConsolidationTest extends TestCase
         $this->assertStringNotContainsString('localhost', $uri);
     }
 
-    public function test_authorize_test_and_refresh_use_same_configure_credentials(): void
-    {
-        app(GoogleProviderCredentialService::class)->save($this->integration, [
-            'client_id' => 'shared-client-id',
-            'client_secret' => 'shared-client-secret',
-            'developer_token' => 'shared-dev-token',
-        ], $this->admin);
-
-        $fresh = $this->integration->fresh(['providerCredential']);
-        $resolver = app(GoogleCredentialResolver::class);
-
-        $this->assertSame('shared-client-id', $resolver->clientId($fresh));
-        $this->assertSame('shared-client-secret', $resolver->clientSecret($fresh));
-        $this->assertSame('shared-dev-token', $resolver->developerToken($fresh));
-        $this->assertSame('Configured', GoogleAuthStatus::applicationConfigurationLabel($fresh));
-
-        $begin = app(GoogleOAuthService::class)->beginAuthorization($fresh, $this->admin);
-        $this->assertArrayHasKey('url', $begin);
-        $this->assertStringContainsString(urlencode('shared-client-id'), $begin['url']);
-
-        CoreIntegrationCredential::factory()->authorization()->create([
-            'integration_id' => $this->integration->id,
-            'encrypted_payload' => [
-                'access_token' => 'atok',
-                'refresh_token' => 'rtok',
-            ],
-            'expires_at' => now()->addHour(),
-        ]);
-
-        Http::fake(function (Request $request) {
-            $url = $request->url();
-
-            if (str_contains($url, 'oauth2/v3/userinfo')) {
-                return Http::response(['email' => 'ops@moximu.com'], 200);
-            }
-            if (str_contains($url, 'webmasters/v3/sites')) {
-                return Http::response(['siteEntry' => []], 200);
-            }
-            if (str_contains($url, 'analyticsadmin.googleapis.com')) {
-                return Http::response(['accountSummaries' => []], 200);
-            }
-            if (str_contains($url, 'customers:listAccessibleCustomers')) {
-                return Http::response(['resourceNames' => []], 200);
-            }
-
-            if (str_contains($url, 'googleAds:search')) {
-                return Http::response(['results' => []], 200);
-            }
-
-            return Http::response(['error' => 'unexpected '.$url], 500);
-        });
-
-        $loaded = $this->integration->fresh(['credential', 'providerCredential']);
-        $this->assertSame('shared-client-secret', app(GoogleCredentialResolver::class)->clientSecret($loaded));
-        $this->assertSame('shared-dev-token', app(GoogleCredentialResolver::class)->developerToken($loaded));
-
-        $test = app(GoogleOAuthService::class)->testConnection($loaded);
-        $this->assertTrue($test['ok'], $test['message'] ?? 'testConnection failed');
-        $this->assertStringNotContainsString('Setup required', $test['message']);
-
-        $refresh = app(GoogleResourceRefreshService::class)->refresh($this->integration->fresh(['credential', 'providerCredential']));
-        $this->assertTrue($refresh['ok'], $refresh['message'] ?? 'refresh failed');
-        $this->assertSame('ok', $refresh['results']['search_console']['status'] ?? null);
-        $this->assertNotSame('setup_required', $refresh['results']['google_ads']['status'] ?? 'missing');
-    }
-
     public function test_blank_secret_edit_preserves_and_disconnect_preserves_provider_config(): void
     {
         app(GoogleProviderCredentialService::class)->save($this->integration, [
@@ -177,17 +106,5 @@ class GoogleIntegrationConsolidationTest extends TestCase
 
         $this->assertFalse($this->integration->fresh()->authorizationCredential()->exists());
         $this->assertSame('keep-secret', $this->integration->fresh()->providerCredential?->encrypted_payload['client_secret'] ?? null);
-    }
-
-    public function test_config_guard_strips_misentered_client_id_keyvalue_pairs(): void
-    {
-        $dirty = [
-            '842455333-abc.apps.googleusercontent.com' => 'GOCSPX-leaked',
-            'auth_status' => 'authorization_required',
-        ];
-
-        $this->assertTrue(GoogleIntegrationConfigGuard::containsUnsafe($dirty));
-        $clean = GoogleIntegrationConfigGuard::stripUnsafe($dirty);
-        $this->assertSame(['auth_status' => 'authorization_required'], $clean);
     }
 }

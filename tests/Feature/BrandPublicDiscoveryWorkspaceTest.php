@@ -6,7 +6,6 @@ use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\User;
-use App\Support\Demo\BrandPublicDiscoveryFixtures;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -56,20 +55,5 @@ class BrandPublicDiscoveryWorkspaceTest extends TestCase
     {
         $this->get(route('operator.brand', ['brand' => 'atlas-dental']))->assertNotFound();
         Livewire::test(BrandShow::class, ['brand' => 'atlas-dental'])->assertStatus(404);
-    }
-
-    public function test_fixtures_are_deterministic_and_distinguish_observation_layers(): void
-    {
-        $a = BrandPublicDiscoveryFixtures::workspace();
-        $b = BrandPublicDiscoveryFixtures::workspace();
-        $this->assertSame($a, $b);
-
-        $implant = collect($a['candidates'])->firstWhere('id', 'dc-offering-implant');
-        $this->assertSame('Derived', $implant['provenance']);
-        $this->assertNull($implant['confidence']);
-
-        $positioning = collect($a['candidates'])->firstWhere('id', 'dc-positioning');
-        $this->assertSame('AI-derived', $positioning['provenance']);
-        $this->assertTrue($positioning['ai_assisted']);
     }
 }

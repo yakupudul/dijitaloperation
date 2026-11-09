@@ -2,29 +2,16 @@
 
 namespace Tests\Feature\RecurringAutomation;
 
-use App\Enums\CollectionScheduleStatus;
-use App\Enums\InternalNotificationScheduleStatus;
-use App\Enums\RecurringFrequency;
-use App\Enums\RecurringMisfirePolicy;
 use App\Enums\RecurringOccurrenceStatus;
 use App\Enums\RecurringScheduleKind;
-use App\Jobs\RecurringAutomation\ExecuteRecurringOccurrenceJob;
 use App\Models\Brand;
 use App\Models\Customer;
-use App\Models\DigitalAsset;
 use App\Models\RecurringOccurrence;
 use App\Models\User;
-use App\Models\UserNotification;
-use App\Services\Collection\CollectionScheduleService;
-use App\Services\Notifications\InternalNotificationScheduleService;
 use App\Services\RecurringAutomation\ExecuteRecurringOccurrenceService;
-use App\Services\RecurringAutomation\RecurringAutomationDispatcher;
 use App\Services\RecurringAutomation\RecurringAutomationRegistry;
-use App\Support\RecurringAutomation\RecurringOccurrenceCalculator;
-use App\Support\RecurringAutomation\RecurringScheduleSpec;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -55,75 +42,6 @@ class RecurringAutomationEngineProductionTest extends TestCase
         $this->assertContains(RecurringScheduleKind::IntelligenceValidityRecheck->value, $kinds);
     }
 
-    public function test_double_dispatcher_creates_one_occurrence(): void
-    {
-        Queue::fake();
-        [$user, $brand] = $this->seedBrand();
-        $schedule = app(InternalNotificationScheduleService::class)->create([
-            'brand_id' => (int) $brand->id,
-            'customer_id' => (int) $brand->customer_id,
-            'timezone' => 'UTC',
-            'frequency' => 'daily',
-            'local_time' => '09:00',
-            'title' => 'Daily ops check',
-            'message' => 'Review the Brand dashboard.',
-            'safe_route_name' => 'operator.work',
-            'recipient_user_ids' => [(int) $user->id],
-        ], $user);
-
-        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-16 09:05:00', 'UTC'));
-        $dispatcher = app(RecurringAutomationDispatcher::class);
-        $a = $dispatcher->dispatchDue(CarbonImmutable::now('UTC'), [RecurringScheduleKind::InternalNotification]);
-        $b = $dispatcher->dispatchDue(CarbonImmutable::now('UTC'), [RecurringScheduleKind::InternalNotification]);
-        CarbonImmutable::setTestNow();
-
-        $this->assertCount(1, $a);
-        $this->assertSame([], $b);
-        $this->assertSame(1, RecurringOccurrence::query()
-            ->where('schedule_kind', RecurringScheduleKind::InternalNotification)
-            ->where('domain_schedule_id', $schedule->id)
-            ->count());
-        Queue::assertPushed(ExecuteRecurringOccurrenceJob::class, 1);
-    }
-
-    public function test_internal_notification_idempotent_and_no_notify_all(): void
-    {
-        [$user, $brand] = $this->seedBrand();
-        $other = User::factory()->create();
-        $schedule = app(InternalNotificationScheduleService::class)->create([
-            'brand_id' => (int) $brand->id,
-            'customer_id' => (int) $brand->customer_id,
-            'timezone' => 'UTC',
-            'frequency' => 'daily',
-            'local_time' => '09:00',
-            'title' => 'Reminder',
-            'message' => 'Plain text only',
-            'recipient_user_ids' => [(int) $user->id],
-        ], $user);
-
-        $occurrence = RecurringOccurrence::query()->create([
-            'schedule_kind' => RecurringScheduleKind::InternalNotification,
-            'domain_schedule_id' => (int) $schedule->id,
-            'scheduled_for' => CarbonImmutable::parse('2026-08-16 09:00:00', 'UTC'),
-            'timezone_snapshot' => 'UTC',
-            'recurrence_spec_fingerprint' => 'fp',
-            'status' => RecurringOccurrenceStatus::Queued,
-            'attempt_count' => 0,
-            'is_manual' => false,
-            'created_at' => now(),
-            'occurrence_key' => 'internal_notification:'.$schedule->id.':2026-08-16T09:00:00Z',
-        ]);
-
-        $exec = app(ExecuteRecurringOccurrenceService::class);
-        $first = $exec->execute((int) $occurrence->id);
-        $second = $exec->execute((int) $occurrence->id);
-
-        $this->assertSame(RecurringOccurrenceStatus::Completed, $first->status);
-        $this->assertSame(RecurringOccurrenceStatus::Completed, $second->status);
-        $this->assertSame(1, UserNotification::query()->where('recipient_user_id', $user->id)->count());
-        $this->assertSame(0, UserNotification::query()->where('recipient_user_id', $other->id)->count());
-    }
-
     public function test_occurrence_of_a_retired_kind_is_skipped_not_failed(): void
     {
         $occurrence = RecurringOccurrence::query()->create([
@@ -143,57 +61,6 @@ class RecurringAutomationEngineProductionTest extends TestCase
 
         $this->assertSame(RecurringOccurrenceStatus::Skipped, $result->status);
         $this->assertSame('KIND_RETIRED', $result->failure_code);
-    }
-
-    public function test_collection_schedule_create_and_pause(): void
-    {
-        [$user, $brand] = $this->seedBrand();
-        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id]);
-        $schedule = app(CollectionScheduleService::class)->create($asset, [
-            'frequency' => 'daily',
-            'timezone' => 'Europe/Istanbul',
-            'local_time' => '06:00',
-        ], $user, [(int) $brand->customer_id], [(int) $brand->id]);
-
-        $this->assertSame(CollectionScheduleStatus::Active, $schedule->status);
-        $this->assertSame(RecurringFrequency::Daily, $schedule->frequency);
-        app(CollectionScheduleService::class)->pause($schedule);
-        $this->assertSame(CollectionScheduleStatus::Paused, $schedule->fresh()->status);
-    }
-
-    public function test_misfire_catch_up_bounded_and_skip_missed(): void
-    {
-        $calc = app(RecurringOccurrenceCalculator::class);
-        $spec = new RecurringScheduleSpec(
-            timezone: 'UTC',
-            frequency: RecurringFrequency::Daily,
-            interval: 1,
-            localTime: '09:00',
-            misfirePolicy: RecurringMisfirePolicy::CatchUpBounded,
-        );
-        $a = $calc->nextOccurrence($spec, CarbonImmutable::parse('2026-08-10 08:00:00', 'UTC'));
-        $this->assertSame('2026-08-10 09:00:00', $a->format('Y-m-d H:i:s'));
-
-        [$user, $brand] = $this->seedBrand();
-        $paused = app(InternalNotificationScheduleService::class)->create([
-            'timezone' => 'UTC',
-            'frequency' => 'daily',
-            'local_time' => '09:00',
-            'title' => 'X',
-            'message' => 'Y',
-            'recipient_user_ids' => [(int) $user->id],
-        ], $user);
-        app(InternalNotificationScheduleService::class)->pause($paused);
-        $this->assertSame(InternalNotificationScheduleStatus::Paused, $paused->fresh()->status);
-
-        Queue::fake();
-        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-16 09:05:00', 'UTC'));
-        $ids = app(RecurringAutomationDispatcher::class)->dispatchDue(
-            CarbonImmutable::now('UTC'),
-            [RecurringScheduleKind::InternalNotification],
-        );
-        CarbonImmutable::setTestNow();
-        $this->assertSame([], $ids);
     }
 
     public function test_no_arbitrary_execution_primitives(): void

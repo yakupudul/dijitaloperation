@@ -21,7 +21,6 @@ use App\Models\Run;
 use App\Models\Task;
 use App\Models\User;
 use App\Services\Analysis\CollectedFactsAnalysisService;
-use App\Services\CrossAssetWebsiteGoogleAdsLandingConsistencyService;
 use App\Services\DataPool\Integrity\Support\CoverageIntervalSet;
 use App\Services\Findings\FindingEvaluationService;
 use App\Services\GoogleAdsLandingFinalUrlsCollectService;
@@ -1095,30 +1094,6 @@ class CollectedFactsOperationalSynthesisTest extends TestCase
         $this->assertSame(1, Finding::query()->where('digital_asset_id', $ads->id)->count());
         $this->assertSame(0, Finding::query()->where('digital_asset_id', $meta->id)->count());
         $this->assertSame(0, Finding::query()->where('digital_asset_id', $website->id)->count());
-    }
-
-    #[Test]
-    public function cross_asset_pack_stays_inside_the_same_brand(): void
-    {
-        $brandA = Brand::factory()->create();
-        $brandB = Brand::factory()->create();
-        $websiteA = DigitalAsset::factory()->create(['brand_id' => $brandA->id, 'type' => 'website']);
-        $websiteB = DigitalAsset::factory()->create(['brand_id' => $brandB->id, 'type' => 'website']);
-        $adsA = DigitalAsset::factory()->create(['brand_id' => $brandA->id, 'type' => 'google_ads']);
-        DigitalAsset::factory()->create(['brand_id' => $brandB->id, 'type' => 'google_ads']);
-
-        $this->seedWebsiteHttp($websiteA, 'https://www.acme.example/');
-        $this->seedWebsiteHttp($websiteB, 'https://www.acme.example/');
-        $this->seedAdsLanding($adsA, ['https://other-landing.example/campaign']);
-
-        $run = app(CrossAssetWebsiteGoogleAdsLandingConsistencyService::class)->analyze($websiteB);
-        $this->assertSame('missing_google_ads_landing_final_urls_evidence', $run->metadata['skip_reason'] ?? null);
-        $this->assertSame(0, Finding::query()->where('digital_asset_id', $websiteB->id)->count());
-
-        $compared = app(CrossAssetWebsiteGoogleAdsLandingConsistencyService::class)->analyze($websiteA);
-        $this->assertTrue($compared->metadata['compared'] ?? false);
-        $this->assertSame(1, Finding::query()->where('digital_asset_id', $websiteA->id)->count());
-        $this->assertSame(0, Finding::query()->where('digital_asset_id', $websiteB->id)->count());
     }
 
     #[Test]

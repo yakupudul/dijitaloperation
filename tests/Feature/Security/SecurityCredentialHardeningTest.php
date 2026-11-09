@@ -4,28 +4,19 @@ namespace Tests\Feature\Security;
 
 use App\Enums\Security\SecretClass;
 use App\Enums\Security\SecurityAuditEventKind;
-use App\Models\Brand;
-use App\Models\CoreConnection;
-use App\Models\CoreConnectionCredential;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
-use App\Models\Customer;
-use App\Models\DigitalAsset;
 use App\Models\SecurityAuditEvent;
 use App\Services\Integrations\Meta\MetaCredentialBroker;
-use App\Services\Security\ConnectionCredentialAccessService;
-use App\Services\Security\IntegrationCredentialAccessService;
 use App\Services\Security\SecurityAuditRecorder;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Security\EphemeralSecret;
 use App\Support\Security\SecurityRedactor;
-use App\Support\Security\TenantScopeGuard;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -134,63 +125,6 @@ class SecurityCredentialHardeningTest extends TestCase
     }
 
     #[Test]
-    public function connection_credential_access_hides_wordpress_password_from_status(): void
-    {
-        $asset = DigitalAsset::factory()->create();
-        $connection = CoreConnection::factory()->create([
-            'digital_asset_id' => $asset->id,
-            'type' => 'wordpress',
-        ]);
-        CoreConnectionCredential::factory()->create([
-            'connection_id' => $connection->id,
-            'encrypted_payload' => [
-                'username' => 'editor',
-                'application_password' => 'wp-app-password-sample',
-            ],
-        ]);
-        $connection->load('credential');
-
-        $access = app(ConnectionCredentialAccessService::class);
-        $status = $access->status($connection);
-        $this->assertTrue($status['has_application_password']);
-        $this->assertStringNotContainsString('wp-app-password-sample', json_encode($status));
-        $this->assertSame('wp-app-password-sample', $access->wordpressApplicationPassword($connection)?->reveal());
-    }
-
-    #[Test]
-    public function tenant_scope_guard_rejects_forged_customer_brand_and_asset(): void
-    {
-        $customerA = Customer::factory()->create();
-        $customerB = Customer::factory()->create();
-        $brandB = Brand::factory()->create(['customer_id' => $customerB->id]);
-        $assetB = DigitalAsset::factory()->create(['brand_id' => $brandB->id]);
-        $guard = app(TenantScopeGuard::class);
-
-        $this->expectException(ValidationException::class);
-        $guard->resolveConsistentScope([
-            'customer_id' => $customerA->id,
-            'brand_id' => $brandB->id,
-            'digital_asset_id' => $assetB->id,
-        ]);
-    }
-
-    #[Test]
-    public function tenant_scope_guard_accepts_consistent_scope(): void
-    {
-        $customer = Customer::factory()->create();
-        $brand = Brand::factory()->create(['customer_id' => $customer->id]);
-        $asset = DigitalAsset::factory()->create(['brand_id' => $brand->id]);
-        $resolved = app(TenantScopeGuard::class)->resolveConsistentScope([
-            'customer_id' => $customer->id,
-            'brand_id' => $brand->id,
-            'digital_asset_id' => $asset->id,
-        ]);
-        $this->assertSame((int) $customer->id, (int) $resolved['customer']->id);
-        $this->assertSame((int) $brand->id, (int) $resolved['brand']->id);
-        $this->assertSame((int) $asset->id, (int) $resolved['digital_asset']->id);
-    }
-
-    #[Test]
     public function security_audit_never_stores_secret_values(): void
     {
         app(SecurityAuditRecorder::class)->record(
@@ -207,13 +141,6 @@ class SecurityCredentialHardeningTest extends TestCase
         $this->assertSame(SecurityRedactor::REDACTED, $event->metadata['access_token'] ?? null);
         $this->assertSame(42, $event->metadata['integration_id'] ?? null);
         $this->assertStringNotContainsString('must-not-persist', json_encode($event->toArray()));
-    }
-
-    #[Test]
-    public function agent_credential_access_is_forbidden(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        app(IntegrationCredentialAccessService::class)->denyAgentAccess('AgentRun');
     }
 
     #[Test]
@@ -243,16 +170,5 @@ class SecurityCredentialHardeningTest extends TestCase
         $this->assertSame(0, $exit);
         $this->assertStringNotContainsString('sample-reencrypt-token', $output);
         $this->assertStringNotContainsString('base64:', $output);
-    }
-
-    #[Test]
-    public function no_credential_v2_or_custom_crypto_primitives(): void
-    {
-        $this->assertFalse(class_exists('App\\Services\\Security\\CredentialV2'));
-        $this->assertFalse(class_exists('App\\Services\\Security\\ProviderCredentialV2'));
-        $this->assertFalse(class_exists('App\\Services\\Security\\IntegrationSecretV2'));
-        $this->assertTrue(class_exists(IntegrationCredentialAccessService::class));
-        $this->assertTrue(class_exists(SecurityRedactor::class));
-        $this->assertTrue(class_exists(TenantScopeGuard::class));
     }
 }

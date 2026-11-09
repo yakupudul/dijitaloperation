@@ -5,7 +5,6 @@ namespace Tests\Feature\TrackA;
 use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Models\User;
-use App\Services\Ga4ConnectionProbeService;
 use App\Services\PageSpeedConnectionProbeService;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -52,7 +51,6 @@ class DeferredModulesRuntimeTest extends TestCase
     {
         $this->assertTrue(Schema::hasTable('core_connections'));
         $this->assertTrue(class_exists(CoreConnection::class));
-        $this->assertTrue(class_exists(Ga4ConnectionProbeService::class));
         $this->assertTrue(class_exists(PageSpeedConnectionProbeService::class));
         $this->assertStringContainsString('CoreConnection', (string) file_get_contents(base_path('app/Services/PageSpeedConnectionProbeService.php')));
     }

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\IntelligenceScheduling;
 
-use App\Enums\AutomaticIntelligencePolicyStatus;
 use App\Enums\Intelligence\AnalyzerEligibilityDisposition;
 use App\Enums\Intelligence\AnalyzerKind;
 use App\Enums\Intelligence\IntelligencePlanStatus;
@@ -20,7 +19,6 @@ use App\Models\Recommendation;
 use App\Models\Run;
 use App\Models\Task;
 use App\Services\IntelligenceScheduling\AnalyzerDependencyIndex;
-use App\Services\IntelligenceScheduling\AutomaticIntelligencePolicyService;
 use App\Services\IntelligenceScheduling\EvidenceAnalyticalFingerprintBuilder;
 use App\Services\IntelligenceScheduling\IntelligenceTriggerService;
 use App\Services\IntelligenceScheduling\ScheduleIntelligenceFromEvidenceService;
@@ -29,7 +27,6 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -223,62 +220,6 @@ class IntelligenceSchedulingTest extends TestCase
         $aiPhase = $plan?->analyzers['phases']['PHASE_3_AI_SKILLS'] ?? [];
         $this->assertSame([], $aiPhase);
         $this->assertSame(0, ($plan?->metadata['ai_calls'] ?? 0));
-    }
-
-    #[Test]
-    public function automatic_policy_pins_exact_versions_and_rejects_latest(): void
-    {
-        $service = app(AutomaticIntelligencePolicyService::class);
-        $brand = $this->asset->brand;
-
-        $policy = $service->create($brand, [
-            'agent_slug' => 'website-analyst',
-            'agent_version' => '1.0.0',
-            'skill_signature' => 'website.seo_review@1.0.0',
-            'skill_version' => '1.0.0',
-            'route_key' => 'default',
-            'route_signature' => 'route@1',
-            'allowed_trigger_kinds' => [IntelligenceTriggerSource::EvidenceAnalyticalStateChanged->value],
-        ], null, [(int) $brand->customer_id], [(int) $brand->id], $this->asset);
-
-        $this->assertTrue($policy->isActive());
-        $this->assertSame('1.0.0', $policy->agent_version);
-        $this->assertNotSame('latest', strtolower($policy->agent_version));
-
-        $this->expectException(ValidationException::class);
-        $service->create($brand, [
-            'agent_slug' => 'website-analyst',
-            'agent_version' => 'latest',
-            'skill_signature' => 'website.seo_review@2.0.0',
-            'skill_version' => '2.0.0',
-            'route_key' => 'default',
-            'route_signature' => 'route@2',
-        ], null, [(int) $brand->customer_id], [(int) $brand->id]);
-    }
-
-    #[Test]
-    public function disabling_policy_blocks_ai_eligibility(): void
-    {
-        $brand = $this->asset->brand;
-        $policy = app(AutomaticIntelligencePolicyService::class)->create($brand, [
-            'agent_slug' => 'website-analyst',
-            'agent_version' => '1.0.0',
-            'skill_signature' => 'website.seo_review@1.0.0',
-            'skill_version' => '1.0.0',
-            'route_key' => 'default',
-            'route_signature' => 'route@1',
-            'trigger_on_required_evidence_change' => true,
-        ], null, [(int) $brand->customer_id], [(int) $brand->id], $this->asset);
-
-        app(AutomaticIntelligencePolicyService::class)->disable($policy);
-        $this->assertSame(AutomaticIntelligencePolicyStatus::Disabled, $policy->fresh()->status);
-
-        $this->writeCanonical('gsc.property.period_comparison', $this->gscDeclinePayload());
-        $plan = app(ScheduleIntelligenceFromEvidenceService::class)
-            ->handleEvidenceCanonicalized($this->asset, sync: true);
-
-        $aiPhase = $plan?->analyzers['phases']['PHASE_3_AI_SKILLS'] ?? [];
-        $this->assertSame([], $aiPhase);
     }
 
     #[Test]

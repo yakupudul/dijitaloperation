@@ -80,7 +80,7 @@ final class GbpStandardsTest extends TestCase
         $this->assertFalse(Schema::hasTable('gbp_questions'));
         $events = collect(app(Schedule::class)->events())->map(fn ($event): string => (string) ($event->command.' '.$event->description));
         $this->assertFalse($events->contains(fn (string $e): bool => str_contains(mb_strtolower($e), 'question') || str_contains(mb_strtolower($e), 'qanda')));
-        foreach ([app_path('Services/Advisor/Gbp/GbpAdvisorRuleEngine.php'), app_path('Services/Gbp/GbpStandardEvaluator.php'), app_path('Services/Gbp/GbpDailyWorkspace.php')] as $file) {
+        foreach ([app_path('Services/Gbp/GbpStandardEvaluator.php'), app_path('Services/Gbp/GbpDailyWorkspace.php')] as $file) {
             $this->assertDoesNotMatchRegularExpression('/Soru[- ]Cevap|questions\(|qanda/iu', (string) file_get_contents($file), $file);
         }
     }

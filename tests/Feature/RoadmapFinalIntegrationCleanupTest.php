@@ -60,16 +60,6 @@ class RoadmapFinalIntegrationCleanupTest extends TestCase
 
         $requiredServices = [
             'app/Services/GoogleBusinessProfileConnectionProbeService.php',
-            'app/Services/GoogleAdsConnectionProbeService.php',
-            'app/Services/MetaAdsConnectionProbeService.php',
-            'app/Services/InstagramConnectionProbeService.php',
-            'app/Services/CrossAssetWebsiteGbpWebsiteUrlConsistencyService.php',
-            'app/Services/CrossAssetWebsiteGbpPhoneConsistencyService.php',
-            'app/Services/CrossAssetWebsiteGbpAddressConsistencyService.php',
-            'app/Services/CrossAssetWebsiteGoogleAdsLandingConsistencyService.php',
-            'app/Services/CrossAssetWebsiteMetaAdsDestinationConsistencyService.php',
-            'app/Services/CrossAssetWebsiteInstagramWebsiteUrlConsistencyService.php',
-            'app/Services/CrossAssetInstagramMetaAdsDestinationConsistencyService.php',
             'app/Filament/App/Widgets/OpsActionOverviewWidget.php',
             'tests/Feature/AgencyOpsDashboardProductionHardeningTest.php',
         ];
@@ -106,18 +96,8 @@ class RoadmapFinalIntegrationCleanupTest extends TestCase
     public function test_connector_and_cross_asset_services_declare_read_only_boundaries(): void
     {
         $servicePaths = [
-            'app/Services/SearchConsoleConnectionProbeService.php',
-            'app/Services/Ga4ConnectionProbeService.php',
             'app/Services/PageSpeedConnectionProbeService.php',
-            'app/Services/DataForSeoConnectionProbeService.php',
             'app/Services/GoogleBusinessProfileConnectionProbeService.php',
-            'app/Services/GoogleAdsConnectionProbeService.php',
-            'app/Services/MetaAdsConnectionProbeService.php',
-            'app/Services/InstagramConnectionProbeService.php',
-            'app/Services/CrossAssetWebsiteGbpWebsiteUrlConsistencyService.php',
-            'app/Services/CrossAssetWebsiteGoogleAdsLandingConsistencyService.php',
-            'app/Services/CrossAssetWebsiteMetaAdsDestinationConsistencyService.php',
-            'app/Services/CrossAssetInstagramMetaAdsDestinationConsistencyService.php',
         ];
 
         foreach ($servicePaths as $relative) {

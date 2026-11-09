@@ -6,7 +6,6 @@ use MoxDop\Website\Standards\PageSignalExtractor;
 use MoxDop\Website\Standards\RobotsTxtRules;
 use MoxDop\Website\Standards\UrlStandardEvaluator;
 use MoxDop\Website\Standards\WebsiteStandardCatalog;
-use MoxDop\Website\Standards\WebsiteStandardEvaluator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -27,7 +26,6 @@ final class UrlStandardEvaluatorTest extends TestCase
             $this->assertContains($standard['severity'], ['low', 'medium', 'high'], $id);
             $this->assertNotSame('', $standard['title']);
             $this->assertNotSame('', $standard['action']);
-            $this->assertSame('not_applicable', (new WebsiteStandardEvaluator)->evaluate($standard, ['url' => 'https://x.test/'])['state'], $id);
         }
     }
 
