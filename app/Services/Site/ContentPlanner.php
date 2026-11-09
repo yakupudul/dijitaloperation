@@ -1591,8 +1591,10 @@ final class ContentPlanner
         }
         $sent = array_values((array) ($action['sent_languages'] ?? []));
         // The featured image: the one the operator picked (or "görselsiz"), else the best of the site's own media.
+        // A brand with its own cover style (Moximu) gets that cover drawn and uploaded instead (yakup 2026-11-09).
         if (! array_key_exists('image', $action)) {
-            $action['image'] = app(ArticleImagePicker::class)->candidates($suggestion, $site, 1)[0] ?? null;
+            $action['image'] = app(BrandCover::class)->attach($suggestion, $site)
+                ?? app(ArticleImagePicker::class)->candidates($suggestion, $site, 1)[0] ?? null;
         }
         $image = ['featured_media_id' => (int) data_get($action, 'image.media_id') ?: null]
             + ($postDate !== null ? ['post_date' => $postDate, 'schedule' => $postDate->isFuture()] : []);

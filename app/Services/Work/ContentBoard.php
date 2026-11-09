@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ArticleImagePicker;
+use App\Services\Site\BrandCover;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentPosts;
 use App\Services\Site\SiteDiff;
@@ -21,6 +22,7 @@ use App\Services\Site\SiteSuggestionTypes;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -387,8 +389,29 @@ final class ContentBoard
         }
         $choices = $this->images->candidates($suggestion, $site);
         $picked = array_key_exists('image', $action);
+        // A brand with its own cover style (Moximu): the cover it will get, drawn now; uploaded when the draft is sent.
+        $cover = ! $picked && is_array($action['article'] ?? null) ? self::coverPreview($suggestion, $site) : null;
 
-        return ['image' => $picked ? (is_array($action['image']) ? $action['image'] : null) : ($choices[0] ?? null), 'image_picked' => $picked, 'images' => $choices];
+        return ['image' => $picked ? (is_array($action['image']) ? $action['image'] : null) : ($cover ?? $choices[0] ?? null), 'image_picked' => $picked, 'images' => $choices];
+    }
+
+    /** @return array{media_id: int, url: string, alt: string, why: string}|null */
+    private static function coverPreview(Suggestion $suggestion, DigitalAsset $site): ?array
+    {
+        $style = BrandCover::styleOf($site->brand);
+        if ($style === null) {
+            return null;
+        }
+        try {
+            $words = BrandCover::words($suggestion);
+            $jpeg = Cache::remember('brand-cover:'.hash('sha256', $style.json_encode($words)), 86400,
+                fn (): string => base64_encode(app(BrandCover::class)->render($style, $words)));
+        } catch (Throwable) {
+            return null;
+        }
+
+        return ['media_id' => 0, 'url' => 'data:image/jpeg;base64,'.$jpeg, 'alt' => $words['title'],
+            'why' => 'Markanın kapak şablonu ('.BrandCover::STYLES[$style].'); gönderirken siteye yüklenir.'];
     }
 
     /**

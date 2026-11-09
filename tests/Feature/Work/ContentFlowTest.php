@@ -11,6 +11,7 @@ use App\Models\Suggestion;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
 use App\Services\Site\ArticleImagePicker;
+use App\Services\Site\BrandCover;
 use App\Services\Site\ContentPosts;
 use App\Services\Work\ContentBoard;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
@@ -119,6 +120,36 @@ final class ContentFlowTest extends SiteTestCase
         Livewire::test(WorkPage::class)->call('pickImage', $other->id)->assertSee('Yazı görselsiz gidecek.');
         app(ContentBoard::class)->send((int) $other->id, $this->admin);
         $this->assertArrayNotHasKey('featured_media_id', ExternalWriteAction::query()->where('request_payload->reference', 'moxdop-'.md5('Zirkonyum kaplama ömrü'))->sole()->request_payload['drafts'][0]['draft']);
+    }
+
+    public function test_a_brand_with_its_own_cover_style_gets_its_cover_drawn_and_uploaded(): void
+    {
+        Queue::fake();
+        $this->connection('1.36.0');
+        $this->brand->forceFill(['cover_style' => BrandCover::MOXIMU_REHBER])->save();
+        $this->snapshot('attachment', '1', 'implant-sonrasi-bakim', 'https://panorama.com.tr/wp-content/uploads/implant-sonrasi-bakim.jpg', ['mime_type' => 'image/jpeg', 'width' => 1200, 'height' => 800, 'alt_text' => 'İmplant sonrası bakım']);
+        $uploaded = [];
+        $this->site(function (string $method, string $url, ?array $body) use (&$uploaded): array {
+            $operation = $body['arguments']['operations'][0] ?? [];
+            $uploaded[] = $operation;
+
+            return ['structuredContent' => ['results' => [['ok' => true, 'ref' => $operation['ref'] ?? '', 'id' => 77, 'url' => 'https://panorama.com.tr/wp-content/uploads/kapak.jpg', 'created' => true]]]];
+        });
+        $idea = $this->written('İmplant sonrası ilk hafta: ne yenir?');
+
+        Livewire::test(WorkPage::class)->call('setStep', 'okunacak')->call('read', $idea->id)
+            ->assertSee('Markanın kapak şablonu')->assertSeeHtml('data:image/jpeg;base64,');
+
+        app(ContentBoard::class)->send((int) $idea->id, $this->admin);
+
+        $this->assertSame('media', $uploaded[0]['op']);
+        $this->assertSame('moxdop-kapak-'.$idea->id, $uploaded[0]['ref']);
+        $this->assertSame("\xFF\xD8", substr((string) base64_decode($uploaded[0]['data_base64']), 0, 2), 'a JPEG drawn by MoxDOP, no AI image');
+        $this->assertSame(77, $idea->fresh()->action['image']['media_id']);
+        $this->assertSame(77, ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_ARTICLE_DRAFTS)->sole()->request_payload['drafts'][0]['draft']['featured_media_id']);
+
+        $words = BrandCover::words($idea);
+        $this->assertSame(['İmplant sonrası ilk hafta', 'ne yenir?', 'İlk gün?', 'Soğuk uygulama yapılır.'], [$words['title'], $words['title_rest'], $words['question'], $words['answer']]);
     }
 
     public function test_without_a_matching_image_the_nearest_page_image_is_offered(): void
