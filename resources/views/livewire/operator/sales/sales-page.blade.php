@@ -463,6 +463,8 @@
                 @endif
             @endif
 
+            @include('livewire.operator.sales.partials.karne')
+
             @include('livewire.operator.sales.partials.rewards')
 
             @if ($isAdmin)

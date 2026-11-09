@@ -251,25 +251,53 @@ final class InboxQueueTest extends TestCase
         $thread = SocialThread::query()->create(['social_account_id' => $account->id, 'kind' => 'dm', 'external_id' => 'CONV1', 'author_id' => 'U9', 'author_name' => 'drayse',
             'last_text' => 'Fiyatlarınız nedir?', 'last_direction' => 'in', 'last_in_at' => now()->subMinutes(30), 'last_at' => now()->subMinutes(30), 'status' => 'open']);
 
+        $meta = $leads->quickAdd(['name' => 'Meta Hanım', 'phone' => '0534 000 11 55', 'source' => 'meta_form'], $this->admin);
+        $meta->forceFill(['next_step_at' => now()->addWeek()])->save(); // not waiting today: still listed under Meta form
+
         $queue = app(InboxQueue::class);
         $items = $queue->items()->keyBy('key');
-        $this->assertSame(['whatsapp', 'referans'], $items['wa-'.$chat->id]->channels(), 'a referred chat is in WhatsApp and Referanslar');
+        $this->assertSame(['whatsapp'], $items['wa-'.$chat->id]->channels(), 'a referral is the record\'s Kimden, not a channel');
         $this->assertSame(['instagram'], $items['sosyal-'.$thread->id]->channels());
         $this->assertSame(['form'], $items['adim-'.$form->id]->channels());
-        $this->assertSame(['manuel'], $items['adim-'.$manual->id]->channels());
-        $this->assertSame(['referans'], $items['adim-'.$afc->id]->channels());
+        $this->assertSame(['cagri'], $items['adim-'.$manual->id]->channels());
+        $this->assertSame([], $items['adim-'.$afc->id]->channels());
 
         $counts = $queue->channelCounts($queue->items());
         $this->assertSame(1, $counts['whatsapp']['open']);
-        $this->assertSame(2, $counts['referans']['open']);
+        $this->assertSame(1, $counts['cagri']['open']);
         $this->assertSame(1, $counts['form']['month']);
+        $this->assertSame(1, $counts['meta_form']['month']);
+        $this->assertArrayNotHasKey('referans', $counts);
 
         Livewire::test(InboxPage::class)->call('pickChannel', 'form')->assertSet('channel', 'form')
             ->assertSee('Form Hanım')->assertDontSee('Elle Bey')->assertDontSee('drayse');
-        Livewire::test(InboxPage::class)->call('pickChannel', 'referans')->set('view', 'hepsi')
-            ->assertSee('Afc Hocam')->assertSee('Dr. Ayşe')->assertDontSee('Form Hanım');
-        Livewire::test(InboxPage::class)->call('pickChannel', 'yok')->assertSet('channel', '');
-        $this->get('/gelen-kutusu?kanal=instagram')->assertOk()->assertSee('Instagram DM')->assertSee('drayse')->assertDontSee('Form Hanım');
+        Livewire::test(InboxPage::class)->call('pickChannel', 'meta_form')
+            ->assertSee('Meta Hanım')->assertDontSee('Form Hanım');
+        Livewire::test(InboxPage::class)->call('pickChannel', 'referans')->assertSet('channel', '');
+        $this->get('/gelen-kutusu?kanal=instagram')->assertOk()->assertSee('Instagram')->assertSee('drayse')->assertDontSee('Form Hanım');
+    }
+
+    public function test_a_call_is_typed_in_on_a_record_and_kim_shows_what_is_known_about_the_person(): void
+    {
+        $leads = app(SalesLeads::class);
+        $known = $leads->quickAdd(['name' => 'Dt. Kemal Arslan', 'phone' => '0534 000 22 33', 'source' => 'whatsapp', 'company' => 'Arslan Diş'], $this->admin);
+
+        $page = Livewire::test(InboxPage::class)->call('pickChannel', 'cagri')->set('callOpen', true)
+            ->set('callSearch', 'Kemal')->assertSee('Dt. Kemal Arslan')
+            ->call('pickCallLead', $known->id)->set('call.note', 'Fiyat sordu, haftaya dönecek.')->call('addCall')
+            ->assertHasNoErrors()->assertSet('item', 'adim-'.$known->id)->assertSet('callOpen', false);
+        $this->assertSame('Fiyat sordu, haftaya dönecek.', $known->events()->where('kind', 'call')->sole()->body);
+        $this->assertNotNull($known->fresh()->last_contact_at);
+        $page->assertSee('Kim? · Dt. Kemal Arslan')->assertSee('Arslan Diş')->assertSee('Telefon / görüşme: 1 kayıt');
+
+        Livewire::test(InboxPage::class)->call('pickChannel', 'cagri')->set('callOpen', true)
+            ->set('call.note', 'Kimse yok')->call('addCall')->assertHasErrors('call.name');
+        Livewire::test(InboxPage::class)->call('pickChannel', 'cagri')->set('callOpen', true)
+            ->set('call.name', 'Yeni Arayan')->set('call.phone', '0534 999 88 77')->set('call.note', 'Siteden bulmuş.')->call('addCall')->assertHasNoErrors()
+            ->assertSee('Yeni Arayan');
+        $fresh = SalesLead::query()->where('name', 'Yeni Arayan')->sole();
+        $this->assertSame('phone', $fresh->source);
+        $this->assertSame(['adim-'.$fresh->id], app(InboxQueue::class)->received('cagri')->pluck('key')->filter(fn ($k) => $k === 'adim-'.$fresh->id)->values()->all());
     }
 
     public function test_threads_of_a_switched_off_account_never_reach_the_queue_badges_or_bulk_send(): void

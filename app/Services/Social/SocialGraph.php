@@ -39,6 +39,12 @@ class SocialGraph
         return $this->send('POST', $path, $token, $form);
     }
 
+    /** @return array<string, mixed> */
+    public function delete(string $path, string $token): array
+    {
+        return $this->send('DELETE', $path, $token, []);
+    }
+
     public function metaIntegration(): ?CoreIntegration
     {
         return CoreIntegration::query()->where('provider', ProviderRegistry::META)->orderBy('id')->first();
@@ -114,7 +120,11 @@ class SocialGraph
 
         try {
             $request = Http::timeout(60)->connectTimeout(10)->withToken($token)->acceptJson();
-            $response = strtoupper($method) === 'POST' ? $request->asForm()->post($url, $params) : $request->get($url, $params);
+            $response = match (strtoupper($method)) {
+                'POST' => $request->asForm()->post($url, $params),
+                'DELETE' => $request->delete($url.'?'.http_build_query($params)),
+                default => $request->get($url, $params),
+            };
         } catch (ConnectionException $e) {
             throw new SocialGraphException('Meta\'ya bağlanılamadı; birazdan yeniden denenecek.', 'transport', previous: $e);
         }

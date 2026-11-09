@@ -22,9 +22,9 @@
         '' => ['label' => 'Tümü', 'short' => 'Tümü', 'mark' => '∑', 'color' => '#111827'],
         'whatsapp' => ['short' => 'WhatsApp', 'mark' => 'W', 'color' => '#25a35a'],
         'instagram' => ['short' => 'Instagram', 'mark' => 'I', 'color' => '#c13584'],
-        'form' => ['short' => 'Form', 'mark' => 'F', 'color' => '#0f8b8d'],
-        'manuel' => ['short' => 'Manuel', 'mark' => 'M', 'color' => '#6b7280'],
-        'referans' => ['short' => 'Referans', 'mark' => 'R', 'color' => '#d4a106'],
+        'meta_form' => ['short' => 'Meta form', 'mark' => 'M', 'color' => '#1877f2'],
+        'form' => ['short' => 'Site formu', 'mark' => 'F', 'color' => '#0f8b8d'],
+        'cagri' => ['short' => 'Çağrı', 'mark' => 'Ç', 'color' => '#d4a106'],
     ];
     $channelName = fn (string $key): string => $key === '' ? 'Tümü' : InboxQueue::CHANNELS[$key]['label'];
     $waUrl = $detail !== null && $detail['waNumber'] !== null ? 'https://wa.me/'.$detail['waNumber'].(trim($reply) !== '' ? '?text='.rawurlencode(trim($reply)) : '') : null;
@@ -90,7 +90,41 @@
                     @endforeach
                 </select>
                 @if ($view === 'sohbetler')
-                    <input type="search" wire:model.live.debounce.300ms="search" placeholder="İsim ya da numara ara" class="h-9 w-full {{ $input }}" aria-label="Sohbet ara" data-inbox-search />
+                    <div class="flex gap-2">
+                        <input type="search" wire:model.live.debounce.300ms="search" placeholder="İsim ya da numara ara" class="h-9 min-w-0 flex-1 {{ $input }}" aria-label="Sohbet ara" data-inbox-search />
+                        @if ($channel === 'cagri')
+                            <button type="button" wire:click="$toggle('callOpen')" @class(['btn h-9 shrink-0 px-3 text-[13px]', 'ring-1 ring-gray-400' => $callOpen]) data-inbox-call-toggle>+ Çağrı ekle</button>
+                        @endif
+                    </div>
+                @endif
+                @if ($channel === 'cagri' && $callOpen)
+                    <form wire:submit="addCall" class="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-white/[0.03]" data-inbox-call-form>
+                        @php $pickedCall = $call['lead'] !== '' ? \App\Models\SalesLead::query()->find((int) $call['lead']) : null; @endphp
+                        @if ($pickedCall !== null)
+                            <div class="flex items-center justify-between gap-2 text-[13px]">
+                                <span class="truncate text-gray-900 dark:text-white">{{ $pickedCall->title() }}{{ $pickedCall->phone ? ' · '.$pickedCall->phone : '' }}</span>
+                                <button type="button" wire:click="$set('call.lead', '')" class="link-neutral text-xs">Değiştir</button>
+                            </div>
+                        @else
+                            <input type="search" wire:model.live.debounce.300ms="callSearch" placeholder="Kayıtlı kişi ara (ad, telefon)" class="h-9 w-full {{ $input }}" aria-label="Kişi ara" data-inbox-call-search />
+                            @if ($callMatches->isNotEmpty())
+                                <ul class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white text-[13px] dark:divide-gray-800 dark:border-gray-800 dark:bg-transparent">
+                                    @foreach ($callMatches as $match)
+                                        <li><button type="button" wire:click="pickCallLead({{ $match->id }})" class="w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/[0.04]" data-inbox-call-match="{{ $match->id }}">{{ $match->title() }}{{ $match->phone ? ' · '.$match->phone : '' }}</button></li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                            <p class="text-xs text-gray-500">Kayıtlı değilse:</p>
+                            <div class="flex gap-2">
+                                <input type="text" wire:model="call.name" placeholder="Ad" class="h-9 min-w-0 flex-1 {{ $input }}" aria-label="Ad" />
+                                <input type="tel" wire:model="call.phone" placeholder="Telefon" class="h-9 w-32 {{ $input }}" aria-label="Telefon" />
+                            </div>
+                            @error('call.name')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                        @endif
+                        <textarea wire:model="call.note" rows="2" placeholder="Ne konuşuldu?" class="w-full py-2 {{ $input }}" aria-label="Not" data-inbox-call-note></textarea>
+                        @error('call.note')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                        <button type="submit" class="btn-dark h-8 px-3 text-[13px]" data-inbox-call-save>Kaydet</button>
+                    </form>
                 @endif
                 <div class="-mx-1 flex gap-1 overflow-x-auto px-1 pb-0.5" role="tablist" aria-label="Gelen kutusu görünümleri" data-inbox-views>
                     @foreach (InboxQueue::VIEWS as $key => $label)
@@ -111,7 +145,7 @@
                         <span class="min-w-0 flex-1 border-b border-gray-100 py-3 dark:border-gray-800">
                             <span class="flex items-baseline justify-between gap-2">
                                 <span class="truncate text-[15px] text-gray-900 dark:text-white">{{ $row->title }}</span>
-                                <span @class(['shrink-0 text-xs tabular-nums', 'font-semibold text-success-600' => $row->owed, 'font-semibold text-error-600' => ! $row->owed && $row->late, 'text-gray-500' => ! $row->owed && ! $row->late])>{{ in_array($row->type, [InboxItem::STEP, InboxItem::RISK], true) ? ($row->late ? $row->at?->timezone($tz)->format('d.m').' · gecikti' : 'Bugün') : $shortTime($row->at) }}</span>
+                                <span @class(['shrink-0 text-xs tabular-nums', 'font-semibold text-success-600' => $row->owed, 'font-semibold text-error-600' => ! $row->owed && $row->late, 'text-gray-500' => ! $row->owed && ! $row->late])>{{ in_array($row->type, [InboxItem::STEP, InboxItem::RISK], true) && ($row->due || $row->late) ? ($row->late ? $row->at?->timezone($tz)->format('d.m').' · gecikti' : 'Bugün') : $shortTime($row->at) }}</span>
                             </span>
                             <span class="mt-0.5 flex items-center justify-between gap-2">
                                 <span class="truncate text-[13px] text-gray-500">{{ $row->preview !== '' ? $row->preview : ($row->subtitle !== '' ? $row->subtitle : $row->channel) }}</span>
@@ -170,7 +204,7 @@
                         @unless ($selected->fromCustomer)
                             <button type="button" wire:click="irrelevant" wire:loading.attr="disabled" class="btn-quiet h-8 px-2 text-[13px] text-gray-500" title="Tedarikçi, iş arayan, reklam satan, yanlış numara. Yeniden yazarsa geri gelir." data-inbox-irrelevant>İlgisiz</button>
                         @endunless
-                        <button type="button" wire:click="$toggle('info')" @class(['btn-quiet h-8 px-2 text-[13px]', 'text-gray-900 dark:text-white' => $info, 'text-gray-500' => ! $info]) title="Kişi ve kayıt bilgisi" data-inbox-info-toggle>Bilgi</button>
+                        <button type="button" wire:click="$toggle('who')" @class(['btn h-8 px-2.5 text-[13px] xl:hidden', 'ring-1 ring-gray-400' => $who]) title="Bu kişi hakkında bilinen her şey" data-inbox-who-toggle>Kim?</button>
                     </div>
                 </header>
                 @if ($laterOpen)
@@ -252,7 +286,38 @@
             </section>
 
             {{-- Right: the record's card --}}
-            <aside @class(['w-80 shrink-0 space-y-3 overflow-y-auto border-l border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-white/[0.02]', 'hidden xl:block' => $info, 'hidden' => ! $info]) data-inbox-record>
+            @if ($who)
+                <div wire:click="$set('who', false)" class="fixed inset-0 z-30 bg-black/30 xl:hidden" aria-hidden="true"></div>
+            @endif
+            <aside @class(['w-80 shrink-0 space-y-3 overflow-y-auto border-l border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900', 'fixed inset-y-0 right-0 z-40 block w-[22rem] max-w-full shadow-xl xl:static xl:z-auto xl:w-80 xl:shadow-none' => $who, 'hidden xl:block' => ! $who]) data-inbox-record>
+                @if ($person !== null)
+                    <section class="card p-4" data-inbox-who>
+                        <div class="flex items-start justify-between gap-2">
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Kim? · {{ $person['title'] }}</h3>
+                            <button type="button" wire:click="$set('who', false)" class="text-gray-400 hover:text-gray-700 xl:hidden" aria-label="Kapat">✕</button>
+                        </div>
+                        @if ($person['summary'])<p class="mt-2 text-[13px] text-gray-700 dark:text-gray-300">{{ $person['summary'] }}</p>@endif
+                        @if ($person['channels'] !== [])
+                            <ul class="mt-2 space-y-0.5 text-[13px] text-gray-600 dark:text-gray-300" data-inbox-who-channels>
+                                @foreach ($person['channels'] as $line)<li>{{ $line }}</li>@endforeach
+                            </ul>
+                        @endif
+                        @if ($person['facts'] !== [])
+                            <dl class="mt-3 space-y-1.5 text-[13px]">
+                                @foreach ($person['facts'] as $fact)
+                                    <div><dt class="text-xs text-gray-500">{{ $fact['label'] }}</dt><dd class="text-gray-900 dark:text-white">{{ $fact['text'] }}</dd></div>
+                                @endforeach
+                            </dl>
+                        @endif
+                        @if ($person['recent'] !== [])
+                            <p class="mt-3 text-xs font-medium text-gray-700 dark:text-gray-300">Son olanlar</p>
+                            <ul class="mt-1 space-y-1 text-[13px] text-gray-600 dark:text-gray-300">
+                                @foreach ($person['recent'] as $row)<li><span class="text-gray-400 tabular-nums">{{ $row['at'] }}</span> {{ $row['text'] }}</li>@endforeach
+                            </ul>
+                        @endif
+                        @if (! $person['known'])<p class="mt-2 text-[13px] text-gray-500">Bu kişi hakkında henüz kayıtlı bilgi yok.</p>@endif
+                    </section>
+                @endif
                 <section class="card p-4">
                     <div class="flex items-start justify-between gap-2">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Kayıt</h3>

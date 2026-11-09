@@ -36,8 +36,12 @@ final class SocialPage extends Component
 {
     use WithFileUploads;
 
+    /** Instagram görünümü (yakup 2026-11-08) opens first: the profile grid, ready posts on top. */
     #[Url(as: 'sekme')]
-    public string $tab = 'plan';
+    public string $tab = 'instagram';
+
+    /** The post opened over the grid (0 = none). */
+    public int $openPost = 0;
 
     public string $message = '';
 
@@ -88,8 +92,8 @@ final class SocialPage extends Component
 
             return;
         }
-        if (! in_array($this->tab, ['plan', 'gecmis', 'yeni', 'hesaplar'], true)) {
-            $this->tab = 'plan';
+        if (! in_array($this->tab, ['instagram', 'plan', 'gecmis', 'yeni', 'hesaplar'], true)) {
+            $this->tab = 'instagram';
         }
         // The Meta login comes back here with its result as a flash; without this it was never shown (2026-11-08).
         $flash = DemoState::pullFlash();
@@ -104,7 +108,8 @@ final class SocialPage extends Component
 
     public function setTab(string $tab): void
     {
-        $this->tab = in_array($tab, ['plan', 'gecmis', 'yeni', 'hesaplar'], true) ? $tab : 'plan';
+        $this->tab = in_array($tab, ['instagram', 'plan', 'gecmis', 'yeni', 'hesaplar'], true) ? $tab : 'instagram';
+        $this->openPost = 0;
         $this->message = '';
         $this->messageTone = 'info';
     }
@@ -124,6 +129,33 @@ final class SocialPage extends Component
             app(SocialPlanner::class)->approve($post, (int) auth()->id());
         }
         $this->message = $posts->count().' gönderi onaylandı; her biri kendi saatinde yayınlanır.';
+    }
+
+    public function openPost(int $id): void
+    {
+        $this->openPost = SocialPost::query()->whereKey($id)->exists() ? $id : 0;
+    }
+
+    public function closePost(): void
+    {
+        $this->openPost = 0;
+    }
+
+    public function publishNow(int $id): void
+    {
+        $this->authorizeAdmin();
+        app(SocialPlanner::class)->publishNow($this->post($id), (int) auth()->id());
+        $this->message = 'Onaylandı; birkaç dakika içinde Instagram ve Facebook\'ta yayınlanır.';
+        $this->messageTone = 'success';
+    }
+
+    public function takeDown(int $id): void
+    {
+        $this->authorizeAdmin();
+        $left = app(SocialPlanner::class)->takeDown($this->post($id));
+        $this->openPost = 0;
+        $this->message = $left === [] ? 'Gönderi silindi.' : 'Gönderi listeden kalktı. '.implode(', ', $left).' tarafında uygulamadan silmen gerekiyor (Meta API buna izin vermiyor).';
+        $this->messageTone = $left === [] ? 'success' : 'info';
     }
 
     public function approve(int $id): void
@@ -293,7 +325,26 @@ final class SocialPage extends Component
                 ->with(['targets.account'])->orderByDesc('publish_at')->limit(60)->get()
             : collect();
 
+        $profile = null;
+        $opened = null;
+        if ($this->tab === 'instagram') {
+            $ready = SocialPost::query()->whereNull('removed_at')
+                ->whereIn('status', [SocialPost::DRAFT, SocialPost::APPROVED, SocialPost::FAILED, SocialPost::PARTIAL])
+                ->whereDoesntHave('targets', fn ($q) => $q->where('status', SocialPostTarget::PUBLISHED))
+                ->with(['targets.account'])->orderBy('publish_at')->limit(60)->get();
+            $published = SocialPost::query()->whereNull('removed_at')
+                ->whereHas('targets', fn ($q) => $q->whereIn('status', [SocialPostTarget::PUBLISHED, SocialPostTarget::DONE]))
+                ->with(['targets.account'])->orderByDesc('publish_at')->limit(90)->get();
+            $profile = [
+                'account' => SocialAccount::query()->where('platform', SocialAccount::INSTAGRAM)->where('enabled', true)->orderBy('id')->first(),
+                'ready' => $ready, 'published' => $published, 'waiting' => $ready->where('status', SocialPost::DRAFT)->count(),
+            ];
+            $opened = $this->openPost > 0 ? SocialPost::query()->with(['targets.account'])->find($this->openPost) : null;
+        }
+
         return view('livewire.operator.social.social-page', [
+            'profile' => $profile,
+            'opened' => $opened,
             'waitingCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
             'weeks' => $weeks,
             'manual' => $manual,

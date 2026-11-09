@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Livewire\Operator\Sales\LeadCardPage;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Models\AgencySetting;
 use App\Models\Agreement;
@@ -50,6 +51,22 @@ class SalesStatusTableTest extends TestCase
     {
         CarbonImmutable::setTestNow();
         parent::tearDown();
+    }
+
+    public function test_the_lead_card_shows_person_info_and_takes_the_six_statuses(): void
+    {
+        $lead = app(SalesLeads::class)->quickAdd(['name' => 'Dr. Selin', 'phone' => '0532 777 22 33', 'email' => 'selin@ornek.com', 'source' => 'form'], $this->admin);
+
+        $card = Livewire::test(LeadCardPage::class, ['lead' => (string) $lead->id])
+            ->assertSee('Kişi bilgileri')->assertSee('selin@ornek.com')->assertSee('Web site formu')->assertSee('İrtibat geçmişi')
+            ->call('setStatus', 'guclu');
+        $this->assertSame('guclu', $lead->fresh()->status());
+        $card->call('setStatus', 'olumsuz')->assertHasErrors('lostReason');
+        $this->assertSame('guclu', $lead->fresh()->status());
+        $card->call('setStatus', 'kararsiz');
+        $this->assertSame('kararsiz', $lead->fresh()->status());
+        $card->call('setStatus', 'musteri')->assertSet('winning', true);
+        $this->assertFalse($lead->fresh()->isCustomer(), 'Müşteri opens the terms form first');
     }
 
     public function test_six_statuses_filter_one_table_and_the_menu_moves_a_record_between_them(): void

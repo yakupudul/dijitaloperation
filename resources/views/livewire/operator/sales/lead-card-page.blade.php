@@ -158,7 +158,7 @@
             <section class="card p-4" data-lead-research>
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div class="min-w-0">
-                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Araştırma</h2>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Dijital analiz & bulgular</h2>
                         <p class="text-[13px] text-gray-500">
                             @if ($research)
                                 {{ $research['business_name'] ?: 'İşletme bulunamadı' }}{{ $research['city'] ? ' · '.$research['city'] : '' }} · {{ $lead->research_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') }}
@@ -279,7 +279,7 @@
             {{-- Zaman çizelgesi --}}
             <section data-lead-timeline>
                 <div class="section-head">
-                    <h2 class="section-title">Ne oldu <span class="section-count">{{ $timeline->count() }}</span></h2>
+                    <h2 class="section-title">İrtibat geçmişi <span class="section-count">{{ $timeline->count() }}</span></h2>
                     <p class="text-sm text-gray-500">Mesajlar, notlar, aramalar, bulgular ve aşama değişiklikleri; en yeni üstte.</p>
                 </div>
                 <div class="card">
@@ -300,6 +300,26 @@
         </div>
 
         <div class="space-y-5">
+            {{-- Kişi bilgileri (yakup 2026-11-08): who the person is, the six statuses of Satış and who sent them. --}}
+            <section class="card p-4" data-lead-person>
+                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Kişi bilgileri</h2>
+                <dl class="mt-2 space-y-1.5 text-[13px]">
+                    <div class="flex justify-between gap-3"><dt class="text-gray-500">Ad</dt><dd class="text-right text-gray-900 dark:text-white">{{ $lead->name ?: 'Bilinmiyor' }}</dd></div>
+                    @if ($lead->company)<div class="flex justify-between gap-3"><dt class="text-gray-500">İşletme</dt><dd class="text-right text-gray-900 dark:text-white">{{ $lead->company }}</dd></div>@endif
+                    <div class="flex justify-between gap-3"><dt class="text-gray-500">WhatsApp</dt><dd class="text-right text-gray-900 dark:text-white">{{ $lead->phone ?: '–' }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-gray-500">E-posta</dt><dd class="text-right break-all text-gray-900 dark:text-white">{{ $lead->email ?: '–' }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-gray-500">Kaynak</dt><dd class="text-right text-gray-900 dark:text-white">{{ $lead->sourceLabel() }}</dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-gray-500">Kimden</dt><dd class="text-right text-gray-900 dark:text-white" data-lead-came-via>{{ $lead->cameViaLabel() ?: 'Moximu' }}</dd></div>
+                </dl>
+                <p class="mt-3 text-xs text-gray-500">Durum</p>
+                <div class="mt-1 flex flex-wrap gap-1.5" data-lead-status>
+                    @foreach (SalesLead::STATUSES as $key => $label)
+                        <button type="button" wire:click="setStatus('{{ $key }}')" @class(['seg h-8', 'seg-active' => $lead->status() === $key]) data-lead-status-option="{{ $key }}">{{ $label }}</button>
+                    @endforeach
+                </div>
+                @if ($lead->strong_hint && ! $lead->is_strong && $lead->isOpen())<p class="mt-2 text-xs text-gray-500" data-lead-strong-hint>Claude güçlü aday diyor: {{ $lead->strong_hint }}</p>@endif
+            </section>
+
             {{-- Aşama --}}
             <section class="card p-4" data-lead-stage>
                 <h2 class="text-base font-semibold text-gray-900 dark:text-white">Durum</h2>

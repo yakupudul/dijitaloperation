@@ -32,11 +32,14 @@ final class InboxQueue
      */
     public const array CHANNELS = [
         'whatsapp' => ['label' => 'WhatsApp', 'sources' => ['whatsapp']],
-        'instagram' => ['label' => 'Instagram DM', 'sources' => ['instagram', 'facebook']],
-        'form' => ['label' => 'Web sitesi formu', 'sources' => ['form', 'meta_form']],
-        'manuel' => ['label' => 'Manuel giriş', 'sources' => ['phone', 'link', 'other']],
-        'referans' => ['label' => 'Referanslar · AFC', 'sources' => ['referral', 'afc']],
+        'instagram' => ['label' => 'Instagram', 'sources' => ['instagram', 'facebook']],
+        'meta_form' => ['label' => 'Meta form', 'sources' => ['meta_form']],
+        'form' => ['label' => 'Web site formu', 'sources' => ['form']],
+        'cagri' => ['label' => 'Çağrı', 'sources' => ['phone']],
     ];
+
+    /** Channels whose middle pane is the list of what came in (forms, calls), not only what waits (yakup 2026-11-08). */
+    public const array LIST_CHANNELS = ['meta_form', 'form', 'cagri'];
 
     /** Chats listed in "Sohbetler" (WhatsApp Web order: the newest message first); a search reaches every chat. */
     public const int CHATS = 150;
@@ -116,7 +119,7 @@ final class InboxQueue
             }
         }
 
-        return 'manuel';
+        return '';
     }
 
     /**
@@ -131,17 +134,17 @@ final class InboxQueue
         $since = CarbonImmutable::now('Europe/Istanbul')->startOfMonth()->utc();
         $bySource = SalesLead::query()->relevant()->where('created_at', '>=', $since)
             ->selectRaw('source, count(*) as n')->groupBy('source')->pluck('n', 'source');
-        $referred = SalesLead::query()->relevant()->where('created_at', '>=', $since)
-            ->whereIn('heard_from', ['referral', 'afc'])->whereNotIn('source', self::CHANNELS['referans']['sources'])->count();
         $open = $items->filter(fn (InboxItem $item): bool => $item->owed || $item->due);
         $counts = ['' => ['open' => $open->count(), 'month' => (int) $bySource->sum()]];
         foreach (array_keys(self::CHANNELS) as $key) {
             $counts[$key] = ['open' => $open->filter(fn (InboxItem $item): bool => $item->inChannel($key))->count(), 'month' => 0];
         }
         foreach ($bySource as $source => $n) {
-            $counts[self::channelOf($source === '' ? null : (string) $source)]['month'] += (int) $n;
+            $channel = self::channelOf($source === '' ? null : (string) $source);
+            if ($channel !== '') {
+                $counts[$channel]['month'] += (int) $n;
+            }
         }
-        $counts['referans']['month'] += $referred;
 
         return $counts;
     }
@@ -352,6 +355,37 @@ final class InboxQueue
             owed: $thread->waitsForUs(), due: (bool) $lead?->isDue(), late: self::late($lead),
             fromCustomer: (bool) $lead?->isCustomer(), lead: $lead, customer: $customer, thread: $thread,
         );
+    }
+
+    /**
+     * Meta form / Web site formu / Çağrı: every record that came in on the channel, newest first (the list of forms and
+     * calls), each opening like a step.
+     *
+     * @return Collection<int, InboxItem>
+     */
+    public function received(string $channel, string $search = '', int $limit = 150): Collection
+    {
+        if (! in_array($channel, self::LIST_CHANNELS, true)) {
+            return collect();
+        }
+        $query = SalesLead::query()->with('customer')->whereIn('source', self::CHANNELS[$channel]['sources'])->where('lifecycle', '!=', 'irrelevant');
+        $term = trim($search);
+        if ($term !== '') {
+            $like = '%'.mb_substr($term, 0, 80).'%';
+            $query->where(fn ($q) => $q->where('name', 'like', $like)->orWhere('company', 'like', $like)->orWhere('phone', 'like', $like)->orWhere('email', 'like', $like));
+        }
+
+        return $query->orderByDesc('created_at')->limit($limit)->get()->map(function (SalesLead $lead): InboxItem {
+            $item = $this->stepItem($lead);
+            $first = trim((string) (data_get($lead->origin, 'message') ?? strtok((string) $lead->notes, "\n")));
+
+            return new InboxItem(
+                key: $item->key, type: InboxItem::STEP, id: $item->id, title: $item->title, subtitle: $item->subtitle,
+                channel: $lead->sourceLabel(), preview: $first !== '' ? self::oneLine($first) : $item->preview,
+                at: $lead->created_at !== null ? CarbonImmutable::instance($lead->created_at) : null,
+                owed: $item->owed, due: false, late: false, fromCustomer: $item->fromCustomer, lead: $lead, customer: $item->customer,
+            );
+        });
     }
 
     private function stepItem(SalesLead $lead): InboxItem

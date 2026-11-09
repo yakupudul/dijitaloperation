@@ -201,7 +201,7 @@ final class SocialMediaTest extends TestCase
         $this->assertSame('Bu izin verilmedi.', $ig->error);
         $this->assertSame('partial', $post->status);
 
-        Livewire::actingAs($this->admin)->test(SocialPage::class)
+        Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'plan'])->test(SocialPage::class)
             ->assertSee('LinkedIn’de paylaşmanız bekleniyor')
             ->call('markDone', $post->targets->firstWhere('social_account_id', $linkedin->id)->id)
             ->call('retry', $post->id);
@@ -216,7 +216,7 @@ final class SocialMediaTest extends TestCase
         $b = $this->makePost('story');
         $later = app(SocialPlanner::class)->create(['kind' => 'image', 'caption' => 'x', 'publish_at' => '2026-11-20 11:30'], [['bytes' => $this->png(), 'name' => 'a.png']]);
 
-        Livewire::actingAs($this->admin)->test(SocialPage::class)
+        Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'plan'])->test(SocialPage::class)
             ->assertSee('Haftayı onayla (2)')
             ->call('approveWeek', '2026-11-09')
             ->call('setTab', 'hesaplar')->assertSee('Meta’yı yeniden bağla')->assertSee('@moximucom')
@@ -376,7 +376,7 @@ final class SocialMediaTest extends TestCase
     public function test_unknown_tab_falls_back_to_plan_and_integrations_hub_links_own_channels(): void
     {
         $this->actingAs($this->admin);
-        Livewire::withQueryParams(['sekme' => 'x'])->test(SocialPage::class)->assertSet('tab', 'plan');
+        Livewire::withQueryParams(['sekme' => 'x'])->test(SocialPage::class)->assertSet('tab', 'instagram');
 
         $this->get(route('operator.integrations'))->assertOk()
             ->assertSee('Moximu hesapları')
@@ -407,5 +407,29 @@ final class SocialMediaTest extends TestCase
 
         $this->actingAs($this->admin);
         Livewire::withQueryParams(['sekme' => 'hesaplar'])->test(SocialPage::class)->assertSeeHtml('data-off-accounts')->assertSee('Kapalı hesaplar (1)');
+    }
+
+    public function test_instagram_view_shows_ready_and_published_posts_and_publishes_or_takes_down(): void
+    {
+        Http::fake(['*' => Http::response(['success' => true])]);
+        $ready = $this->makePost('image');
+        $out = $this->makePost('image');
+        $out->update(['status' => SocialPost::PUBLISHED, 'publish_at' => now()->subDay()]);
+        $out->targets()->update(['status' => SocialPostTarget::PUBLISHED, 'external_id' => '1789', 'permalink' => 'https://www.instagram.com/p/abc/']);
+        $fbTarget = $out->targets()->whereHas('account', fn ($q) => $q->where('platform', 'facebook'))->first();
+
+        $page = Livewire::actingAs($this->admin)->test(SocialPage::class)->assertSet('tab', 'instagram')
+            ->assertSeeHtml('data-social-tile="'.$ready->id.'"')->assertSeeHtml('data-social-tile="'.$out->id.'"')->assertSee('Onay bekliyor')
+            ->call('openPost', $ready->id)->assertSeeHtml('data-social-publish-now')
+            ->call('publishNow', $ready->id);
+        $this->assertSame('approved', $ready->fresh()->status);
+        $this->assertTrue($ready->fresh()->publish_at->lessThanOrEqualTo(now()));
+
+        $page->call('openPost', $out->id)->assertSee('Instagram\'da aç', false)->call('takeDown', $out->id)->assertSee('Instagram tarafında');
+        $this->assertNotNull($out->fresh()->removed_at);
+        if ($fbTarget !== null) {
+            Http::assertSent(fn (Request $r): bool => $r->method() === 'DELETE' && str_contains($r->url(), '/1789'));
+        }
+        Livewire::actingAs($this->admin)->test(SocialPage::class)->assertDontSeeHtml('data-social-tile="'.$out->id.'"');
     }
 }

@@ -5,12 +5,14 @@ namespace App\Livewire\Operator\Inbox;
 use App\Jobs\WhatsApp\GenerateWhatsAppSuggestion;
 use App\Models\Brand;
 use App\Models\Reminder;
+use App\Models\SalesLead;
 use App\Models\SocialThread;
 use App\Models\WhatsAppMessage;
 use App\Services\Inbox\InboxItem;
 use App\Services\Inbox\InboxQueue;
 use App\Services\Sales\Agreements;
 use App\Services\Sales\CustomerSignals;
+use App\Services\Sales\PersonMemory;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Social\SocialInbox;
@@ -42,7 +44,7 @@ final class InboxPage extends Component
     #[Url(as: 'gorunum', except: 'sohbetler')]
     public string $view = 'sohbetler';
 
-    /** The channel on the left rail (WhatsApp, Instagram DM, form, manuel, referans); empty = Tümü. */
+    /** The channel on the left rail (WhatsApp, Instagram, Meta form, Web site formu, Çağrı); empty = Tümü. */
     #[Url(as: 'kanal', except: '')]
     public string $channel = '';
 
@@ -65,6 +67,17 @@ final class InboxPage extends Component
 
     /** The record panel on the right (wide screens). */
     public bool $info = true;
+
+    /** "Kim?" (yakup 2026-11-08): the person's memory panel, opened over the chat on narrower screens. */
+    public bool $who = false;
+
+    /** Çağrı › "Çağrı ekle": a call typed in by hand (an existing record picked by search, or a new name / number). */
+    public bool $callOpen = false;
+
+    /** @var array{lead: string, name: string, phone: string, note: string} */
+    public array $call = ['lead' => '', 'name' => '', 'phone' => '', 'note' => ''];
+
+    public string $callSearch = '';
 
     public string $laterDate = '';
 
@@ -299,6 +312,40 @@ final class InboxPage extends Component
         throw ValidationException::withMessages(['item' => 'Bu satır için yazılacak metin yok.']);
     }
 
+    /** Çağrı ekle: the call lands on the person's record (found or opened) as a "Arama" row with the note. */
+    public function addCall(SalesLeads $leads): void
+    {
+        abort_unless((bool) auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $data = $this->validate([
+            'call.lead' => ['nullable', 'integer'],
+            'call.name' => ['nullable', 'string', 'max:255'],
+            'call.phone' => ['nullable', 'string', 'max:40'],
+            'call.note' => ['required', 'string', 'max:4000'],
+        ], [], ['call.note' => 'not', 'call.name' => 'ad', 'call.phone' => 'telefon'])['call'];
+        $user = auth()->user();
+        $lead = filled($data['lead'] ?? null) ? SalesLead::query()->find((int) $data['lead']) : null;
+        if ($lead === null) {
+            if (blank($data['name'] ?? null) && blank($data['phone'] ?? null)) {
+                throw ValidationException::withMessages(['call.name' => 'Listeden bir kişi seç ya da ad / telefon yaz.']);
+            }
+            $lead = $leads->quickAdd(['name' => (string) ($data['name'] ?? ''), 'phone' => (string) ($data['phone'] ?? ''), 'source' => 'phone'], $user);
+        }
+        $leads->event($lead, 'call', trim((string) $data['note']), meta: ['by' => $user?->id]);
+        $lead->forceFill(['last_contact_at' => now()])->save();
+        $this->call = ['lead' => '', 'name' => '', 'phone' => '', 'note' => ''];
+        $this->callSearch = '';
+        $this->callOpen = false;
+        $this->resetErrorBag();
+        $this->message = 'Çağrı kaydedildi: '.$lead->title().'.';
+        $this->item = 'adim-'.$lead->id;
+    }
+
+    /** Çağrı ekle: pick the person from the records found by the search. */
+    public function pickCallLead(int $id): void
+    {
+        $this->call['lead'] = (string) $id;
+    }
+
     /** A chat with no record yet: open one (a prospect's card, or the customer's record). */
     public function openRecord(InboxQueue $queue, SalesLeads $leads): void
     {
@@ -323,7 +370,12 @@ final class InboxPage extends Component
         $channelCounts = $queue->channelCounts($items);
         $inChannel = $this->channel === '' ? $items : $items->filter(fn (InboxItem $i): bool => $i->inChannel($this->channel))->values();
         $counts = $queue->counts($inChannel);
-        $rows = $this->view === 'sohbetler' ? $this->chatRows($queue, $items) : $queue->view($this->view, $inChannel);
+        $listed = $this->view === 'sohbetler' && in_array($this->channel, InboxQueue::LIST_CHANNELS, true);
+        $rows = match (true) {
+            $listed => $this->receivedRows($queue, $items),
+            $this->view === 'sohbetler' => $this->chatRows($queue, $items),
+            default => $queue->view($this->view, $inChannel),
+        };
         $counts['sohbetler'] = $this->channel === '' ? $queue->chatCount() : $rows->count();
         $selected = null;
         if ($this->item !== '') {
@@ -355,6 +407,9 @@ final class InboxPage extends Component
                 'today' => $items->filter(fn (InboxItem $i): bool => $i->due && ! $i->late)->count(),
                 'oldest' => $oldest !== null ? $this->age($oldest) : null,
             ],
+            'person' => $selected !== null ? app(PersonMemory::class)->of($selected->lead, $selected->conversation, $selected->thread, $selected->customer) : null,
+            'listed' => $listed,
+            'callMatches' => $this->callOpen ? $this->callMatches() : collect(),
             'readyCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('draft_status', 'ready')->whereNotNull('draft')->count(),
             'drafting' => $detail !== null && ($detail['draft']['busy'] ?? false),
             'today' => CarbonImmutable::now('Europe/Istanbul')->toDateString(),
@@ -387,6 +442,34 @@ final class InboxPage extends Component
         }
 
         return $rows->sortByDesc(fn (InboxItem $i): string => ($i->at?->format('Y-m-d H:i:s') ?? '0000').'|'.$i->key)->values();
+    }
+
+    /**
+     * Meta form / Web site formu / Çağrı: everything that came in on the channel, the newest first; a line also waiting
+     * in the day's queue keeps its "cevap bekliyor" / adım mark.
+     *
+     * @param  Collection<int, InboxItem>  $items
+     * @return Collection<int, InboxItem>
+     */
+    private function receivedRows(InboxQueue $queue, Collection $items): Collection
+    {
+        $waiting = $items->keyBy('key');
+
+        return $queue->received($this->channel, $this->search)
+            ->map(fn (InboxItem $i): InboxItem => $waiting->get($i->key) ?? $i)->values();
+    }
+
+    /** @return Collection<int, SalesLead> */
+    private function callMatches(): Collection
+    {
+        $term = trim($this->callSearch);
+        if (mb_strlen($term) < 2) {
+            return collect();
+        }
+        $like = '%'.mb_substr($term, 0, 80).'%';
+
+        return SalesLead::query()->where(fn ($q) => $q->where('name', 'like', $like)->orWhere('company', 'like', $like)->orWhere('phone', 'like', $like))
+            ->orderByDesc('updated_at')->limit(6)->get();
     }
 
     /**

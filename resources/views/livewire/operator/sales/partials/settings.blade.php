@@ -1,7 +1,7 @@
-{{-- Satış › Ayarlar (yakup 2026-11-08): the Referanslar list now; Satış beyni (what the system learned) comes next. --}}
+{{-- Satış › Ayarlar (yakup 2026-11-08): Satış beyni (what the sales work learned) and the Referanslar list. --}}
 @php $field = 'h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white'; @endphp
 <section class="mt-5 space-y-8" data-sales-settings>
-    @if (isset($brain))
+    @if (! empty($brain))
         @include('livewire.operator.sales.partials.brain')
     @endif
 

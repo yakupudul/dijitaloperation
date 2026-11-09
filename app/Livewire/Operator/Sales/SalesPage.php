@@ -10,6 +10,7 @@ use App\Models\ReferralReward;
 use App\Models\Referrer;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
+use App\Models\SalesLesson;
 use App\Models\SalesOpportunity;
 use App\Models\WhatsAppMessage;
 use App\Services\Inbox\InboxQueue;
@@ -18,10 +19,12 @@ use App\Services\Sales\Agreements;
 use App\Services\Sales\CustomerSignals;
 use App\Services\Sales\LeadIntake;
 use App\Services\Sales\ReferralRewards;
+use App\Services\Sales\SalesBrain;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesMonthReport;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
+use App\Services\Sales\StandingRules;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -62,6 +65,18 @@ final class SalesPage extends Component
     public string $newReferrer = '';
 
     public string $newReferrerPhone = '';
+
+    /** Satış beyni: edited text of a lesson before approval, answers to Claude's and the WhatsApp brain's questions. */
+    public array $lessonEdits = [];
+
+    public array $lessonAnswers = [];
+
+    public array $waAnswers = [];
+
+    public array $newLesson = ['kind' => 'yontem', 'text' => ''];
+
+    /** Sabit kararlar (the same text as WhatsApp › Beyin). */
+    public ?string $rulesText = null;
 
     #[Url(as: 'sekme', except: 'adaylar')]
     public string $tab = 'adaylar';
@@ -251,6 +266,52 @@ final class SalesPage extends Component
         $reward = ReferralReward::query()->findOrFail($id);
         $rewards->give($reward, auth()->user());
         $this->say($reward->referrerName().': '.($reward->kind === 'gift_month' ? 'hediye ay sonraki ödemesine işlendi.' : 'ödendi olarak işaretlendi.'));
+    }
+
+    public function approveLesson(int $id, SalesBrain $brain): void
+    {
+        $lesson = SalesLesson::query()->findOrFail($id);
+        $brain->approve($lesson, isset($this->lessonEdits[$id]) ? (string) $this->lessonEdits[$id] : null, auth()->user());
+        unset($this->lessonEdits[$id]);
+        $this->say('Beyne eklendi; bundan sonraki mesajlar buna göre yazılır.');
+    }
+
+    public function rejectLesson(int $id, SalesBrain $brain): void
+    {
+        $brain->reject(SalesLesson::query()->findOrFail($id), auth()->user());
+        $this->say('Kaldırıldı; bir daha önerilmez.');
+    }
+
+    public function answerLesson(int $id, SalesBrain $brain): void
+    {
+        $brain->answer(SalesLesson::query()->findOrFail($id), (string) ($this->lessonAnswers[$id] ?? ''), auth()->user());
+        unset($this->lessonAnswers[$id]);
+        $this->say('Cevap kaydedildi; mesajlar bundan sonra buna göre yazılır.');
+    }
+
+    public function addLesson(SalesBrain $brain): void
+    {
+        $lesson = $brain->add((string) ($this->newLesson['kind'] ?? 'yontem'), (string) ($this->newLesson['text'] ?? ''), auth()->user());
+        $this->newLesson = ['kind' => 'yontem', 'text' => ''];
+        $this->say($lesson->kind === 'soru' ? 'Soru eklendi.' : 'Beyne eklendi.');
+    }
+
+    public function answerBrainQuestion(int $index): void
+    {
+        $question = StandingRules::brainQuestions()[$index] ?? null;
+        if ($question === null) {
+            return;
+        }
+        StandingRules::answerBrainQuestion($question, (string) ($this->waAnswers[$index] ?? ''));
+        $this->waAnswers = [];
+        $this->rulesText = StandingRules::text();
+        $this->say('Cevap Sabit kararlara eklendi.');
+    }
+
+    public function saveRules(): void
+    {
+        StandingRules::save((string) $this->rulesText);
+        $this->say('Sabit kararlar kaydedildi.');
     }
 
     public function voidReward(int $id, ReferralRewards $rewards): void
@@ -548,6 +609,9 @@ final class SalesPage extends Component
             'lastForm' => $this->tab === 'sonuclar' ? SalesLead::query()->where('source', 'form')->max('created_at') : null,
             'inboxOpen' => app(InboxQueue::class)->openCount(),
             'rewards' => in_array($this->tab, ['sonuclar', 'ayarlar'], true) ? app(ReferralRewards::class)->all() : collect(),
+            'brain' => $this->tab === 'ayarlar' ? $this->brain() : null,
+            'karneler' => $this->tab === 'sonuclar' ? app(SalesBrain::class)->karneler() : collect(),
+            'learning' => $this->tab === 'sonuclar' ? ['proposed' => SalesLesson::query()->proposed()->where('kind', '!=', 'soru')->count(), 'questions' => SalesLesson::query()->proposed()->where('kind', 'soru')->count()] : ['proposed' => 0, 'questions' => 0],
             'referrers' => $this->tab === 'ayarlar' || $this->dialog === 'from' ? Referrer::query()->orderBy('name')->get() : collect(),
             'referrerCustomers' => $this->dialog === 'from' ? Customer::query()->orderBy('name')->get(['id', 'name']) : collect(),
         ]);
@@ -726,6 +790,27 @@ final class SalesPage extends Component
 
             return [];
         }
+    }
+
+    /** @return array<string, mixed> */
+    private function brain(): array
+    {
+        $this->rulesText ??= StandingRules::text();
+        $proposed = SalesLesson::query()->proposed()->with('lead')->orderBy('id')->get();
+        foreach ($proposed->where('kind', '!=', 'soru') as $lesson) {
+            $this->lessonEdits[$lesson->id] ??= $lesson->text;
+        }
+        $approved = SalesLesson::query()->approved()->orderBy('kind')->orderByDesc('id')->get();
+        foreach ($approved->where('kind', '!=', 'soru') as $lesson) {
+            $this->lessonEdits[$lesson->id] ??= $lesson->text;
+        }
+
+        return [
+            'questions' => $proposed->where('kind', 'soru')->values(),
+            'proposed' => $proposed->where('kind', '!=', 'soru')->values(),
+            'approved' => $approved,
+            'waQuestions' => StandingRules::brainQuestions(),
+        ];
     }
 
     private function say(string $message): void

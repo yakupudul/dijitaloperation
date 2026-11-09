@@ -6,7 +6,7 @@
         'published', 'done' => 'tone-ok',
         default => 'tone-info',
     };
-    $tabs = ['plan' => 'Plan', 'gecmis' => 'Yayınlananlar', 'yeni' => 'Yeni gönderi', 'hesaplar' => 'Hesaplar'];
+    $tabs = ['instagram' => 'Instagram', 'plan' => 'Plan', 'gecmis' => 'Yayınlananlar', 'yeni' => 'Yeni gönderi', 'hesaplar' => 'Hesaplar'];
     $meta = $accounts->whereIn('platform', ['instagram', 'facebook']);
 @endphp
 <div class="dark:text-gray-200" data-social-page>
@@ -35,7 +35,9 @@
             <p class="tone-look rounded-lg border border-gray-200 px-3.5 py-2.5 text-sm dark:border-gray-800">Instagram ve Facebook henüz bağlı değil; gönderiler hazırlanır ama yayınlanamaz. <button type="button" wire:click="setTab('hesaplar')" class="underline">Hesapları bağlayın</button>.</p>
         @endif
 
-        @if ($tab === 'plan')
+        @if ($tab === 'instagram')
+            @include('livewire.operator.social.partials.instagram')
+        @elseif ($tab === 'plan')
             @if ($manual->isNotEmpty())
                 <section class="space-y-3" data-manual>
                     <h2 class="section-title">LinkedIn’de paylaşmanız bekleniyor</h2>

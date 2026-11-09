@@ -60,7 +60,7 @@ final class SalesLeadResearchTest extends TestCase
         $this->assertSame('12 yorum', $lead->research['maps']['reviews'].' yorum');
         Queue::assertPushed(CheckProspectSite::class);
         $admin = User::query()->firstOrFail();
-        $this->actingAs($admin)->get('/satis/'.$lead->id)->assertOk()->assertSee('Araştırma')->assertSee('Randevu platforma gidiyor')
+        $this->actingAs($admin)->get('/satis/'.$lead->id)->assertOk()->assertSee('Dijital analiz')->assertSee('Randevu platforma gidiyor')
             ->assertSee('12 yorum')->assertSee('Yeniden araştır');
         SalesResearchAgent::assertPrompted(fn ($prompt): bool => str_contains((string) $prompt->prompt, '0532 111 22 33'));
 

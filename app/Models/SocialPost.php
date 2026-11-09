@@ -99,6 +99,6 @@ class SocialPost extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['media' => 'array', 'publish_at' => 'datetime', 'approved_at' => 'datetime'];
+        return ['media' => 'array', 'publish_at' => 'datetime', 'approved_at' => 'datetime', 'removed_at' => 'datetime'];
     }
 }

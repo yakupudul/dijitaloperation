@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Creates and changes planned social posts (ADR-083). Media are kept on the public disk because Instagram and Facebook
@@ -135,6 +136,48 @@ class SocialPlanner
             $publishAt = now()->addMinutes(10);
         }
         $post->update(['status' => SocialPost::APPROVED, 'approved_by' => $userId, 'approved_at' => now(), 'publish_at' => $publishAt]);
+    }
+
+    /** Instagram görünümü › "Onayla ve şimdi yayınla": the publisher takes it in its next run (a few minutes). */
+    public function publishNow(SocialPost $post, int $userId): void
+    {
+        if (in_array($post->status, [SocialPost::DRAFT, SocialPost::EXPIRED], true)) {
+            $this->approve($post, $userId);
+        }
+        if ($post->status === SocialPost::APPROVED) {
+            $post->update(['publish_at' => now()]);
+        } elseif (in_array($post->status, [SocialPost::FAILED, SocialPost::PARTIAL], true)) {
+            $this->retry($post);
+        }
+    }
+
+    /**
+     * Instagram görünümü › Sil on a published post: deleted on Facebook (the Graph API allows it); Instagram's API
+     * cannot delete a post, so there it is deleted in the app and the post only leaves our grid.
+     *
+     * @return list<string> what could not be deleted at the source
+     */
+    public function takeDown(SocialPost $post): array
+    {
+        $left = [];
+        foreach ($post->targets()->with('account')->get() as $target) {
+            if ($target->status !== SocialPostTarget::PUBLISHED || $target->external_id === null) {
+                continue;
+            }
+            if ($target->account?->platform === SocialAccount::FACEBOOK) {
+                try {
+                    app(SocialGraph::class)->delete($target->external_id, (string) $target->account->access_token);
+                    $target->update(['status' => SocialPostTarget::SKIPPED, 'error' => 'Facebook\'tan silindi.']);
+                } catch (Throwable $e) {
+                    $left[] = 'Facebook ('.$e->getMessage().')';
+                }
+            } elseif ($target->account?->platform === SocialAccount::INSTAGRAM) {
+                $left[] = 'Instagram';
+            }
+        }
+        $post->update(['removed_at' => now()]);
+
+        return $left;
     }
 
     /** Back to draft (only while nothing went out). */

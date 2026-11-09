@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Ai\Agents\SalesAnalysisAgent;
+use App\Ai\Agents\SalesLessonAgent;
 use App\Ai\Agents\SalesReplyAgent;
 use App\Ai\Agents\SalesResearchAgent;
 use App\Ai\Agents\SocialReplyAgent;
@@ -387,6 +388,15 @@ class AppServiceProvider extends ServiceProvider
             'name' => 'Aday analizi',
             'module' => 'sales',
             'description' => 'Full written analysis of a prospect for the operator (site, profile, conversation, plan, offer, questions, risks) and a one-finding message; nothing is sent.',
+            'default_steps' => $this->app->make(AiRouteRegistry::class)->get(SalesReplyAgent::ROUTE)['default_steps'],
+        ]);
+
+        // Satış beyni (yakup 2026-11-08): a closed deal's lessons and questions, waiting for the operator's approval.
+        $this->app->make(AiRouteRegistry::class)->register([
+            'key' => SalesLessonAgent::ROUTE,
+            'name' => 'Anlaşmadan ders (Satış beyni)',
+            'module' => 'sales',
+            'description' => 'Reads a closed deal (karne, conversation, notes) and proposes lessons and questions for the operator to approve; nothing is applied before approval.',
             'default_steps' => $this->app->make(AiRouteRegistry::class)->get(SalesReplyAgent::ROUTE)['default_steps'],
         ]);
 

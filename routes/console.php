@@ -88,6 +88,7 @@ use App\Services\Queries\QueryNotifier;
 use App\Services\Queries\QueryPoolScope;
 use App\Services\Sales\LeadIntake;
 use App\Services\Sales\LeadResearcher;
+use App\Services\Sales\SalesBrain;
 use App\Services\Sales\SalesLeads;
 use App\Services\Site\Backlinks\BingBacklinkSync;
 use App\Services\Site\Backlinks\LinkDesk;
@@ -1823,6 +1824,9 @@ Schedule::command('moxdop:showcase:daily')
 // Yeni aday araştırması (yakup 2026-11-08): a new chat whose research did not start with its message starts here.
 Schedule::call(fn () => LeadResearcher::sweep())
     ->everyTenMinutes()->name('sales-lead-research')->withoutOverlapping(10);
+// Satış beyni (yakup 2026-11-08): every deal closed in the last 30 days is read once for lessons and questions.
+Schedule::call(fn () => SalesBrain::sweep())
+    ->hourly()->name('sales-brain-learn')->withoutOverlapping(30);
 Schedule::call(fn () => app(SalesLeads::class)->draftDue())
     ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('sales-morning-drafts')->withoutOverlapping(30);
 

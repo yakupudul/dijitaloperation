@@ -76,16 +76,11 @@ final class InboxItem
             default => [],
         };
         if ($this->lead !== null) {
+            // Where the record came from (a form, a call); a referral or a shared link has no channel of its own.
             $origin = InboxQueue::channelOf($this->lead->source);
-            // A chat or thread is "typed in by hand" only when it is a bare step; its own medium says enough otherwise.
-            if ($origin !== 'manuel' || $this->type === self::STEP) {
+            if ($origin !== '') {
                 $channels[] = $origin;
             }
-            if (in_array($this->lead->heard_from, ['referral', 'afc'], true)) {
-                $channels[] = 'referans';
-            }
-        } elseif ($this->type === self::STEP) {
-            $channels[] = 'manuel';
         }
 
         return array_values(array_unique($channels));

@@ -289,6 +289,30 @@ final class LeadCardPage extends Component
         $this->say('Aşama: '.$fresh->stageLabel().'.');
     }
 
+    /**
+     * Kişi bilgileri › Durum (yakup 2026-11-08): the six statuses of Satış. Müşteri opens the terms form (the customer
+     * record is made with its agreement); Olumsuz needs its reason, like a closed card.
+     */
+    public function setStatus(string $status, SalesLeads $leads): void
+    {
+        if (! isset(SalesLead::STATUSES[$status])) {
+            return;
+        }
+        $lead = $this->lead();
+        if ($status === 'musteri' && ! $lead->isCustomer()) {
+            $this->openWin();
+
+            return;
+        }
+        if ($status === 'olumsuz' && ! $lead->isCustomer() && ! isset(SalesLead::LOST_REASONS[$this->lostReason])) {
+            $this->addError('lostReason', 'Neden olumsuz olduğunu seç.');
+
+            return;
+        }
+        $leads->setStatus($lead, $status, auth()->user(), $status === 'olumsuz' ? $this->lostReason : null);
+        $this->say('Durum: '.$lead->fresh()->statusLabel().'.');
+    }
+
     /** "Kazanıldı: müşteri yap" / "Fırsatı kazan": the terms form opens, filled from the offer or the opportunity. */
     public function openWin(int $opportunityId = 0): void
     {
