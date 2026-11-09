@@ -127,8 +127,9 @@ final class PageStore
     public static function closeOrphanFixes(): int
     {
         $closed = 0;
-        Suggestion::query()->whereNull('page_id')->where('target_type', 'page')->whereNotIn('target_id', Page::query()->select('id'))
-            ->where('action_type', SiteAudit::TYPE)->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED])->whereNull('action->writes')
+        // Marka rotası (moximu.com 2026-11-09): the site was rebuilt, and "İç link ekle" items of the old pages stayed open.
+        Suggestion::query()->where('target_type', 'page')->whereNotIn('target_id', Page::query()->select('id'))
+            ->whereIn('action_type', [SiteAudit::TYPE, 'internal_links'])->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK, Suggestion::SNOOZED])->whereNull('action->writes')
             ->get(['id', 'action'])->each(function (Suggestion $fix) use (&$closed): void {
                 $fix->forceFill(['status' => Suggestion::DISMISSED, 'resolved_at' => now(), 'action' => array_merge((array) $fix->action, ['auto_closed' => self::PAGE_GONE]),
                     'operator_note' => 'Sayfa sitede artık yok (silindi ya da adresi başka bir kayda geçti); iş otomatik kapandı.'])->save();

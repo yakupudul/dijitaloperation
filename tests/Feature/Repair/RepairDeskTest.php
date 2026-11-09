@@ -598,6 +598,7 @@ final class RepairDeskTest extends SiteTestCase
         $gone = $this->page('/silinecek/', 'Silinecek', ['wp_post_id' => 77]);
         $deleted = $this->suggestion('Başlık ve açıklamayı düzelt: /silinecek/', SiteAudit::TYPE, $proposal, ['page_id' => $gone->id, 'target_type' => 'page', 'target_id' => $gone->id]);
         $kept = $this->suggestion('Başlık', 'title_description', $proposal);
+        $inlink = $this->suggestion('İç link ekle: /platformlar/eski/ → /platformlar/eski-2/', 'internal_links', ['link_to' => 'https://example.com/x/'], ['page_id' => null, 'target_type' => 'page', 'target_id' => 999998]);
         $desk = app(RepairDesk::class);
         $this->assertSame([$deleted->id, $kept->id], $desk->rows()->pluck('id')->sort()->values()->all(), 'a row without its page is not offered');
 
@@ -605,7 +606,8 @@ final class RepairDeskTest extends SiteTestCase
         $this->assertSame(Suggestion::RECHECK, $deleted->fresh()->status);
         $this->assertSame([$kept->id], $desk->rows()->pluck('id')->all(), 'the deleted page\'s fix leaves the desk at once');
 
-        $this->assertSame(2, PageStore::closeOrphanFixes(), 'the night closes them');
+        $this->assertSame(3, PageStore::closeOrphanFixes(), 'the night closes them');
+        $this->assertSame(Suggestion::DISMISSED, $inlink->fresh()->status, 'a link item of a page that left the rebuilt site closes too');
         $this->assertSame([Suggestion::DISMISSED, Suggestion::DISMISSED], [$orphan->fresh()->status, $deleted->fresh()->status]);
         $this->assertSame(PageStore::PAGE_GONE, $deleted->fresh()->action['auto_closed']);
         $this->assertSame(Suggestion::OPEN, $kept->fresh()->status);

@@ -19,7 +19,9 @@ use App\Services\Site\ClusterPageMapper;
 use App\Services\Site\SiteAi;
 use App\Services\Site\SiteScope;
 use App\Services\Site\SiteSuggestionTypes;
+use App\Services\Website\Pages\PageStore;
 use App\Services\Work\ContentCoverage;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
@@ -172,6 +174,8 @@ final class BrandDirection
             $result['memory'] = $this->step(fn () => app(BrandMemoryService::class)->refreshProfile($brand) !== [] ? 'ok' : 'empty');
             $result['clusters_mapped'] = $sites->map(fn (DigitalAsset $site): string => $this->step(fn () => (string) app(ClusterPageMapper::class)->refresh($site, judge: false)['status']))->all();
             $result['ideas_of_removed_services'] = $this->closeRemovedServiceIdeas($brand, $change);
+            // A rebuilt site: work items of pages that left it close now, not at the night's audit.
+            $result['orphan_items_closed'] = $this->step(fn () => (string) PageStore::closeOrphanFixes());
             $save();
         }
 
@@ -340,8 +344,8 @@ final class BrandDirection
             ->update(['status' => GbpQueuedPost::SKIPPED, 'note' => 'Marka rotası değişti; yeni rotaya göre yeniden yazılır.', 'updated_at' => now()]);
     }
 
-    /** @return \Illuminate\Database\Eloquent\Builder<Suggestion> content ideas not sent to the site yet */
-    public static function unsentIdeas(Brand $brand): \Illuminate\Database\Eloquent\Builder
+    /** @return Builder<Suggestion> content ideas not sent to the site yet */
+    public static function unsentIdeas(Brand $brand): Builder
     {
         return Suggestion::query()->where('brand_id', $brand->id)->where('action_type', SiteSuggestionTypes::CONTENT)
             ->whereIn('status', self::UNSENT)->whereNull('action->article_write_id');

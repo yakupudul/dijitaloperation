@@ -1510,8 +1510,10 @@ final class WebHealthAudit
         $brandWords = $this->words((string) $brand->name);
         $subject = fn (Page $p): array => array_values(array_diff($this->words(self::bareTitle((string) $p->title).' '.$this->path((string) $p->url)), $brandWords));
         $key = 'repair.'.self::TYPE.'.inlink';
+        // Every row of this site, also those whose page left the site (rebuilt site): they close as unseen below.
         $existing = Suggestion::query()->where('brand_id', $site->brand_id)->where('decision_key', $key)
-            ->where('target_type', 'page')->whereIn('page_id', $live->pluck('id'))->get()->keyBy('fingerprint');
+            ->where('target_type', 'page')->where(fn ($q) => $q->whereIn('page_id', $live->pluck('id'))->orWhere('action->site_id', (int) $site->id))
+            ->get()->keyBy('fingerprint');
         $edges = DB::table('website_link_edge')->where('digital_asset_id', $site->id)->where('is_internal', true)->limit(30000)
             ->get(['source_url', 'normalized_target_url', 'target_url'])
             ->map(fn (object $e): string => SeoText::urlKey((string) $e->source_url).'>'.SeoText::urlKey((string) ($e->normalized_target_url ?: $e->target_url)))
@@ -1550,7 +1552,7 @@ final class WebHealthAudit
                 }
             }
         }
-        $this->closeUnseen($existing, $seen, 'Sayfa dizine girdi ya da artık link alıyor (otomatik kapandı).');
+        $this->closeUnseen($existing, $seen, 'Sayfa dizine girdi, artık link alıyor ya da sitede yok (otomatik kapandı).');
 
         return array_keys($linked);
     }
