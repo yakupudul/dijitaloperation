@@ -74,7 +74,7 @@ final class SeoFieldsBatch
             return ['status' => 'not_operational', 'prepared' => 0, 'skipped' => 0];
         }
         $suggestions = Suggestion::query()->with('page')->whereIn('id', $suggestionIds)->where('brand_id', $brand->id)->whereIn('action_type', self::TYPES)
-            ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])->get()
+            ->whereIn('status', [Suggestion::OPEN, Suggestion::RECHECK])->orderBy('id')->get()
             ->filter(fn (Suggestion $s): bool => $s->page !== null && (int) $s->page->website_asset_id === (int) $site->id && self::needsPreparing($s))
             // A doorway page Claude has not cleared gets no title: it goes to the noindex rows instead (DoorwayCheck).
             ->reject(function (Suggestion $s): bool {
