@@ -122,9 +122,25 @@
 .mx-root{position:fixed; right:max(12px, env(safe-area-inset-right, 0px)); bottom:max(6px, env(safe-area-inset-bottom, 0px)); z-index:9000; font-size:14px; line-height:1.45; color:#1f2a2a}
 .mx-mascot{display:block; width:84px; height:101px; padding:0; margin:0 0 0 auto; border:0; background:none; cursor:pointer; position:relative}
 .mx-mascot .moxi{--s:.42}
+/* açma düğmesi: moximu.com'daki ana düğme gibi (koyu petrol, sarı kare uç), solda Moxi'nin kafası */
+.mx-launch{display:flex; align-items:center; gap:10px; width:auto; height:auto; padding:6px 6px 6px 0; background:#0f3d3a; color:#fff; border-radius:14px;
+  box-shadow:0 10px 28px rgba(15,61,58,.28); font:inherit; text-align:left; transition:background .15s, transform .15s}
+.mx-launch:hover{background:#155552; transform:translateY(-1px)}
+.mx-launch:focus-visible{outline:3px solid #FDCF3C; outline-offset:3px; border-radius:14px}
+.mx-ava{position:relative; width:58px; height:44px; flex:none}
+.mx-ava .moxi{--s:.33; position:absolute; left:-3px; bottom:-12px}
+.mx-ava .m-sun{display:none}
+.mx-lt{display:grid; line-height:1.2; padding-right:2px}
+.mx-lt b{font-size:15px; font-weight:600; letter-spacing:-.01em}
+.mx-lt small{font-size:11.5px; color:#bfd6d3; display:flex; align-items:center; gap:5px; max-width:130px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.mx-on{width:7px; height:7px; border-radius:50%; background:#5fd38a; flex:none; box-shadow:0 0 0 3px rgba(95,211,138,.18)}
+.mx-chip{width:34px; height:34px; border-radius:9px; background:#FDCF3C; color:#0f3d3a; display:grid; place-items:center; flex:none}
+.mx-chip svg{width:19px; height:19px}
+.mx-launch.is-open{background:#155552}
+@media (max-width:480px){ .mx-lt{display:none} .mx-launch{padding-right:6px} }
 .mx-mascot:focus-visible{outline:3px solid #FDCF3C; outline-offset:2px; border-radius:14px}
 .mx-root.has-alert .m-alert{transform:scale(1)}
-.mx-panel{position:absolute; right:0; bottom:104px; width:min(390px, calc(100vw - 24px)); height:min(600px, calc(100vh - 140px)); display:flex; flex-direction:column;
+.mx-panel{position:absolute; right:0; bottom:66px; width:min(390px, calc(100vw - 24px)); height:min(600px, calc(100vh - 140px)); display:flex; flex-direction:column;
   background:#fff; border:1px solid #e6e3d6; border-radius:16px; box-shadow:0 18px 50px rgba(20,40,38,.18); overflow:hidden}
 .mx-head{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #eeebe0}
 .mx-head b{font-size:16px; font-weight:700}
@@ -153,9 +169,21 @@
 .mx-form{display:flex; gap:8px; padding:10px 12px; border-top:1px solid #eeebe0; background:#fff}
 .mx-form textarea{flex:1; min-width:0; resize:none; font:inherit; padding:8px 10px; border-radius:10px; border:1px solid #e6e3d6; background:#fbfaf6; color:#1f2a2a; max-height:120px}
 .mx-form textarea:focus{outline:2px solid #FDCF3C; outline-offset:1px}
-@media (max-width:480px){ .mx-panel{height:calc(100vh - 130px)} }
+@media (max-width:480px){ .mx-panel{height:calc(100vh - 96px)} }
 /* rütbe: Samuray şapka şeridi, Usta omuz arması, Şogun altın boynuzlar */
 .mx-look{width:100%; height:100%}
+/* Moximu işareti biçiminde sohbet balonu ikonu */
+.mx-mark{width:18px; height:18px; flex:none; display:inline-block; vertical-align:-4px; overflow:visible}
+.mx-mark .mx-cones circle{transform-box:fill-box; transform-origin:center}
+.mx-mark.is-typing .mx-cones circle{animation:mxcone 1.1s ease-in-out infinite}
+.mx-mark.is-typing .c2{animation-delay:.14s!important} .mx-mark.is-typing .c4{animation-delay:.28s!important} .mx-mark.is-typing .c3{animation-delay:.42s!important}
+@keyframes mxcone{0%,60%,100%{transform:none}30%{transform:translateY(-5px) scale(1.08)}}
+.mx-icon .mx-mark{margin-right:4px}
+.mx-icon.off .mx-mark{filter:grayscale(1); opacity:.55}
+.mx-typing .mx-mark{width:30px; height:30px}
+.mx-bubble{display:flex; gap:9px; align-items:flex-start}
+.mx-bubble .mx-mark{width:22px; height:22px; margin-top:1px}
+.mx-bubble-t{display:block}
 .moxi.look-samurai .m-head{transform-origin:100px 156px} .moxi.look-samurai .m-hat{transform-origin:100px 80px}
 .moxi.look-samurai .m-eo{transform-origin:100px 118px} .moxi.look-samurai .m-scroll{transform-origin:144px 112px}
 .moxi.look-samurai .m-brow-l{transform-origin:83px 106px} .moxi.look-samurai .m-brow-r{transform-origin:117px 106px}
@@ -165,8 +193,8 @@
 .moxi.rank-2 .m-r2,.moxi.rank-3 .m-r2,.moxi.rank-4 .m-r2,.moxi.rank-3 .m-r3,.moxi.rank-4 .m-r3,.moxi.rank-4 .m-r4{display:inline}
 .mx-rank{font-size:11px; font-weight:700; color:#1f6461; background:#e8f3f1; border-radius:20px; padding:2px 8px; white-space:nowrap}
 /* konuşma balonu */
-.mx-bubble{position:absolute; right:58px; bottom:96px; width:max-content; max-width:min(260px, calc(100vw - 90px)); background:#fff; color:#1f2a2a; border:2px solid #1f6461;
-  border-radius:16px 16px 4px 16px; padding:8px 12px; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(20,40,38,.18); cursor:pointer; text-align:left}
+.mx-bubble{position:absolute; right:0; bottom:66px; width:max-content; max-width:min(260px, calc(100vw - 90px)); background:#fff; color:#1f2a2a; border:2px solid #1f6461;
+  border-radius:14px 14px 4px 14px; padding:9px 12px; font-size:13px; font-weight:500; box-shadow:0 8px 24px rgba(20,40,38,.18); cursor:pointer; text-align:left}
 .mx-bubble.tip{border-color:#FDCF3C; box-shadow:inset 3px 0 0 #FDCF3C, 0 8px 24px rgba(20,40,38,.18)}
 .mx-bubble.milestone{border-color:#c8452c}
 .mx-bubble small{display:block; font-weight:500; color:#1f6461; margin-top:2px}
@@ -187,7 +215,7 @@
             <span class="mx-status" x-text="status">{{ $busy ? 'düşünüyor…' : 'hazır' }}</span>
             <button type="button" class="mx-icon" @click="cycleLook()" title="Moxi'nin görünümü: samuray, fütüristik ya da yakup">Görünüm</button>
             <button type="button" class="mx-icon" @click="book = !book" :aria-pressed="book" title="Moxi'nin defteri: senden öğrendikleri">Defter</button>
-            <button type="button" class="mx-icon" @click="toggleBubbles()" x-text="bubbles ? '💬 Balon' : '💬 Kapalı'" title="Ara sıra konuşma balonları"></button>
+            <button type="button" class="mx-icon" @click="toggleBubbles()" x-text="bubbles ? 'Balon: açık' : 'Balon: kapalı'" title="Ara sıra konuşma balonları"></button>
             <button type="button" class="mx-icon" @click="cycleVoice()" x-text="voiceLabel()" title="Ses: konuşma, mırıltı ya da sessiz"></button>
             <button type="button" class="mx-icon" wire:click="clear" title="Ekranı temizle (Moxi yine hatırlar)">Temizle</button>
             <button type="button" class="mx-icon" @click="toggle()" aria-label="Kapat">✕</button>
@@ -269,7 +297,7 @@
                 <div class="mx-empty">Selam! Marka durumu sorabilir, link isteyebilir ya da iş verebilirsin.<br>Örnek: "Gelen kutusu linki", "Portakal Diş'in durumu ne?", "Ayşe Hanım'ı müşteri yap, 14.000, 6 ay".</div>
             @endforelse
             @if ($busy)
-                <div class="mx-msg mx-bot"><span class="mx-dots"><i></i><i></i><i></i></span></div>
+                <div class="mx-msg mx-bot mx-typing" aria-label="Moxi yazıyor">@include('operator.partials.moxi-bubble-icon', ['class' => 'is-typing'])</div>
             @endif
         </div>
 
@@ -282,15 +310,20 @@
 
     <div wire:ignore>
         <button type="button" class="mx-bubble" x-show="bubbleText && !open" x-cloak x-transition.origin.bottom.right :class="bubbleKind" @click="bubbleClick()">
-            <span x-text="bubbleText"></span><small x-show="bubbleUrl">Göster →</small>
+            @include('operator.partials.moxi-bubble-icon')<span class="mx-bubble-t"><span x-text="bubbleText"></span><small x-show="bubbleUrl">Göster →</small></span>
         </button>
     </div>
 
-    <button type="button" class="mx-mascot" wire:ignore @click="tap()" :aria-label="open ? 'Moxi\'yi kapat' : 'Moxi\'yi aç'" aria-label="Moxi">
-        <div class="moxi" :class="[mood, 'rank-' + rank, 'look-' + look]">
+    <button type="button" class="mx-mascot mx-launch" :class="open ? 'is-open' : ''" wire:ignore @click="tap()" :aria-label="open ? 'Moxi\'yi kapat' : 'Moxi ile konuş'" aria-label="Moxi ile konuş">
+        <span class="mx-ava"><div class="moxi" :class="[mood, 'rank-' + rank, 'look-' + look]">
             <template x-if="look === 'samurai'"><div class="mx-look">@include('operator.partials.moxi-mascot-samurai')</div></template>
             <template x-if="look === 'robot'"><div class="mx-look">@include('operator.partials.moxi-mascot')</div></template>
             <template x-if="look === 'yakup'"><div class="mx-look">@include('operator.partials.moxi-mascot-yakup')</div></template>
-        </div>
+        </div></span>
+        <span class="mx-lt"><b x-text="open ? 'Moxi' : 'Moxi\'ye sor'">Moxi'ye sor</b><small><i class="mx-on"></i><span x-text="status">hazır</span></small></span>
+        <span class="mx-chip" aria-hidden="true">
+            <svg x-show="!open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3 21l2-5.6A8.4 8.4 0 1 1 21 11.5Z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" stroke-width="2.6"/></svg>
+            <svg x-show="open" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </span>
     </button>
 </div>

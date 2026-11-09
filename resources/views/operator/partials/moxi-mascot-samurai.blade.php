@@ -25,7 +25,7 @@
 <svg viewBox="0 0 200 240" aria-hidden="true">
 <ellipse class="m-shadow" cx="100" cy="206" rx="44" ry="6" fill="#1b2a28" opacity=".2"/>
 <g transform="translate(-17 8) scale(1.15)">
-<circle cx="100" cy="100" r="74" fill="#FDCF3C" opacity=".42" filter="url(#moxi-oilsoft)"/>
+<circle class="m-sun" cx="100" cy="100" r="74" fill="#FDCF3C" opacity=".42" filter="url(#moxi-oilsoft)"/>
 <g class="m-all" filter="url(#moxi-oil)">
  <g class="m-tails"><path d="M140 94 C158 88 168 100 186 92 C176 104 160 100 142 104Z" fill="url(#moxi-gRed)"/><path d="M140 100 C156 104 160 118 178 116 C164 126 152 114 140 106Z" fill="url(#moxi-gRed)"/></g>
  <g class="m-arm-r"></g>
