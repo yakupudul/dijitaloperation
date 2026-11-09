@@ -73,6 +73,26 @@ final class WhatsAppInboxSignalsTest extends TestCase
         $this->assertSame('outgoing', $conversation->messages()->where('message_id', 'e1')->value('direction'));
     }
 
+    public function test_account_update_partner_removed_marks_connection_broken(): void
+    {
+        $integration = CoreIntegration::factory()->create([
+            'provider' => 'whatsapp',
+            'config' => ['waba_id' => 'WABA1', 'phone_number_id' => 'PN1', 'business_phone' => '905388610288'],
+        ]);
+        $receipt = WhatsAppWebhookReceipt::query()->create([
+            'integration_id' => $integration->id, 'payload_hash' => 'acc1', 'status' => 'pending',
+            'payload' => ['entry' => [['id' => 'WABA1', 'changes' => [['field' => 'account_update', 'value' => ['event' => 'PARTNER_REMOVED', 'waba_info' => ['waba_id' => 'WABA1']]]]]]],
+        ]);
+        app(WhatsAppIngestion::class)->process($receipt->id);
+
+        $config = $integration->fresh()->config;
+        $this->assertSame('account_update', $config['other_events'][0]['field']);
+        $this->assertSame('PARTNER_REMOVED', $config['other_events'][0]['event']);
+        $this->assertNotEmpty($config['disconnected_at']);
+        $this->assertStringContainsString('Bağlamaya başla', $config['connection_error']);
+        $this->assertSame(1, $receipt->fresh()->ignored_count);
+    }
+
     /** @param  array<string, mixed>  $value */
     private function receipt(CoreIntegration $integration, string $field, array $value): void
     {

@@ -35,6 +35,14 @@ final class WhatsAppIngestion
                 }
                 foreach (($entry['changes'] ?? []) as $change) {
                     $value = $change['value'] ?? [];
+                    // Account-level events (no phone metadata): kept so a silent disconnect is visible. 2026-11-08 the
+                    // phone dropped the coexistence link, messages stopped and the panel still said "Bağlı".
+                    if (is_array($value) && ! isset($value['messaging_product']) && is_string($change['field'] ?? null)) {
+                        $this->accountEvent($config, (string) $change['field'], $value);
+                        $ignored++;
+
+                        continue;
+                    }
                     if (! is_array($value) || ($value['messaging_product'] ?? '') !== 'whatsapp'
                         || (string) data_get($value, 'metadata.phone_number_id', '') !== (string) ($config['phone_number_id'] ?? '')) {
                         $ignored++;
@@ -104,6 +112,7 @@ final class WhatsAppIngestion
                         }
                         $config['contacts_synced_at'] = now()->toIso8601String();
                     } else {
+                        $this->accountEvent($config, (string) $field, $value);
                         $ignored++;
                     }
                 }
@@ -204,6 +213,26 @@ final class WhatsAppIngestion
         $conversation->update($update);
 
         return 1;
+    }
+
+    /** Events MoxDOP does not ingest, newest first; an offboarding one marks the connection as broken. */
+    public const array DISCONNECT_EVENTS = ['PARTNER_REMOVED', 'ACCOUNT_OFFBOARDED', 'ACCOUNT_DELETED', 'ACCOUNT_DISCONNECTED', 'DISCONNECTED'];
+
+    /**
+     * @param  array<string, mixed>  $config
+     * @param  array<string, mixed>  $value
+     */
+    private function accountEvent(array &$config, string $field, array $value): void
+    {
+        $event = mb_substr((string) ($value['event'] ?? data_get($value, 'decision', '')), 0, 60);
+        $events = array_slice((array) ($config['other_events'] ?? []), 0, 9);
+        array_unshift($events, ['field' => mb_substr($field, 0, 60), 'event' => $event, 'at' => now()->toIso8601String()]);
+        $config['other_events'] = $events;
+        $upper = strtoupper($event);
+        if ($field === 'account_update' && (in_array($upper, self::DISCONNECT_EVENTS, true) || str_contains($upper, 'OFFBOARD'))) {
+            $config['connection_error'] = 'Meta bildirdi: numaranın telefonla (WhatsApp Business uygulaması) bağlantısı kaldırıldı ('.$event.'). Mesajlar artık gelmez; "Bağlamaya başla" ile yeniden bağlayın.';
+            $config['disconnected_at'] = now()->toIso8601String();
+        }
     }
 
     private function digits(mixed $value): string

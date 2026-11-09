@@ -120,6 +120,15 @@ final class WhatsAppDiagnosis
             : ($delivering ? 'Meta olayları bu adrese teslim ediyor (son olay: '.$this->when($lastReceipt).'); doğrulama kaydı ayarlar yeniden kaydedilince silinmişti.' : 'Meta webhook adresini hiç doğrulamadı.'),
             ($verified || $delivering) ? null : 'Meta › uygulama › WhatsApp › Configuration › Webhook: adres '.route('api.whatsapp.webhook').', Verify Token MoxDOP\'ta kayıtlı olan; messages, history, smb_message_echoes, smb_app_state_sync alanlarına abone ol.');
 
+        // 6b. Events Meta sent that are not messages (account_update etc.): a disconnect shows here.
+        $others = collect((array) ($config['other_events'] ?? []))->take(3)
+            ->map(fn ($e): string => (string) ($e['field'] ?? '').(filled($e['event'] ?? null) ? ' '.$e['event'] : '').' ('.$this->when((string) ($e['at'] ?? '')).')')->implode(', ');
+        if (filled($config['disconnected_at'] ?? null)) {
+            $add('6. Telefon bağlantısı', false, (string) ($config['connection_error'] ?? 'Meta telefon bağlantısının kaldırıldığını bildirdi.').($others !== '' ? ' Son bildirimler: '.$others.'.' : ''), 'WhatsApp › Bağlantı › "Bağlamaya başla" ile aynı numarayı yeniden bağlayın.');
+        } elseif ($others !== '') {
+            $add('6. Diğer Meta bildirimleri', null, $others.'.');
+        }
+
         // 7. Messages in the inbox.
         $live = $row ? WhatsAppConversation::query()->where('integration_id', $row->id)->where('phone_number_id', '!=', WhatsAppBackupImporter::LINE)->count() : 0;
         $backupShown = WhatsAppBackupLine::shown();

@@ -403,6 +403,8 @@ final class WhatsAppSignup
                     if ($changed) {
                         unset($config['history_state'], $config['echo_seen_at'], $config['last_receipt_at'], $config['last_message_received_at']);
                     }
+                    // A fresh onboarding heals a reported disconnect (account_update PARTNER_REMOVED etc.).
+                    unset($config['disconnected_at']);
                     $config = array_merge($config, $binding, [
                         'business_phone' => $number, 'connection_check' => 'verified', 'connection_error' => null,
                         'connection_check_request_id' => (string) Str::uuid(), 'connection_checked_at' => now()->toIso8601String(),
