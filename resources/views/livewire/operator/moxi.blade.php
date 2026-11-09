@@ -12,7 +12,7 @@
 .m-all{transform-origin:100px 224px; animation:breathe 3.2s ease-in-out infinite}
 .m-head{transform-origin:100px 156px; transition:transform .35s ease}
 .m-hat{transform-origin:100px 80px; transition:transform .35s ease; animation:hatsway 6s ease-in-out infinite}
-.m-tails{transform-origin:142px 97px; animation:flutter 1.4s ease-in-out infinite}
+.m-tails{transform-origin:142px 97px; animation:flutter 2.6s ease-in-out infinite}
 .m-eyes{transition:transform .25s ease}
 .m-eo{transform-origin:100px 118px; animation:blink 4.6s infinite}
 .m-eh,.m-es,.m-mouth .mo,.m-mouth .mr,.m-mouth .mw,.m-mouth .mz,.m-zzz{display:none}
@@ -101,20 +101,20 @@
 @keyframes hatfix{0%,100%{transform:none}40%{transform:translateY(-6px) rotate(-5deg)}55%{transform:translateY(-6px) rotate(4deg)}75%{transform:none}}
 @keyframes yawn{0%,100%{transform:none}30%,70%{transform:scale(1.5,1.8)}}
 @keyframes stretch{0%,100%{transform:none}35%,65%{transform:scale(.97,1.05)}}
-@keyframes flutter{0%,100%{transform:rotate(0)}50%{transform:rotate(9deg) skewY(-4deg)}}
+@keyframes flutter{0%,100%{transform:rotate(0)}50%{transform:rotate(4deg) skewY(-2deg)}}
 @keyframes thinkhat{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(4deg)}}
 @keyframes zz{0%{opacity:0; transform:translate(0,0)}30%{opacity:1}100%{opacity:0; transform:translate(10px,-18px)}}
 .m-zzz text{animation:zz 2.4s infinite; font:700 16px "Baloo 2", system-ui, sans-serif; fill:#1f6461}
 .m-zzz text:nth-child(2){animation-delay:1.2s}
 
-@keyframes breathe{50%{transform:scale(1.03,.97)}}
+@keyframes breathe{50%{transform:scale(1.012,.988)}}
 @keyframes shadow{50%{transform:scaleX(1.06)}}
 @keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
 @keyframes hatsway{0%,100%{rotate:0deg}50%{rotate:1.5deg}}
 @keyframes spin{to{--a:360deg}}
 @keyframes dot{0%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
-@keyframes talkbob{50%{transform:translateY(-3px)}}
-@keyframes hop{30%{transform:translateY(-16px) scale(.98,1.03)}60%{transform:translateY(0) scale(1.04,.96)}}
+@keyframes talkbob{50%{transform:translateY(-1.5px)}}
+@keyframes hop{30%{transform:translateY(-7px)}60%{transform:translateY(0)}}
 @media (prefers-reduced-motion: reduce){ .moxi *{animation:none!important; transition:none!important} }
 
 
