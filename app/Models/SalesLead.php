@@ -123,6 +123,7 @@ class SalesLead extends Model
             'followup_step' => 'integer', 'site_scan' => 'array', 'origin' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime', 'analysis_at' => 'datetime',
             'offer_amount' => 'integer', 'offer_confirmed' => 'boolean', 'stage_at' => 'datetime', 'classification' => 'array',
             'research' => 'array', 'research_at' => 'datetime', 'is_strong' => 'boolean', 'name_checked_at' => 'datetime',
+            'history_only' => 'boolean', 'archived_at' => 'datetime',
         ];
     }
 
@@ -162,10 +163,32 @@ class SalesLead extends Model
         return $query->whereNotIn('stage', ['won', 'lost']);
     }
 
-    /** @param  Builder<self>  $query records that count as sales work: not the irrelevant ones */
+    /** @param  Builder<self>  $query records that count as sales work: not the irrelevant ones, not the archived history */
     public function scopeRelevant(Builder $query): Builder
     {
-        return $query->where('lifecycle', '!=', 'irrelevant');
+        return $query->where('lifecycle', '!=', 'irrelevant')->whereNull('archived_at');
+    }
+
+    /** @param  Builder<self>  $query the cards put aside as old history (Satış › Arşiv) */
+    public function scopeArchived(Builder $query): Builder
+    {
+        return $query->whereNotNull('archived_at');
+    }
+
+    /** Why a card sits in the archive (SalesTidy). */
+    public const array ARCHIVE_REASONS = [
+        'history' => 'Geçmişten geldi, 14 günden uzun sessiz',
+        'manual' => 'Elle arşive alındı',
+    ];
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    public function archiveLabel(): string
+    {
+        return self::ARCHIVE_REASONS[$this->archive_reason] ?? 'Arşivde';
     }
 
     public function isCustomer(): bool
@@ -288,10 +311,13 @@ class SalesLead extends Model
         return true;
     }
 
-    /** The ball is ours: they wrote last and we have not answered (in WhatsApp, a call or a sent text). */
+    /**
+     * The ball is ours: they wrote last and we have not answered (in WhatsApp, a call or a sent text). A card known only
+     * from imported history never owes an answer: whether it was answered on the phone is not known (yakup 2026-11-09).
+     */
     public function awaitsUs(): bool
     {
-        return $this->last_incoming_at !== null && ($this->last_contact_at === null || $this->last_incoming_at->gt($this->last_contact_at));
+        return ! $this->history_only && $this->last_incoming_at !== null && ($this->last_contact_at === null || $this->last_incoming_at->gt($this->last_contact_at));
     }
 
     /** The last time either side spoke (a message either way, a call, a meeting), or null when nothing yet. */

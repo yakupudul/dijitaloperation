@@ -72,6 +72,10 @@
                 @if ($tab === 'adaylar')<span @class(['tabular-nums', 'text-accent' => $on && $c > 0, 'text-gray-400' => ! $on || $c === 0])>{{ $n($c) }}</span>@endif
             </button>
         @endforeach
+        @php $arc = (int) ($viewCounts['durum_arsiv'] ?? 0); $onArc = $tab === 'adaylar' && $status === 'arsiv' && trim($q) === ''; @endphp
+        <button type="button" wire:click="showStatus('arsiv')" @class(['seg', 'seg-active' => $onArc]) role="tab" aria-selected="{{ $onArc ? 'true' : 'false' }}" title="Geçmişten gelen, 14 günden uzun sessiz konuşmalar; hiçbir sayıya girmez" data-sales-status="arsiv">
+            Arşiv @if ($tab === 'adaylar')<span class="tabular-nums text-gray-400">{{ $n($arc) }}</span>@endif
+        </button>
         <span class="mx-1 hidden h-5 w-px bg-gray-200 sm:block dark:bg-gray-700"></span>
         <button type="button" wire:click="$set('tab', 'sonuclar')" @class(['seg', 'seg-active' => $tab === 'sonuclar']) data-sales-tab="sonuclar">Rapor</button>
         <button type="button" wire:click="$set('tab', 'ayarlar')" @class(['seg', 'seg-active' => $tab === 'ayarlar']) data-sales-tab="ayarlar">Ayarlar</button>
@@ -104,6 +108,9 @@
                 </div>
             @endif
 
+            @if ($status === 'arsiv' && trim($q) === '')
+                <p class="text-[13px] text-gray-500" data-sales-archive-note>Telefon yedeğinden ve WhatsApp geçmişinden gelen, 14 günden uzun sessiz konuşmalar. Hiçbir listeye ve sayıya girmezler, silinmezler. Kişi canlı hatta yeniden yazarsa kart kendiliğinden geri gelir.</p>
+            @endif
             <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input wire:model.live.debounce.400ms="q" type="search" placeholder="Ara: isim, işletme, şehir, telefon, not…" class="{{ str_replace('w-full', 'w-full sm:w-80', $input) }}" aria-label="Aday ara" />
                 <select wire:model.live="sort" class="{{ str_replace('w-full', 'w-full sm:w-56', $input) }}" aria-label="Sırala">
@@ -114,12 +121,6 @@
                 @endif
             </div>
 
-            @if (($viewCounts['isimsiz'] ?? 0) > 0)
-                <p class="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-sales-unnamed>
-                    {{ $n((int) $viewCounts['isimsiz']) }} açık adayın adı yok: WhatsApp yedeğinde isim olmadığı için numara görünüyor.
-                    <a href="{{ route('operator.whatsapp', ['tab' => 'setup']) }}" wire:navigate class="link-neutral font-medium">Telefon rehberini (.vcf) bir kez yükle</a>, eşleşen numaralara isimler kendiliğinden yazılır.
-                </p>
-            @endif
             @if ($view === 'musteriler' && trim($q) === '')
                 {{-- Müşteriler (2026-11-07): the commercial lens on the served brands — the agreement, this month's tick,
                      what is late, the open opportunity. Operations stay on Portföy › Markalar; nothing is edited twice. --}}
@@ -230,7 +231,7 @@
                             {{-- Müşteri adı: the name (WhatsApp profile, or found by Claude in the messages); empty stays empty. --}}
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate @class(['truncate text-sm font-semibold hover:underline', 'text-gray-900 dark:text-white' => filled($lead->name) || filled($lead->company), 'text-gray-400' => ! filled($lead->name) && ! filled($lead->company)])>{{ filled($lead->name) ? $lead->name : (filled($lead->company) ? $lead->company : 'İsim yok') }}</a>
+                                    <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate @class(['truncate text-sm font-semibold hover:underline', 'text-gray-900 dark:text-white' => filled($lead->name) || filled($lead->company), 'text-gray-400' => ! filled($lead->name) && ! filled($lead->company)])>{{ $lead->title() }}</a>
                                     @if ($ours)<span class="chip chip-down shrink-0" title="Son mesaj onlardan" data-sales-ball>Sende{{ $waitDays ? ' · '.$waitDays.' g' : '' }}</span>@endif
                                     <span class="chip {{ $stChip }} lg:hidden">{{ $lead->statusLabel() }}</span>
                                 </div>
@@ -270,6 +271,8 @@
                             <div class="min-w-0 text-[13px]" data-sales-next>
                                 @if (! $lead->isOpen())
                                     <span class="text-gray-500">{{ $lead->stage === 'won' ? 'Müşteri oldu '.$lead->won_at?->timezone('Europe/Istanbul')->format('d.m.Y') : 'Kapandı '.$lead->lost_at?->timezone('Europe/Istanbul')->format('d.m.Y') }}</span>
+                                @elseif ($due === null && $lead->history_only)
+                                    <button type="button" wire:click="openDialog('todo', {{ $lead->id }})" class="text-gray-400 hover:underline" title="Bu konuşma yalnızca geçmişten biliniyor; telefonda cevaplanıp cevaplanmadığı belli değil. Canlı hatta yeni mesaj gelince adım kendiliğinden yazılır.">Geçmişten · adım yaz</button>
                                 @elseif ($due === null)
                                     <button type="button" wire:click="openDialog('todo', {{ $lead->id }})" class="font-semibold text-error-600 hover:underline">Adım yok</button>
                                 @else
@@ -290,6 +293,9 @@
                             </div>
                             {{-- ⋯ --}}
                             <div class="flex items-center gap-1 lg:justify-end">
+                                @if ($lead->isArchived())
+                                    <button type="button" wire:click="restore({{ $lead->id }})" class="btn h-7 px-2.5 text-[12px]" data-sales-restore-quick>Geri al</button>
+                                @endif
                                 <div class="relative" x-data="{ menu: false }" x-on:click.outside="menu = false">
                                     <button type="button" x-on:click="menu = !menu" class="btn h-7 px-2.5 text-[12px]" aria-label="İşlemler" data-sales-menu-open>⋯</button>
                                     <div x-show="menu" x-cloak class="absolute right-0 z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white py-1 text-[13px] shadow-lg dark:border-gray-700 dark:bg-gray-900">
@@ -308,6 +314,11 @@
                                         @endif
                                         <button type="button" x-on:click="menu = false" wire:click="openDialog('offer', {{ $lead->id }})" class="block w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5" data-sales-offer>Teklif{{ $lead->offer_amount ? ' · '.$n($lead->offer_amount).' ₺' : '' }}</button>
                                         <button type="button" x-on:click="menu = false" wire:click="openDialog('from', {{ $lead->id }})" class="block w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5">Kimden</button>
+                                        @if ($lead->isArchived())
+                                            <button type="button" x-on:click="menu = false" wire:click="restore({{ $lead->id }})" class="block w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5" data-sales-restore>Arşivden geri al</button>
+                                        @elseif ($lead->isOpen() && ! $lead->isCustomer())
+                                            <button type="button" x-on:click="menu = false" wire:click="archive({{ $lead->id }})" class="block w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5" data-sales-archive>Arşive al</button>
+                                        @endif
                                         <div class="my-1 border-t border-gray-100 dark:border-gray-800"></div>
                                         <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="block px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5">Kartı aç</a>
                                         @if ($wa !== null)<a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="block px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5">WhatsApp'ta aç</a>@endif

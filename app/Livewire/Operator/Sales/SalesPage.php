@@ -22,10 +22,12 @@ use App\Services\Sales\ReferralRewards;
 use App\Services\Sales\SalesBrain;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesMonthReport;
+use App\Services\Sales\SalesTidy;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
 use App\Services\Sales\StandingRules;
 use App\Support\Roles;
+use App\Support\WhatsApp\MessageText;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -172,10 +174,26 @@ final class SalesPage extends Component
     /** The inner menu: one of the six statuses (the same table, filtered). */
     public function showStatus(string $status): void
     {
-        $this->status = isset(SalesLead::STATUSES[$status]) ? $status : 'devam';
+        $this->status = isset(SalesLead::STATUSES[$status]) || $status === 'arsiv' ? $status : 'devam';
         $this->tab = 'adaylar';
         $this->view = 'acik';
         $this->stageFilter = '';
+    }
+
+    /** ⋯ › Arşive al: the card leaves every list and count; nothing is deleted. */
+    public function archive(int $id, SalesTidy $tidy): void
+    {
+        $lead = SalesLead::query()->findOrFail($id);
+        $tidy->archive($lead, auth()->user());
+        $this->say($lead->title().' arşive alındı. Satış › Arşiv\'den tek tıkla geri alınır.');
+    }
+
+    /** Arşiv › Geri al. */
+    public function restore(int $id, SalesTidy $tidy): void
+    {
+        $lead = SalesLead::query()->findOrFail($id);
+        $tidy->restore($lead, auth()->user());
+        $this->say($lead->title().' arşivden geri alındı.');
     }
 
     /** ⋯ › Durum değiştir. Olumsuz asks why first; Müşteri opens the customer and brand. */
@@ -630,7 +648,7 @@ final class SalesPage extends Component
         if (! isset(self::SORTS[$this->sort])) {
             $this->sort = 'oncelik';
         }
-        if (! isset(SalesLead::STATUSES[$this->status])) {
+        if (! isset(SalesLead::STATUSES[$this->status]) && $this->status !== 'arsiv') {
             $this->status = 'devam';
         }
         $all = SalesLead::query()->open()->relevant()->get();
@@ -647,6 +665,7 @@ final class SalesPage extends Component
         }
         $counts['durum_olumsuz'] = SalesLead::query()->relevant()->where('stage', 'lost')->whereNotIn('lifecycle', ['customer', 'former'])->count();
         $counts['durum_aday_degil'] = SalesLead::query()->where('lifecycle', 'irrelevant')->count();
+        $counts['durum_arsiv'] = SalesLead::query()->archived()->count();
         $counts['durum_musteri'] = SalesLead::query()->where(fn ($q) => $q->whereIn('lifecycle', ['customer', 'former'])->orWhere('stage', 'won'))->where('lifecycle', '!=', 'irrelevant')->count();
         $counts['isimsiz'] = $open->filter(fn (SalesLead $l): bool => blank($l->name))->count();
         $counts['musteriler'] = Brand::query()->operational()->count();
@@ -664,6 +683,8 @@ final class SalesPage extends Component
             $rows = collect(); // the customer table is built from brands and agreements, not from the cards
         } elseif ($this->status === 'olumsuz' || $this->view === 'kaybedilen') {
             $rows = SalesLead::query()->relevant()->where('stage', 'lost')->whereNotIn('lifecycle', ['customer', 'former'])->orderByDesc('lost_at')->limit(300)->get();
+        } elseif ($this->status === 'arsiv') {
+            $rows = SalesLead::query()->archived()->orderByDesc('archived_at')->orderByDesc('id')->limit(300)->get();
         } elseif ($this->status === 'aday_degil') {
             $rows = SalesLead::query()->where('lifecycle', 'irrelevant')->orderByDesc('updated_at')->limit(300)->get();
         } elseif ($this->status === 'musteri') {
@@ -751,7 +772,7 @@ final class SalesPage extends Component
                     if ((string) $latest[$message->conversation_id] !== (string) $message->getRawOriginal('sent_at')) {
                         continue;
                     }
-                    $text = filled($message->body) ? (string) $message->body : '('.($message->message_type ?: 'medya').')';
+                    $text = filled($message->body) ? MessageText::clean((string) $message->body) : '('.($message->message_type ?: 'medya').')';
                     $put((int) $byConversation[$message->conversation_id], CarbonImmutable::instance($message->sent_at), $message->direction === 'outgoing' ? 'Yazdın' : 'Yazdı', $text);
                 }
             }

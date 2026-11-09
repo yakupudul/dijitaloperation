@@ -11,6 +11,7 @@ use App\Models\WhatsAppMessage;
 use App\Services\Sales\CustomerSignals;
 use App\Services\Sales\SalesLeads;
 use App\Services\WhatsApp\WhatsAppConnection;
+use App\Support\WhatsApp\MessageText;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
@@ -228,14 +229,14 @@ final class InboxQueue
             return collect();
         }
         $leads = $this->leadsFor($conversations);
-        $latest = WhatsAppMessage::query()->whereIn('conversation_id', $conversations->pluck('id'))
-            ->selectRaw('max(id) as id')->groupBy('conversation_id')->pluck('id');
         $previews = [];
-        foreach (WhatsAppMessage::query()->whereKey($latest)->get(['conversation_id', 'body', 'direction']) as $row) {
+        foreach (self::latestMessages($conversations->pluck('id')->all()) as $row) {
             $previews[$row->conversation_id] = ($row->direction === 'outgoing' ? 'Sen: ' : '').self::oneLine((string) $row->body);
         }
+        $live = WhatsAppMessage::query()->whereIn('conversation_id', $conversations->pluck('id'))->where('direction', 'incoming')->where('is_history', false)
+            ->distinct()->pluck('conversation_id')->flip();
 
-        return $conversations->map(fn (WhatsAppConversation $c): InboxItem => $this->conversationItem($c, $leads, $previews[$c->id] ?? '', $c->last_message_at))->values();
+        return $conversations->map(fn (WhatsAppConversation $c): InboxItem => $this->conversationItem($c, $leads, $previews[$c->id] ?? '', $c->last_message_at, isset($live[$c->id])))->values();
     }
 
     /** How many chats the inbox line holds (the "Sohbetler" tab count). */
@@ -259,6 +260,8 @@ final class InboxQueue
             ->whereNull('done_at')->whereNull('opted_out_at')->whereNotNull('last_incoming_at')
             ->whereColumn('last_incoming_at', '>=', 'last_message_at')
             ->where('last_incoming_at', '>=', $since)
+            // Imported history never owes an answer (yakup 2026-11-09): whether it was answered on the phone is unknown.
+            ->whereHas('messages', fn ($q) => $q->where('direction', 'incoming')->where('is_history', false))
             ->where(fn ($q) => $q->whereNull('snoozed_until')->orWhere('snoozed_until', '<=', now()))
             ->orderByDesc('last_incoming_at')->limit(200)->get();
         if ($conversations->isEmpty()) {
@@ -266,14 +269,12 @@ final class InboxQueue
         }
         $leads = $this->leadsFor($conversations);
         $previews = [];
-        $latest = WhatsAppMessage::query()->whereIn('conversation_id', $conversations->pluck('id'))->where('direction', 'incoming')
-            ->selectRaw('max(id) as id')->groupBy('conversation_id')->pluck('id');
-        foreach (WhatsAppMessage::query()->whereKey($latest)->get(['conversation_id', 'body']) as $row) {
+        foreach (self::latestMessages($conversations->pluck('id')->all(), 'incoming') as $row) {
             $previews[$row->conversation_id] = self::oneLine((string) $row->body);
         }
         $items = collect();
         foreach ($conversations as $conversation) {
-            $item = $this->conversationItem($conversation, $leads, $previews[$conversation->id] ?? '');
+            $item = $this->conversationItem($conversation, $leads, $previews[$conversation->id] ?? '', null, true);
             // A record marked İlgisiz leaves the queue; a new message reopens the record (readConversation) and brings it back.
             if ($item->lead?->isIrrelevant()) {
                 continue;
@@ -302,15 +303,16 @@ final class InboxQueue
     }
 
     /** @param  array{leads: Collection<int, SalesLead>, customerLeads: Collection<int, SalesLead>, customers: Collection<int, Customer>}  $leads */
-    private function conversationItem(WhatsAppConversation $conversation, array $leads, ?string $preview = null, ?CarbonInterface $at = null): InboxItem
+    private function conversationItem(WhatsAppConversation $conversation, array $leads, ?string $preview = null, ?CarbonInterface $at = null, ?bool $live = null): InboxItem
     {
+        $live ??= WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'incoming')->where('is_history', false)->exists();
         $lead = $leads['leads'][$conversation->id] ?? ($conversation->customer_id !== null ? ($leads['customerLeads'][$conversation->customer_id] ?? null) : null);
         $customer = $conversation->customer_id !== null ? ($leads['customers'][$conversation->customer_id] ?? Customer::query()->find($conversation->customer_id)) : $lead?->customer;
         if ($preview === null) {
-            $preview = self::oneLine((string) WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'incoming')->orderByDesc('id')->value('body'));
+            $preview = self::oneLine((string) WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'incoming')->orderByDesc('sent_at')->orderByDesc('id')->value('body'));
         }
         $title = $customer?->name ?? $lead?->title() ?? (filled($conversation->contact_name) ? (string) $conversation->contact_name : self::phoneLabel($conversation->contact_id));
-        $owed = $conversation->done_at === null && $conversation->last_incoming_at !== null && ($conversation->last_message_at === null || $conversation->last_incoming_at->gte($conversation->last_message_at));
+        $owed = $live && $conversation->done_at === null && $conversation->last_incoming_at !== null && ($conversation->last_message_at === null || $conversation->last_incoming_at->gte($conversation->last_message_at));
 
         return new InboxItem(
             key: 'wa-'.$conversation->id, type: InboxItem::WHATSAPP, id: (int) $conversation->id,
@@ -437,7 +439,34 @@ final class InboxQueue
 
     public static function oneLine(string $text, int $max = 160): string
     {
-        return mb_substr(trim((string) preg_replace('/\s+/u', ' ', $text)), 0, $max);
+        return mb_substr(trim((string) preg_replace('/\s+/u', ' ', MessageText::clean($text))), 0, $max);
+    }
+
+    /**
+     * The newest message of each chat by when it was sent (not by row id: the history sync stores old messages after
+     * newer live ones), optionally only one direction.
+     *
+     * @param  list<int>  $conversationIds
+     * @return Collection<int, WhatsAppMessage>
+     */
+    public static function latestMessages(array $conversationIds, ?string $direction = null): Collection
+    {
+        if ($conversationIds === []) {
+            return collect();
+        }
+        $base = WhatsAppMessage::query()->whereIn('conversation_id', $conversationIds)->when($direction, fn ($q, $d) => $q->where('direction', $d));
+        $latest = (clone $base)->selectRaw('conversation_id, max(sent_at) as at')->groupBy('conversation_id')->pluck('at', 'conversation_id');
+        if ($latest->isEmpty()) {
+            return collect();
+        }
+        $found = [];
+        foreach ((clone $base)->whereIn('sent_at', $latest->values()->unique()->all())->orderBy('id')->get(['id', 'conversation_id', 'direction', 'body', 'sent_at']) as $row) {
+            if ((string) ($latest[$row->conversation_id] ?? '') === (string) $row->getRawOriginal('sent_at')) {
+                $found[$row->conversation_id] = $row; // the last stored of equal times wins
+            }
+        }
+
+        return collect(array_values($found));
     }
 
     public static function phoneLabel(?string $number): string

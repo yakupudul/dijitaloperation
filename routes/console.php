@@ -90,6 +90,7 @@ use App\Services\Sales\LeadIntake;
 use App\Services\Sales\LeadResearcher;
 use App\Services\Sales\SalesBrain;
 use App\Services\Sales\SalesLeads;
+use App\Services\Sales\SalesTidy;
 use App\Services\Site\Backlinks\BingBacklinkSync;
 use App\Services\Site\Backlinks\LinkDesk;
 use App\Services\Site\Backlinks\LinkMailer;
@@ -1846,7 +1847,12 @@ Schedule::command('moxdop:showcase:daily')
 
 // Satış (2026-11-04): at 08:30 Claude writes the text of every card due today, so Bugün opens with the messages ready.
 // Yeni aday araştırması (yakup 2026-11-08): a new chat whose research did not start with its message starts here.
-Schedule::call(fn () => LeadResearcher::sweep())
+// Özellik dondurması (2026-11-09): no new scheduled job; the same round also keeps history-only chat cards out of the
+// work ("ilk tam senkron bitmeden borç üretme": no debt, no "Cevap yaz", stale ones to Satış › Arşiv).
+Schedule::call(function (): void {
+    app(SalesTidy::class)->sweep();
+    LeadResearcher::sweep();
+})
     ->everyTenMinutes()->name('sales-lead-research')->withoutOverlapping(10);
 // Satış beyni (yakup 2026-11-08): every deal closed in the last 30 days is read once for lessons and questions.
 Schedule::call(fn () => SalesBrain::sweep())

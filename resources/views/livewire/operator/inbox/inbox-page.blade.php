@@ -141,7 +141,7 @@
                         $hue = crc32($row->title) % 360;
                     @endphp
                     <button type="button" wire:key="inbox-{{ $row->key }}" wire:click="select('{{ $row->key }}')" @class(['flex w-full items-center gap-3 px-3 text-left hover:bg-gray-50 dark:hover:bg-white/[0.04]', 'bg-gray-100 dark:bg-white/[0.08]' => $selected?->key === $row->key]) data-inbox-item="{{ $row->key }}" data-inbox-type="{{ $row->type }}">
-                        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold text-white" style="background: hsl({{ $hue }} 35% 52%)">{{ $initial }}</span>
+                        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[15px] font-semibold text-white" style="background: hsl({{ $hue }} 35% 52%)">@if ($initial === '#')<svg class="size-5 opacity-90" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9Zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5Z"/></svg>@else{{ $initial }}@endif</span>
                         <span class="min-w-0 flex-1 border-b border-gray-100 py-3 dark:border-gray-800">
                             <span class="flex items-baseline justify-between gap-2">
                                 <span class="truncate text-[15px] text-gray-900 dark:text-white">{{ $row->title }}</span>
@@ -167,7 +167,8 @@
         </section>
 
         @if ($selected === null)
-            <section class="hidden flex-1 items-center justify-center bg-gray-50 p-8 text-center md:flex dark:bg-white/[0.02]">
+            {{-- On a wide screen the newest conversation opens by itself (yakup 2026-11-09: an empty pane felt like a system). --}}
+            <section class="hidden flex-1 items-center justify-center bg-gray-50 p-8 text-center md:flex dark:bg-white/[0.02]" x-data x-init="if (window.matchMedia('(min-width: 768px)').matches) { const first = document.querySelector('[data-inbox-page] [data-inbox-item]'); if (first) first.click(); }" data-inbox-autoselect>
                 <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-white">Soldan bir sohbet seç</p>
                     <p class="mt-1 text-sm text-gray-500">Mesajlar ortada, Claude'un hazırladığı cevap en altta. Kontrol et, gerekirse düzelt, Gönder'e bas.</p>

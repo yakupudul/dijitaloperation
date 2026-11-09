@@ -78,7 +78,7 @@ class SalesStatusTableTest extends TestCase
 
         $page = Livewire::test(SalesPage::class);
         $page->assertSee('Devam eden')->assertSee('En güçlü adaylar')->assertSee('Müşteriye dönüşenler')->assertSee('Rapor')->assertSee('Ayarlar')
-            ->assertSee('Dr. Ayşe')->assertDontSee('Mehmet Bey');
+            ->assertSee('Dr. Ayşe')->assertDontSeeHtml('data-sales-lead="'.$thinking->id.'"');
         $page->call('showStatus', 'kararsiz')->assertSee('Mehmet Bey')->assertSee('Çağrı')->assertDontSee('Dr. Ayşe');
 
         // Güçlü aday is the operator's mark; Claude's hint goes away once marked.

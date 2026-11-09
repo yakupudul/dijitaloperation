@@ -265,6 +265,11 @@ final class SalesLeads
         $created = ! $lead->exists;
         $this->readConversation($lead, $conversation, $created);
         $this->backdate($lead, $conversation);
+        // An old chat that comes in with the history goes straight to the archive: no card in the lists, no count.
+        if ($created && SalesTidy::isStale($lead)) {
+            $lead->archived_at = now();
+            $lead->archive_reason = 'history';
+        }
         $lead->save();
         if ($created) {
             $this->event($lead, 'system', 'WhatsApp görüşmesinden kart açıldı.', $conversation->created_at);
@@ -319,7 +324,14 @@ final class SalesLeads
         }
         $this->readConversation($lead, $conversation, false);
         $this->backdate($lead, $conversation);
+        if (SalesTidy::isStale($lead)) {
+            $lead->archived_at = now();
+            $lead->archive_reason = 'history';
+        }
         $lead->save();
+        if ($lead->history_only || $lead->isArchived()) {
+            return;
+        }
         // They wrote: Claude answers in the background (unless the operator is already editing a text of their own).
         if ($lead->isOpen() && $lead->last_incoming_at !== null && ($lead->last_contact_at === null || $lead->last_incoming_at->gt($lead->last_contact_at))
             && ($lead->draft_at === null || $lead->last_incoming_at->gt($lead->draft_at))
@@ -385,6 +397,17 @@ final class SalesLeads
         $lastOut = WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'outgoing')->max('sent_at');
         $lastOut = $lastOut !== null ? CarbonImmutable::parse($lastOut) : null;
         $lastIn = $conversation->last_incoming_at;
+        // Imported history (the phone backup, Meta's history sync) tells what was said, not whether it was answered on
+        // the phone: until a live message arrives the card owes nothing and gets no automatic step (yakup 2026-11-09).
+        $messages = WhatsAppMessage::query()->where('conversation_id', $conversation->id);
+        $lead->history_only = (clone $messages)->exists() && ! (clone $messages)->where('is_history', false)->exists();
+        if (! $lead->history_only && $lead->archived_at !== null) {
+            $lead->archived_at = null;
+            $lead->archive_reason = null;
+            if ($lead->exists) {
+                $this->event($lead, 'system', 'Arşivden döndü: canlı hatta yeni mesaj var.');
+            }
+        }
         // A call or a meeting logged by hand can be newer than the last WhatsApp message: keep the later one.
         $lead->last_contact_at = $lastOut !== null && ($lead->last_contact_at === null || $lastOut->gt($lead->last_contact_at)) ? $lastOut : $lead->last_contact_at;
         $lead->last_incoming_at = $lastIn ?? $lead->last_incoming_at;
@@ -420,6 +443,16 @@ final class SalesLeads
             }
         }
         $theyWroteLast = $lastIn !== null && ($lastOut === null || $lastIn->gt($lastOut));
+        if ($lead->history_only && ($theyWroteLast || $lastOut === null)) {
+            // History alone makes no debt: "they wrote last" or "nobody wrote yet" may have been answered on the phone. The
+            // step waits for a live message or the operator's own plan. A follow-up after our own message stays.
+            if ($created || SalesTidy::isUnsafeStep($lead->next_step)) {
+                $lead->next_step = null;
+                $lead->next_step_at = null;
+            }
+
+            return;
+        }
         if ($theyWroteLast && ! FollowUpSequence::isCold($lead)) {
             [$lead->next_step, $lead->next_step_at] = FollowUpSequence::answerNow();
         } elseif ($lead->next_step_at === null || $created) {
@@ -835,6 +868,13 @@ final class SalesLeads
         }
         if ($lead->isCustomer() && in_array($status, ['olumsuz', 'aday_degil'], true)) {
             throw ValidationException::withMessages(['status' => 'Bir müşteri olumsuz ya da aday olmayan yapılamaz; açık fırsatı kartından kapat.']);
+        }
+        if ($lead->archived_at !== null) {
+            $lead->archived_at = null;
+            $lead->archive_reason = null;
+        }
+        if ($lead->isDirty(['archived_at'])) {
+            $lead->save();
         }
         if ($status === 'musteri') {
             $this->win($lead, $user);
