@@ -8,6 +8,7 @@ use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
 use App\Models\SocialThread;
 use App\Models\User;
+use App\Services\Social\InstagramFeed;
 use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
@@ -42,6 +43,9 @@ final class SocialPage extends Component
 
     /** The post opened over the grid (0 = none). */
     public int $openPost = 0;
+
+    /** A live Instagram post shared outside MoxDOP, opened over the grid (its media id). */
+    public string $openIg = '';
 
     public string $message = '';
 
@@ -133,12 +137,29 @@ final class SocialPage extends Component
 
     public function openPost(int $id): void
     {
+        $this->openIg = '';
         $this->openPost = SocialPost::query()->whereKey($id)->exists() ? $id : 0;
     }
 
     public function closePost(): void
     {
         $this->openPost = 0;
+        $this->openIg = '';
+    }
+
+    public function openIgPost(string $id): void
+    {
+        $this->openPost = 0;
+        $this->openIg = preg_match('/^\d{1,30}$/', $id) === 1 ? $id : '';
+    }
+
+    /** Reads the live Instagram posts again (the grid keeps them 10 minutes). */
+    public function refreshFeed(): void
+    {
+        $account = SocialAccount::query()->where('platform', SocialAccount::INSTAGRAM)->where('enabled', true)->orderBy('id')->first();
+        if ($account !== null) {
+            app(InstagramFeed::class)->posts($account, true);
+        }
     }
 
     public function publishNow(int $id): void
@@ -335,16 +356,32 @@ final class SocialPage extends Component
             $published = SocialPost::query()->whereNull('removed_at')
                 ->whereHas('targets', fn ($q) => $q->whereIn('status', [SocialPostTarget::PUBLISHED, SocialPostTarget::DONE]))
                 ->with(['targets.account'])->orderByDesc('publish_at')->limit(90)->get();
+            $account = SocialAccount::query()->where('platform', SocialAccount::INSTAGRAM)->where('enabled', true)->orderBy('id')->first();
+            // The grid is what is live on Instagram (shared from here or from the phone), newest first; a post sent
+            // from here shows its own record (approve, take down), anything else opens on Instagram.
+            $feed = $account !== null ? app(InstagramFeed::class)->posts($account) : [];
+            $byExternal = $published->filter(fn (SocialPost $p): bool => $p->targets->contains(fn ($t) => $t->account?->platform === SocialAccount::INSTAGRAM && $t->external_id))
+                ->keyBy(fn (SocialPost $p): string => (string) $p->targets->first(fn ($t) => $t->account?->platform === SocialAccount::INSTAGRAM && $t->external_id)->external_id);
+            $grid = collect($feed)->map(fn (array $m): array => ['post' => $byExternal->get($m['id']), 'ig' => $m, 'at' => $m['at']]);
+            $seen = $grid->pluck('ig.id')->flip();
+            foreach ($published as $post) {
+                $ext = (string) ($post->targets->first(fn ($t) => $t->account?->platform === SocialAccount::INSTAGRAM)?->external_id ?? '');
+                if ($ext === '' || ! isset($seen[$ext])) {
+                    $grid->push(['post' => $post, 'ig' => null, 'at' => $post->publish_at->toIso8601String()]);
+                }
+            }
             $profile = [
-                'account' => SocialAccount::query()->where('platform', SocialAccount::INSTAGRAM)->where('enabled', true)->orderBy('id')->first(),
-                'ready' => $ready, 'published' => $published, 'waiting' => $ready->where('status', SocialPost::DRAFT)->count(),
+                'account' => $account, 'ready' => $ready, 'grid' => $grid->sortByDesc('at')->values(),
+                'waiting' => $ready->where('status', SocialPost::DRAFT)->count(),
             ];
             $opened = $this->openPost > 0 ? SocialPost::query()->with(['targets.account'])->find($this->openPost) : null;
+            $openedIg = $this->openIg !== '' ? collect($feed)->firstWhere('id', $this->openIg) : null;
         }
 
         return view('livewire.operator.social.social-page', [
             'profile' => $profile,
             'opened' => $opened,
+            'openedIg' => $openedIg ?? null,
             'waitingCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
             'weeks' => $weeks,
             'manual' => $manual,

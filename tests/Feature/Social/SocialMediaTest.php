@@ -411,7 +411,13 @@ final class SocialMediaTest extends TestCase
 
     public function test_instagram_view_shows_ready_and_published_posts_and_publishes_or_takes_down(): void
     {
-        Http::fake(['*' => Http::response(['success' => true])]);
+        Http::fake([
+            '*/IG1/media*' => Http::response(['data' => [
+                ['id' => '1789', 'permalink' => 'https://www.instagram.com/p/abc/', 'caption' => 'Bizden', 'media_type' => 'IMAGE', 'media_url' => 'https://cdn.example/a.jpg', 'timestamp' => '2026-11-08T10:00:00+0000', 'like_count' => 4, 'comments_count' => 1],
+                ['id' => '2001', 'permalink' => 'https://www.instagram.com/p/tel/', 'caption' => 'Telefondan paylaşılan', 'media_type' => 'VIDEO', 'thumbnail_url' => 'https://cdn.example/t.jpg', 'timestamp' => '2026-11-07T10:00:00+0000', 'like_count' => 9, 'comments_count' => 2],
+            ]]),
+            '*' => Http::response(['success' => true]),
+        ]);
         $ready = $this->makePost('image');
         $out = $this->makePost('image');
         $out->update(['status' => SocialPost::PUBLISHED, 'publish_at' => now()->subDay()]);
@@ -425,6 +431,8 @@ final class SocialMediaTest extends TestCase
         $this->assertSame('approved', $ready->fresh()->status);
         $this->assertTrue($ready->fresh()->publish_at->lessThanOrEqualTo(now()));
 
+        $page->assertSeeHtml('data-social-tile="ig-2001"')->assertDontSeeHtml('data-social-tile="ig-1789"')
+            ->call('openIgPost', '2001')->assertSee('Telefondan paylaşılan')->call('closePost');
         $page->call('openPost', $out->id)->assertSee('Instagram\'da aç', false)->call('takeDown', $out->id)->assertSee('Instagram tarafında');
         $this->assertNotNull($out->fresh()->removed_at);
         if ($fbTarget !== null) {
