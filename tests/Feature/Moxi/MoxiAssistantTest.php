@@ -14,6 +14,7 @@ use App\Models\SystemChange;
 use App\Models\User;
 use App\Services\AiTasks\AiWorkers;
 use App\Services\Moxi\MoxiAgent;
+use App\Services\Moxi\MoxiTools;
 use App\Services\Sales\SalesLeads;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -185,6 +186,13 @@ class MoxiAssistantTest extends TestCase
         Livewire::test(Moxi::class)->assertSee("Moxi'nin önerisi", false)->call('decide', $audit->id, true);
         $this->assertSame(SystemChange::APPROVED, $change->fresh()->status);
         $this->assertSame(MoxiMessage::DONE, $audit->fresh()->status);
+    }
+
+    public function test_every_tool_schema_has_object_properties_as_the_api_requires(): void
+    {
+        foreach (app(MoxiTools::class)->definitions() as $tool) {
+            $this->assertStringStartsWith('{', (string) json_encode($tool['input_schema']['properties']), $tool['name'].': properties must be a JSON object');
+        }
     }
 
     public function test_chat_text_is_escaped_and_only_safe_links_are_made(): void

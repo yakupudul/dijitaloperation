@@ -83,7 +83,7 @@ final class MoxiTools
             $array = $tool->toArray();
             $tools[] = ['name' => $name, 'description' => (string) $array['description'], 'input_schema' => self::schema((array) $array['inputSchema'])];
         }
-        $object = fn (array $properties, array $required = []): array => ['type' => 'object', 'properties' => $properties] + ($required !== [] ? ['required' => $required] : []);
+        $object = fn (array $properties, array $required = []): array => ['type' => 'object', 'properties' => $properties === [] ? (object) [] : $properties] + ($required !== [] ? ['required' => $required] : []);
         $str = fn (string $description, ?array $enum = null): array => ['type' => 'string', 'description' => $description] + ($enum !== null ? ['enum' => $enum] : []);
         $int = fn (string $description): array => ['type' => 'integer', 'description' => $description];
         $date = $str('Tarih, YYYY-AA-GG.');
