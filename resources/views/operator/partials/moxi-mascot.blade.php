@@ -1,87 +1,69 @@
-{{-- Moxi (panel asistanı): the samurai drawn as one SVG; oil-paint look from an SVG filter, no image file. --}}
+{{-- Moxi (panel asistanı), kurumsal sürüm (yakup 2026-11-09 "daha donuk, kurumsal"): sakin bir danışman; koyu takım,
+     çapraz yaka ve ince petrol kuşak samuray izini taşır, şapka Moximu ikonu. Düz çizim, filtre yok. Sınıf adları
+     (m-head, m-eyes, m-arm-r…) Moxi'nin hareketleri için; değiştirme. --}}
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
-<filter id="moxi-oil" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB">
- <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="4" result="n"/>
- <feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G" result="d"/>
- <feTurbulence type="fractalNoise" baseFrequency="0.05 0.16" numOctaves="3" seed="11" result="t"/>
- <feDiffuseLighting in="t" surfaceScale=".8" lighting-color="#ffffff" result="l"><feDistantLight azimuth="235" elevation="58"/></feDiffuseLighting>
- <feComponentTransfer in="l" result="l2"><feFuncR type="linear" slope="1.12" intercept=".02"/><feFuncG type="linear" slope="1.12" intercept=".02"/><feFuncB type="linear" slope="1.12" intercept=".02"/></feComponentTransfer>
- <feBlend in="d" in2="l2" mode="multiply" result="m"/>
- <feComposite in="m" in2="d" operator="in"/>
-</filter>
-<filter id="moxi-oilsoft" x="-20%" y="-20%" width="140%" height="140%">
- <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="7" result="n"/>
- <feDisplacementMap in="SourceGraphic" in2="n" scale="14" xChannelSelector="R" yChannelSelector="G"/>
-</filter>
-<radialGradient id="moxi-gSkin" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#f2e1cf"/><stop offset=".55" stop-color="#dcc0a6"/><stop offset="1" stop-color="#a7866d"/></radialGradient>
-<linearGradient id="moxi-gTeal" x1="0" y1="0" x2=".3" y2="1"><stop offset="0" stop-color="#5f7f7b"/><stop offset=".55" stop-color="#34504d"/><stop offset="1" stop-color="#22312f"/></linearGradient>
-<linearGradient id="moxi-gHat" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1f2b2a"/><stop offset=".28" stop-color="#3e5a57"/><stop offset=".45" stop-color="#9fb3ae"/><stop offset=".56" stop-color="#4a6763"/><stop offset=".8" stop-color="#2f4341"/><stop offset="1" stop-color="#1d2726"/></linearGradient>
-<linearGradient id="moxi-gGold" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#e3d6b4"/><stop offset=".45" stop-color="#b59a5e"/><stop offset="1" stop-color="#7c6844"/></linearGradient>
-<linearGradient id="moxi-gHak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d3a38"/><stop offset="1" stop-color="#1f1d1c"/></linearGradient>
-<linearGradient id="moxi-gRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8f4a3e"/><stop offset="1" stop-color="#5e2a23"/></linearGradient>
+<linearGradient id="moxi-gSkin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#efd9c6"/><stop offset="1" stop-color="#dcbba1"/></linearGradient>
+<linearGradient id="moxi-gSuit" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a4144"/><stop offset="1" stop-color="#262b2d"/></linearGradient>
+<linearGradient id="moxi-gHat" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1c3f3c"/><stop offset=".42" stop-color="#2d625e"/><stop offset=".52" stop-color="#3f7873"/><stop offset="1" stop-color="#1f4542"/></linearGradient>
+<linearGradient id="moxi-gBrass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8c79c"/><stop offset="1" stop-color="#9c8456"/></linearGradient>
 </defs></svg>
 <svg viewBox="0 0 200 240" aria-hidden="true">
-<circle cx="100" cy="122" r="84" fill="#d8d3c4" opacity=".35" filter="url(#moxi-oilsoft)"/>
-<ellipse class="m-shadow" cx="100" cy="226" rx="46" ry="7" fill="#1b2a28" opacity=".22"/>
-<g class="m-all" filter="url(#moxi-oil)">
- <g class="m-tails"><path d="M140 94 C158 88 168 100 186 92 C176 104 160 100 142 104Z" fill="url(#moxi-gRed)"/><path d="M140 100 C156 104 160 118 178 116 C164 126 152 114 140 106Z" fill="url(#moxi-gRed)"/></g>
- <path d="M150 204 L62 132" stroke="#2a1d19" stroke-width="10" stroke-linecap="round"/>
- <path d="M150 204 L62 132" stroke="#5a3a2c" stroke-width="3" stroke-linecap="round" opacity=".6"/>
- <ellipse cx="60" cy="130" rx="8" ry="5" transform="rotate(40 60 130)" fill="url(#moxi-gGold)"/>
- <path d="M57 127 L38 106" stroke="#efe3c8" stroke-width="8.5" stroke-linecap="round"/>
- <path d="M57 127 L38 106" stroke="#2a1d19" stroke-width="8.5" stroke-dasharray="2.5 3" opacity=".75"/>
- <path class="m-glint" d="M60 131 L36 103" stroke="#f4f1e8" stroke-width="3.5" stroke-linecap="round"/>
- <circle cx="37" cy="105" r="4.2" fill="url(#moxi-gGold)"/>
- <path d="M70 186 L130 186 L144 220 Q100 228 56 220 Z" fill="url(#moxi-gHak)"/>
- <path d="M88 188 L84 222 M100 188 L100 224 M112 188 L116 222" stroke="#000" stroke-width="1.6" opacity=".35"/>
- <ellipse cx="82" cy="223" rx="11" ry="5" fill="#1d1513"/><ellipse cx="118" cy="223" rx="11" ry="5" fill="#1d1513"/>
- <path d="M68 150 Q100 138 132 150 L135 190 L65 190 Z" fill="url(#moxi-gTeal)"/>
- <path d="M71 150 L36 148 Q31 158 40 166 L74 168 Z" fill="url(#moxi-gGold)"/>
- <path d="M129 150 L164 148 Q169 158 160 166 L126 168 Z" fill="url(#moxi-gGold)"/>
- <path d="M72 152 L87 149 L93 187 L70 187 Z" fill="url(#moxi-gGold)"/><path d="M128 152 L113 149 L107 187 L130 187 Z" fill="url(#moxi-gGold)"/>
- <path d="M86 147 L100 178 L114 147 L107 147 L100 163 L93 147Z" fill="#f1ece2"/>
- <g transform="translate(52 156)"><circle r="6.5" fill="#34504d"/><circle cx="-2.2" cy="-2.2" r="1.8" fill="#c9b78a"/><circle cx="2.2" cy="-2.2" r="1.8" fill="#c9b78a"/><circle cx="-2.2" cy="2.2" r="1.8" fill="#c9b78a"/><circle cx="2.2" cy="2.2" r="1.8" fill="#c9b78a"/></g>
- <g class="m-r3" transform="translate(148 156)"><circle r="6.5" fill="#7d3b31"/><circle r="2.6" fill="#c9b78a"/><path d="M-3 6 L-5 15 M0 6 L0 16 M3 6 L5 15" stroke="#7d3b31" stroke-width="2" stroke-linecap="round"/></g>
- <rect x="64" y="181" width="72" height="10" rx="3" fill="#7d3b31"/><path d="M66 184 L134 184" stroke="#b98b80" stroke-width="1.5" opacity=".6"/>
- <path d="M58 158 Q48 172 56 190 L72 186 Q70 170 72 160Z" fill="url(#moxi-gTeal)"/><circle cx="62" cy="190" r="7" fill="url(#moxi-gSkin)"/>
- <g class="m-arm-r"><path d="M142 158 Q152 172 144 190 L128 186 Q130 170 128 160Z" fill="url(#moxi-gTeal)"/><circle cx="138" cy="190" r="7" fill="url(#moxi-gSkin)"/>
-  <g class="m-scroll"><rect x="134" y="176" width="34" height="22" rx="2" fill="#f1ece2"/><rect x="132" y="174" width="4" height="26" rx="2" fill="#7a4b2a"/><rect x="166" y="174" width="4" height="26" rx="2" fill="#7a4b2a"/><path d="M140 182 H162 M140 187 H158 M140 192 H160" stroke="#34504d" stroke-width="1.6"/><circle cx="158" cy="193" r="3" fill="#7d3b31"/></g></g>
+<ellipse class="m-shadow" cx="100" cy="226" rx="40" ry="5" fill="#1b2a28" opacity=".14"/>
+<g class="m-all">
+ <g class="m-tails"></g>
+ {{-- pantolon ve ayakkabı --}}
+ <path d="M72 196 L128 196 L131 221 L104 221 L100 204 L96 221 L69 221 Z" fill="#2a2f31"/>
+ <ellipse cx="83" cy="223" rx="13" ry="4" fill="#151718"/><ellipse cx="117" cy="223" rx="13" ry="4" fill="#151718"/>
+ {{-- ceket: çapraz yaka, beyaz gömlek, petrol kuşak --}}
+ <path d="M66 157 Q100 145 134 157 L138 200 L62 200 Z" fill="url(#moxi-gSuit)"/>
+ <path d="M90 150 L100 172 L110 150 Z" fill="#f3f1ec"/>
+ <path d="M87 151 L104 192" stroke="#1c2022" stroke-width="2.2" stroke-linecap="round"/>
+ <path d="M113 151 L100 180" stroke="#1c2022" stroke-width="2.2" stroke-linecap="round"/>
+ <path d="M86 151 L80 160 L92 168Z M114 151 L120 160 L108 168Z" fill="#30373a"/>
+ <rect x="63" y="189" width="74" height="6" rx="2" fill="#1f6461"/>
+ <path d="M74 166 L84 164 L83 169 L76 170Z" fill="#FDCF3C"/>
+ <g transform="translate(119 165)"><rect x="-4" y="-4" width="8" height="8" rx="2.2" fill="url(#moxi-gBrass)"/><circle cx="-1.5" cy="-1.5" r="1.1" fill="#24524e"/><circle cx="1.5" cy="-1.5" r="1.1" fill="#24524e"/><circle cx="-1.5" cy="1.5" r="1.1" fill="#24524e"/><circle cx="1.5" cy="1.5" r="1.1" fill="#24524e"/></g>
+ <g class="m-r3" transform="translate(81 176)"><rect x="-6" y="-1.6" width="12" height="3.2" rx="1.6" fill="url(#moxi-gBrass)"/></g>
+ {{-- kollar --}}
+ <path d="M66 158 Q55 173 59 193 L71 191 Q69 175 74 163Z" fill="url(#moxi-gSuit)"/>
+ <rect x="58" y="189" width="13" height="3" rx="1.5" fill="#f3f1ec"/><circle cx="64" cy="196" r="5.5" fill="url(#moxi-gSkin)"/>
+ <g class="m-arm-r"><path d="M134 158 Q145 173 141 193 L129 191 Q131 175 126 163Z" fill="url(#moxi-gSuit)"/>
+  <rect x="129" y="189" width="13" height="3" rx="1.5" fill="#f3f1ec"/><circle cx="136" cy="196" r="5.5" fill="url(#moxi-gSkin)"/>
+  <g class="m-scroll"><rect x="132" y="170" width="32" height="24" rx="3" fill="#1d2123"/><rect x="135" y="173" width="26" height="18" rx="1.5" fill="#e8eeec"/><path d="M138 188 L144 183 L149 185 L157 176" stroke="#1f6461" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="157" cy="176" r="1.8" fill="#FDCF3C"/></g>
+  <path class="m-glint" d="M134 172 L162 172" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/></g>
+ {{-- baş --}}
  <g class="m-head">
-  <path d="M58 90 Q48 116 62 132 Q58 112 66 96Z" fill="#1d1513"/><path d="M142 90 Q152 116 138 132 Q142 112 134 96Z" fill="#1d1513"/>
-  <circle cx="100" cy="114" r="44" fill="url(#moxi-gSkin)"/>
-  <path d="M80 99 Q90 95 100 96" stroke="#f6ece0" stroke-width="4" stroke-linecap="round" opacity=".55" fill="none"/>
-  <path d="M57 93 Q100 81 143 93 L143 103 Q100 91 57 103Z" fill="url(#moxi-gRed)"/>
-  <circle cx="142" cy="98" r="5" fill="#6a3028"/>
-  <path class="m-brow-l" d="M72 103 L93 108" stroke="#1d1513" stroke-width="3.6" stroke-linecap="round"/>
-  <path class="m-brow-r" d="M128 103 L107 108" stroke="#1d1513" stroke-width="3.6" stroke-linecap="round"/>
+  <rect x="93" y="140" width="14" height="12" rx="3" fill="#cfae94"/>
+  <ellipse cx="66" cy="118" rx="4" ry="6" fill="#dcbba1"/><ellipse cx="134" cy="118" rx="4" ry="6" fill="#dcbba1"/>
+  <circle cx="100" cy="116" r="34" fill="url(#moxi-gSkin)"/>
+  <path d="M66 112 Q66 90 100 88 Q134 90 134 112 Q130 98 112 96 Q100 102 84 96 Q70 98 66 112Z" fill="#26221f"/>
+  <path class="m-brow-l" d="M79 106 L92 105" stroke="#2a2523" stroke-width="2.4" stroke-linecap="round"/>
+  <path class="m-brow-r" d="M121 106 L108 105" stroke="#2a2523" stroke-width="2.4" stroke-linecap="round"/>
   <g class="m-eyes">
-   <g class="m-eo"><ellipse cx="84" cy="119" rx="5.2" ry="5.8" fill="#16100e"/><ellipse cx="116" cy="119" rx="5.2" ry="5.8" fill="#16100e"/>
-    <circle cx="86.3" cy="116.2" r="1.3" fill="#fff"/><circle cx="118.3" cy="116.2" r="1.3" fill="#fff"/><circle cx="82" cy="122" r=".6" fill="#fff" opacity=".4"/><circle cx="114" cy="122" r=".6" fill="#fff" opacity=".4"/>
-    <path d="M76 113 Q84 109 93 114 M107 114 Q116 109 124 113" stroke="#16100e" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
-   <g class="m-eh" fill="none" stroke="#16100e" stroke-width="3.4" stroke-linecap="round"><path d="M77 121 Q84 112 91 121"/><path d="M109 121 Q116 112 123 121"/></g>
-   <g class="m-es" fill="none" stroke="#16100e" stroke-width="3" stroke-linecap="round"><path d="M77 119 Q84 124 91 119"/><path d="M109 119 Q116 124 123 119"/></g>
+   <g class="m-eo"><ellipse cx="86" cy="117" rx="3.3" ry="3.7" fill="#1d1a19"/><ellipse cx="114" cy="117" rx="3.3" ry="3.7" fill="#1d1a19"/>
+    <circle cx="87" cy="115.8" r=".8" fill="#fff" opacity=".7"/><circle cx="115" cy="115.8" r=".8" fill="#fff" opacity=".7"/></g>
+   <g class="m-eh" fill="none" stroke="#1d1a19" stroke-width="2.2" stroke-linecap="round"><path d="M82 118 Q86 114 90 118"/><path d="M110 118 Q114 114 118 118"/></g>
+   <g class="m-es" fill="none" stroke="#1d1a19" stroke-width="2" stroke-linecap="round"><path d="M82 117 Q86 120 90 117"/><path d="M110 117 Q114 120 118 117"/></g>
   </g>
-  <ellipse cx="73" cy="131" rx="7" ry="3.2" fill="#c99a8a" opacity=".18"/><ellipse cx="127" cy="131" rx="7" ry="3.2" fill="#c99a8a" opacity=".18"/>
-  <path d="M100 124 q2.5 3 -1 4.5" stroke="#9a7a64" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-  <g class="m-mouth"><path class="mc" d="M93 135 Q101 139 108 132" stroke="#4a3430" stroke-width="2.8" fill="none" stroke-linecap="round"/><path class="mo" d="M94 133 Q101 144 108 133 Q101 135 94 133Z" fill="#5a3a34"/><ellipse class="mr" cx="101" cy="136" rx="3.6" ry="4.6" fill="#5a3a34"/><path class="mw" d="M93 133 Q101 141 109 133 Q101 136 93 133Z" fill="#5a3a34"/><path class="mz" d="M93 136 q3.5 -3 7 0 t7 0" stroke="#4a3430" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
-  <path class="m-sweat" d="M146 104 q6 9 0 13 q-6 -4 0 -13z" fill="#e6ece9" stroke="#34504d" stroke-width="1.2"/>
+  <path d="M100 119 q2 4 -1.5 6" stroke="#b48f75" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  <g class="m-mouth"><path class="mc" d="M94 132 Q100 135 106 132" stroke="#6e4a42" stroke-width="2" fill="none" stroke-linecap="round"/><path class="mo" d="M95 131 Q100 138 105 131 Q100 132 95 131Z" fill="#5a3a34"/><ellipse class="mr" cx="100.5" cy="133" rx="2.6" ry="3.2" fill="#5a3a34"/><path class="mw" d="M93 131 Q100 137 107 131 Q100 133 93 131Z" fill="#5a3a34"/><path class="mz" d="M95 133 L105 132" stroke="#6e4a42" stroke-width="2" fill="none" stroke-linecap="round"/></g>
+  <path class="m-sweat" d="M136 102 q5 8 0 11 q-5 -3 0 -11z" fill="#e6ece9" stroke="#2d625e" stroke-width="1"/>
  </g>
+ {{-- şapka: Moximu ikonu --}}
  <g class="m-hat">
-  <ellipse cx="100" cy="82" rx="81" ry="16" fill="#1b2423"/>
-  <path d="M19 79 L100 34 L181 79 Q100 98 19 79Z" fill="url(#moxi-gHat)"/>
-  <path d="M19 79 Q100 98 181 79" stroke="url(#moxi-gGold)" stroke-width="2.6" fill="none"/>
-  <path d="M74 50 L50 68" stroke="#d9e2df" stroke-width="5" stroke-linecap="round" opacity=".45"/>
-  <path d="M112 44 L138 62" stroke="#d9e2df" stroke-width="3" stroke-linecap="round" opacity=".25"/>
-  <g transform="translate(100 70)"><rect x="-9" y="-9" width="18" height="18" rx="5" fill="url(#moxi-gGold)"/><circle cx="-3.4" cy="-3.4" r="3" fill="#34504d"/><circle cx="3.4" cy="-3.4" r="3" fill="#34504d"/><circle cx="-3.4" cy="3.4" r="3" fill="#34504d"/><circle cx="3.4" cy="3.4" r="3" fill="#34504d"/></g>
-  <circle cx="100" cy="35" r="4.8" fill="url(#moxi-gGold)"/>
-  <path class="m-r2" d="M30 77 Q100 60 170 77" stroke="#c9b78a" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-  <path class="m-r4" d="M93 63 Q82 38 66 40 Q82 50 97 68Z M107 63 Q118 38 134 40 Q118 50 103 68Z" fill="url(#moxi-gGold)" stroke="#7c6844" stroke-width="1"/>
-  <circle class="m-alert" cx="150" cy="62" r="6.5" fill="#9c4a3d" stroke="#f1ece2" stroke-width="2.5"/>
+  <ellipse cx="100" cy="85" rx="64" ry="10" fill="#173936"/>
+  <path d="M36 83 L100 48 L164 83 Q100 96 36 83Z" fill="url(#moxi-gHat)"/>
+  <path d="M36 83 Q100 96 164 83" stroke="url(#moxi-gBrass)" stroke-width="1.6" fill="none"/>
+  <path class="m-r2" d="M46 78 Q100 66 154 78" stroke="url(#moxi-gBrass)" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path class="m-r4" d="M96 66 Q90 52 80 51 Q90 58 98 70Z M104 66 Q110 52 120 51 Q110 58 102 70Z" fill="url(#moxi-gBrass)"/>
+  <g transform="translate(100 74)"><rect x="-6" y="-6" width="12" height="12" rx="3.4" fill="url(#moxi-gBrass)"/><circle cx="-2.2" cy="-2.2" r="1.9" fill="#24524e"/><circle cx="2.2" cy="-2.2" r="1.9" fill="#24524e"/><circle cx="-2.2" cy="2.2" r="1.9" fill="#24524e"/><circle cx="2.2" cy="2.2" r="1.9" fill="#24524e"/></g>
+  <circle cx="100" cy="49" r="3.2" fill="url(#moxi-gBrass)"/>
+  <circle class="m-alert" cx="150" cy="62" r="5.5" fill="#9c4a3d" stroke="#f3f1ec" stroke-width="2"/>
  </g>
 </g>
-<path class="m-fx" d="M166 30 l3 9 9 3 -9 3 -3 9 -3 -9 -9 -3 9 -3z" fill="#b59a5e"/>
-<g class="m-dots" fill="#34504d"><circle cx="160" cy="26" r="4"/><circle cx="172" cy="26" r="4"/><circle cx="184" cy="26" r="4"/></g>
-<path class="m-slash" d="M28 70 Q110 0 186 86" stroke="#efe8d6" stroke-width="5" fill="none" stroke-linecap="round"/>
-<text class="m-bang" x="160" y="58" style="font:800 30px var(--display); fill:#7d3b31">!</text>
-<g class="m-zzz"><text x="160" y="40">z</text><text x="170" y="30">z</text></g>
+<path class="m-fx" d="M166 30 l2.4 7 7 2.4 -7 2.4 -2.4 7 -2.4 -7 -7 -2.4 7 -2.4z" fill="#b59a5e"/>
+<g class="m-dots" fill="#2d625e"><circle cx="160" cy="26" r="3.5"/><circle cx="171" cy="26" r="3.5"/><circle cx="182" cy="26" r="3.5"/></g>
+<path class="m-slash" d="M40 70 Q110 20 176 84" stroke="#e8eeec" stroke-width="3" fill="none" stroke-linecap="round"/>
+<text class="m-bang" x="160" y="58" style="font:700 26px var(--display); fill:#7d3b31">!</text>
+<g class="m-zzz"><text x="158" y="44">z</text><text x="168" y="34">z</text></g>
 </svg>
