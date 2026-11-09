@@ -60,6 +60,7 @@ final class SocialInbox
                 // How many DM conversations Meta returned: 0 on Instagram usually means the account's
                 // "Allow access to messages" (Connected tools) is off, which Meta does not report as an error.
                 $meta['inbox_dm_seen'] = $seen;
+                $meta['inbox_token_scopes'] = $seen === 0 ? $this->tokenScopes((string) $account->access_token) : null;
                 $meta['inbox_errors'] = array_values(array_filter($stats['errors'], fn (string $e): bool => str_starts_with($e, $account->platformLabel())));
                 $account->forceFill(['meta' => $meta])->save();
             }
@@ -107,6 +108,29 @@ final class SocialInbox
         }
 
         return count($conversations);
+    }
+
+    /**
+     * The permissions Meta really gave the account's token (debug_token with the app token), read only when no DM
+     * conversation came back, so the operator sees whether the messaging permission is missing. Null when unknown.
+     *
+     * @return list<string>|null
+     */
+    private function tokenScopes(string $token): ?array
+    {
+        $appId = (string) $this->graph->appId();
+        $secret = (string) $this->graph->appSecret();
+        if ($token === '' || $appId === '' || $secret === '') {
+            return null;
+        }
+        try {
+            $data = (array) ($this->graph->get('debug_token', $appId.'|'.$secret, ['input_token' => $token])['data'] ?? []);
+        } catch (Throwable) {
+            return null;
+        }
+        $scopes = array_values(array_filter((array) ($data['scopes'] ?? []), 'is_string'));
+
+        return $scopes === [] ? null : $scopes;
     }
 
     /** @param  array{threads: int, messages: int, errors: list<string>}  $stats */

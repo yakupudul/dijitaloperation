@@ -7,7 +7,12 @@
             @if ($account->enabled && ! empty(data_get($account->meta, 'inbox_errors')))
                 <p class="mt-1 text-xs text-error-600" data-inbox-errors>Okunamadı: {{ implode(' · ', (array) data_get($account->meta, 'inbox_errors')) }}</p>
             @elseif ($account->enabled && $account->platform === \App\Models\SocialAccount::INSTAGRAM && data_get($account->meta, 'inbox_dm_seen') === 0)
-                <p class="mt-1 text-xs text-warning-700" data-inbox-hint>Instagram hiç mesaj göstermiyor. Instagram uygulamasında Ayarlar › Mesajlar ve hikâye yanıtları › Bağlı araçlar › “Mesajlara erişime izin ver” açık olmalı.</p>
+                @php($scopes = data_get($account->meta, 'inbox_token_scopes'))
+                @if (is_array($scopes) && ! in_array('instagram_manage_messages', $scopes, true))
+                    <p class="mt-1 text-xs text-warning-700" data-inbox-hint>Instagram mesajları okunamıyor: Meta girişte “instagram_manage_messages” iznini vermemiş. “Meta'yı yeniden bağla” deyip Instagram mesaj iznini işaretli bırakın.</p>
+                @else
+                    <p class="mt-1 text-xs text-warning-700" data-inbox-hint>Instagram hiç mesaj göstermiyor{{ is_array($scopes) ? ' (mesaj izni var)' : '' }}. Instagram uygulamasında Ayarlar › Mesajlar ve hikâye yanıtları › Bağlı araçlar › “Mesajlara erişime izin ver” açık olmalı.</p>
+                @endif
             @endif
         </div>
     </div>

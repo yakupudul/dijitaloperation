@@ -117,7 +117,7 @@ class SocialPosts extends Tool
         return [
             'accounts' => SocialAccount::query()->get()->map(fn (SocialAccount $a): array => [
                 'platform' => $a->platform, 'name' => $a->displayName(), 'enabled' => $a->enabled, 'automatic' => ! $a->isManual(),
-                'inbox_synced_at' => data_get($a->meta, 'inbox_synced_at'), 'inbox_dm_seen' => data_get($a->meta, 'inbox_dm_seen'), 'inbox_errors' => data_get($a->meta, 'inbox_errors', []),
+                'inbox_synced_at' => data_get($a->meta, 'inbox_synced_at'), 'inbox_dm_seen' => data_get($a->meta, 'inbox_dm_seen'), 'inbox_token_scopes' => data_get($a->meta, 'inbox_token_scopes'), 'inbox_errors' => data_get($a->meta, 'inbox_errors', []),
             ])->all(),
             'upcoming' => SocialPost::query()->where('publish_at', '>=', now()->subDay())->with('targets.account')->orderBy('publish_at')->limit(60)->get()->map($row)->all(),
             'recent' => SocialPost::query()->where('publish_at', '<', now()->subDay())->with('targets.account')->orderByDesc('publish_at')->limit(30)->get()->map($row)->all(),

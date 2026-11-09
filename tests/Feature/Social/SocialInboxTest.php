@@ -100,12 +100,16 @@ final class SocialInboxTest extends TestCase
     public function test_instagram_with_no_conversations_shows_the_message_access_hint(): void
     {
         Queue::fake();
-        Http::fake(['*/PAGE1/conversations*' => Http::response(['data' => []]), '*/IG1/media*' => Http::response(['data' => []])]);
+        Http::fake([
+            '*/PAGE1/conversations*' => Http::response(['data' => []]), '*/IG1/media*' => Http::response(['data' => []]),
+            '*/debug_token*' => Http::response(['data' => ['scopes' => ['pages_show_list', 'instagram_basic']]]),
+        ]);
         app(SocialInbox::class)->sync();
 
         $this->assertSame(0, data_get($this->instagram->fresh()->meta, 'inbox_dm_seen'));
+        $this->assertSame(['pages_show_list', 'instagram_basic'], data_get($this->instagram->fresh()->meta, 'inbox_token_scopes'));
         Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'hesaplar'])->test(SocialPage::class)
-            ->assertSee('Mesajlara erişime izin ver');
+            ->assertSee('instagram_manage_messages');
     }
 
     public function test_draft_is_stored_and_a_service_question_opens_a_sales_card(): void
