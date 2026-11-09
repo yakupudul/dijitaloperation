@@ -7,57 +7,54 @@
 /* Moxi'nin açma düğmesi (yakup 2026-11-09 "logodaki huniyle bütünleşmiş chat ikonu, karakter yok"): Moximu işaretinin
    sarı karesi, içinde tek bir huni (yukarıdan bakılan koni, logodaki gibi açıdan renk geçişi) kuyruklu bir sohbet balonu
    olur; ince sarı çizgi koninin sırtıdır. Düşünürken huni döner, konuşurken nefes alır, uykuda söner. */
-@property --mxa{syntax:'<angle>'; inherits:true; initial-value:0deg}
-@property --g{syntax:'<angle>'; inherits:true; initial-value:0deg}
-.mx-cone{--mxa:var(--g); transition:--mxa .8s cubic-bezier(.3,.8,.3,1); position:relative; display:inline-block; width:56px; height:56px; flex:none}
-.mx-cone i{position:absolute; left:0; top:0; width:56px; height:56px; background:conic-gradient(from var(--mxa) at 30px 26px, #0b302e, #155552 30%, #1f6461 55%, #2e8a85 80%, #4fb0a8 98%, #0b302e);
-  clip-path:path('M7.4 34.2 A24 24 0 1 1 19.9 47.7 L4 54 Z')}
-.mx-cone b{position:absolute; left:29.3px; top:2px; width:1.4px; height:24px; background:#FDCF3C; transform-origin:50% 100%; transform:rotate(var(--mxa)); border-radius:1px; transition:opacity .4s, box-shadow .3s}
-.mx-cone.sm{width:22px; height:22px} .mx-cone.sm i,.mx-cone.sm b{zoom:.393}
-.mx-cone.is-typing{animation:mxspin 1.4s linear infinite}
-@keyframes mxspin{from{--mxa:var(--g)} to{--mxa:calc(var(--g) + 360deg)}}
-/* canlılık: nefes, bakış (huni imlece döner), dinlerken her tuşta başını sallar, düşünürken döner */
-.mx-launch{position:relative; display:grid; place-items:center; width:64px; height:64px; margin:0 0 0 auto; padding:0; border:0; border-radius:18px; background:#FDCF3C; cursor:pointer;
-  box-shadow:0 10px 26px rgba(15,61,58,.25); transition:transform .18s ease, box-shadow .18s ease, filter .6s, opacity .6s}
-.mx-launch > .mx-cone{margin:4px 0 0 4px; animation:mxbreath 4.2s ease-in-out infinite; transition:--mxa .8s cubic-bezier(.3,.8,.3,1), opacity .15s}
-@keyframes mxbreath{50%{transform:scale(1.035)}}
-.mx-launch:hover{transform:translateY(-2px); box-shadow:0 14px 30px rgba(15,61,58,.3)}
-.mx-launch:focus-visible{outline:3px solid #1f6461; outline-offset:3px}
+@property --g{syntax:'<angle>'; inherits:true; initial-value:157deg}
+/* Moxi'nin ikonu: sarı bir sohbet balonu, içindeki "…" Moximu logosunun üç konisi (logodaki gibi yüzeyli gölge). Koniler
+   imlece döner (bakar), düşünürken sırayla zıplar, konuşurken atar, uykuda aşağı bakıp söner. */
+.mx-c3{display:inline-flex; gap:4px; align-items:center}
+.mx-c3 i{display:block; width:15px; height:15px; border-radius:50%; flex:none;
+  background:conic-gradient(from 0deg,#155d5a 0deg,#247876 88deg,#28807d 90deg,#2f8c8a 134deg,#164f4c 135deg,#195856 179deg,#02201e 180deg,#093a37 270deg,#155d5a 360deg);
+  rotate:calc(var(--g) - 157deg); transition:rotate .8s cubic-bezier(.3,.8,.3,1), scale .3s}
+.mx-c3.sm{gap:2px} .mx-c3.sm i{width:6px; height:6px}
+.mx-typing .mx-c3 i{width:9px; height:9px}
+.mx-c3 i:nth-child(2){animation-delay:.15s!important} .mx-c3 i:nth-child(3){animation-delay:.3s!important}
+.mx-c3.is-typing i,.mx-launch.think .mx-c3 i{animation:mxh 1s ease-in-out infinite}
+@keyframes mxh{0%,60%,100%{translate:0 0}30%{translate:0 -6px}}
+.mx-launch{position:relative; display:grid; place-items:center; width:70px; height:58px; margin:0 0 6px auto; padding:0; border:0; border-radius:20px 20px 20px 7px; background:#FDCF3C; cursor:pointer;
+  box-shadow:0 10px 26px rgba(15,61,58,.22); transition:transform .18s ease, box-shadow .18s ease, filter .6s, opacity .6s; animation:mxbreath 4.2s ease-in-out infinite}
+.mx-launch::before{content:''; position:absolute; left:0; bottom:-9px; width:16px; height:13px; background:#FDCF3C; clip-path:polygon(0 100%, 0 0, 100% 0)}
+@keyframes mxbreath{50%{scale:1.03}}
+.mx-launch:hover{transform:translateY(-2px); box-shadow:0 14px 30px rgba(15,61,58,.28)}
+.mx-launch:focus-visible{outline:3px solid #1f6461; outline-offset:4px}
+.mx-launch > .mx-c3{transition:opacity .15s}
 .mx-launch .mx-x{position:absolute; inset:0; display:grid; place-items:center; color:#0f3d3a; opacity:0; transition:opacity .15s}
-.mx-launch.is-open > .mx-cone{opacity:0} .mx-launch.is-open .mx-x{opacity:1}
-.mx-cone.tick{animation:mxtick .18s ease-out!important}
-@keyframes mxtick{50%{transform:scale(1.07) translateY(-1px)}}
-.mx-launch.listen > .mx-cone b,.mx-launch.talk > .mx-cone b{box-shadow:0 0 6px 1px rgba(253,207,60,.9)}
-.mx-launch.think > .mx-cone{animation:mxspin 1.3s linear infinite, mxbreath 1.3s ease-in-out infinite}
-.mx-launch.talk > .mx-cone{animation:mxtalk .42s ease-in-out infinite}
-@keyframes mxtalk{50%{transform:scale(1.05)}}
-.mx-launch.happy > .mx-cone,.mx-launch.wake > .mx-cone{animation:mxspin .8s cubic-bezier(.2,.8,.2,1) 1, mxhop .8s ease-out 1}
-@keyframes mxhop{35%{transform:translateY(-6px) scale(1.06)}70%{transform:translateY(0) scale(.97)}}
-.mx-launch.bow > .mx-cone,.mx-launch.poke > .mx-cone{animation:mxhop .6s ease-out 1}
-.mx-launch.confused > .mx-cone{animation:mxwob .5s ease-in-out 3}
-@keyframes mxwob{25%{--mxa:calc(var(--g) - 35deg)}75%{--mxa:calc(var(--g) + 35deg)}}
-.mx-launch.v-hop > .mx-cone{animation:mxhop .7s ease-out 1}
-.mx-launch.v-peek > .mx-cone{animation:mxwob 1.2s ease-in-out 1}
+.mx-launch.is-open > .mx-c3{opacity:0} .mx-launch.is-open .mx-x{opacity:1}
+.mx-c3.tick{animation:mxtick .18s ease-out}
+@keyframes mxtick{50%{scale:1.08}}
+.mx-launch.listen .mx-c3 i{scale:1.1}
+.mx-launch.talk .mx-c3 i{animation:mxs .5s ease-in-out infinite}
+@keyframes mxs{50%{scale:1.22}}
+.mx-launch.happy .mx-c3 i,.mx-launch.wake .mx-c3 i,.mx-launch.bow .mx-c3 i,.mx-launch.v-hop .mx-c3 i{animation:mxh .7s ease-out 1}
+.mx-launch.poke .mx-c3 i{animation:mxs .3s ease-out 1}
+.mx-launch.confused .mx-c3 i{animation:mxw .45s ease-in-out 3}
+@keyframes mxw{25%{translate:-2px 0}75%{translate:2px 0}}
 .mx-launch::after{content:''; position:absolute; inset:0; border-radius:inherit; background:linear-gradient(115deg, transparent 40%, rgba(255,255,255,.6) 50%, transparent 60%) no-repeat; background-size:300% 100%; background-position:120% 0; pointer-events:none}
 .mx-launch.v-shine::after,.mx-launch.happy::after{animation:mxshine 1.1s ease-in-out 1}
 @keyframes mxshine{from{background-position:120% 0}to{background-position:-20% 0}}
-.mx-launch.sleep{filter:saturate(.45); opacity:.82}
-.mx-launch.sleep > .mx-cone{animation:mxbreath 6s ease-in-out infinite}
-.mx-launch.sleep > .mx-cone b{opacity:.25}
-.mx-tip{position:absolute; right:74px; top:50%; translate:0 -50%; white-space:nowrap; background:#0f3d3a; color:#fff; font-size:13px; font-weight:500; padding:7px 11px; border-radius:10px;
+.mx-launch.sleep{filter:saturate(.45); opacity:.82; animation-duration:7s}
+.mx-launch.sleep .mx-c3 i{scale:.85}
+.mx-tip{position:absolute; right:80px; top:50%; translate:0 -50%; white-space:nowrap; background:#0f3d3a; color:#fff; font-size:13px; font-weight:500; padding:7px 11px; border-radius:10px;
   opacity:0; pointer-events:none; transition:opacity .15s}
 .mx-launch:hover .mx-tip,.mx-launch:focus-visible .mx-tip{opacity:1}
 .mx-launch.is-open .mx-tip{display:none}
-.mx-alert-dot{position:absolute; top:5px; right:5px; width:12px; height:12px; border-radius:50%; background:#e2553f; border:2px solid #FDCF3C; display:none; animation:mxping 2.4s ease-in-out infinite}
+.mx-alert-dot{position:absolute; top:-4px; right:-4px; width:14px; height:14px; border-radius:50%; background:#e2553f; border:2px solid #fff; display:none; animation:mxping 2.4s ease-in-out infinite}
 @keyframes mxping{50%{box-shadow:0 0 0 5px rgba(226,85,63,.18)}}
 .mx-root.has-alert .mx-alert-dot{display:block}
-.mx-typing .mx-cone{margin:2px}
-.mx-bubble .mx-cone{margin-top:1px}
+.mx-bubble .mx-c3{margin-top:6px}
+@media (prefers-reduced-motion: reduce){ .mx-c3 i,.mx-launch{animation:none!important} }
 @keyframes dot{0%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
-@media (prefers-reduced-motion: reduce){ .mx-cone,.mx-launch{animation:none!important} }
 [x-cloak]{display:none!important}
 .mx-root{position:fixed; right:max(12px, env(safe-area-inset-right, 0px)); bottom:max(6px, env(safe-area-inset-bottom, 0px)); z-index:9000; font-size:14px; line-height:1.45; color:#1f2a2a}
-.mx-panel{position:absolute; right:0; bottom:66px; width:min(390px, calc(100vw - 24px)); height:min(600px, calc(100vh - 140px)); display:flex; flex-direction:column;
+.mx-panel{position:absolute; right:0; bottom:76px; width:min(390px, calc(100vw - 24px)); height:min(600px, calc(100vh - 140px)); display:flex; flex-direction:column;
   background:#fff; border:1px solid #e6e3d6; border-radius:16px; box-shadow:0 18px 50px rgba(20,40,38,.18); overflow:hidden}
 .mx-head{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #eeebe0}
 .mx-head b{font-size:16px; font-weight:700}
@@ -91,7 +88,7 @@
 .mx-bubble-t{display:block}
 .mx-rank{font-size:11px; font-weight:700; color:#1f6461; background:#e8f3f1; border-radius:20px; padding:2px 8px; white-space:nowrap}
 /* konuşma balonu */
-.mx-bubble{position:absolute; right:0; bottom:66px; width:max-content; max-width:min(260px, calc(100vw - 90px)); background:#fff; color:#1f2a2a; border:2px solid #1f6461;
+.mx-bubble{position:absolute; right:0; bottom:76px; width:max-content; max-width:min(260px, calc(100vw - 90px)); background:#fff; color:#1f2a2a; border:2px solid #1f6461;
   border-radius:14px 14px 4px 14px; padding:9px 12px; font-size:13px; font-weight:500; box-shadow:0 8px 24px rgba(20,40,38,.18); cursor:pointer; text-align:left}
 .mx-bubble.tip{border-color:#FDCF3C; box-shadow:inset 3px 0 0 #FDCF3C, 0 8px 24px rgba(20,40,38,.18)}
 .mx-bubble.milestone{border-color:#c8452c}

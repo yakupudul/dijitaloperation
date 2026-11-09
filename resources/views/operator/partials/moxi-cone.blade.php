@@ -1,3 +1,4 @@
-{{-- Moxi's icon: one cone of the Moximu mark, seen from above, shaped as a speech bubble; the yellow line is the cone's
-     ridge. Classes: "sm" (22px), "is-typing" (the cone turns). --}}
-<span class="mx-cone {{ $class ?? '' }}" aria-hidden="true"><i></i><b></b></span>
+{{-- Moxi's icon (yakup 2026-11-09): three cones of the Moximu mark, shaded like the logo's, as the "…" of a chat bubble.
+     The cones turn toward the pointer (their light facet "looks"), bounce while Moxi thinks. Classes: "sm" (small,
+     for bubbles), "is-typing" (bouncing). --}}
+<span class="mx-c3 {{ $class ?? '' }}" aria-hidden="true"><i></i><i></i><i></i></span>

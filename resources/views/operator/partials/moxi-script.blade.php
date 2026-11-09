@@ -1,4 +1,4 @@
-{{-- Moxi in the browser (yakup 2026-11-09): the corner icon's moods (think = the cone turns, talk = it breathes), sounds made on the fly (Web Audio, no files)
+{{-- Moxi in the browser (yakup 2026-11-09): the corner icon's moods (the three logo cones look at the pointer, bounce while thinking, pulse while talking), sounds made on the fly (Web Audio, no files)
      and speech with the browser's own free Turkish voice. Ses modu (Konuşuyor / Mırıltı / Sessiz) and open/closed are
      remembered in this browser only. --}}
 <script>
@@ -72,11 +72,11 @@ window.moxiChat = function () {
             if (url) { window.Livewire?.navigate ? window.Livewire.navigate(url) : (location.href = url); return; }
             if (!this.open) this.tap();
         },
-        gaze: 0,
-        cone() { return this.$root.querySelector('.mx-launch > .mx-cone'); },
+        gaze: 157,
+        cone() { return this.$root.querySelector('.mx-launch'); },
         look(x, y) {
             const c = this.cone(); if (!c) return;
-            const r = c.getBoundingClientRect(), cx = r.left + r.width * .536, cy = r.top + r.height * .464;
+            const r = c.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
             const a = Math.atan2(x - cx, -(y - cy)) * 180 / Math.PI;
             const d = ((a - this.gaze) % 360 + 540) % 360 - 180;
             this.gaze += d; c.style.setProperty('--g', this.gaze.toFixed(1) + 'deg');
@@ -92,7 +92,7 @@ window.moxiChat = function () {
             if (this.mood !== '' && this.mood !== 'sleep') return;
             if (this.mood === 'sleep') { if (Math.random() < .3) this.sfx('snore'); return; }
             if (!this.open && Date.now() - this.last > 180000) { this.mood = 'sleep'; const c = this.cone(); if (c) { this.gaze = Math.round(this.gaze / 360) * 360 + 180; c.style.setProperty('--g', this.gaze + 'deg'); } return; }
-            if (Math.random() < .55) { const v = ['v-shine', 'v-hop', 'v-peek', 'v-shine'][Math.floor(Math.random() * 4)]; this.play(v, 1500); }
+            if (Math.random() < .55) { const v = ['v-shine', 'v-hop', 'v-shine'][Math.floor(Math.random() * 3)]; this.play(v, 1500); }
         },
         wake() { this.last = Date.now(); if (this.mood === 'sleep') { this.sfx('wake'); this.play('wake', 700, 'uyandı!'); return true; } return false; },
         tap() {
@@ -106,7 +106,7 @@ window.moxiChat = function () {
             if (this.wake()) return;
             // Listening: the cone turns to the text box and nods with each key.
             this.lookAt(this.$refs.input);
-            const c = this.cone(); if (c) { c.classList.remove('tick'); void c.offsetWidth; c.classList.add('tick'); }
+            const c = this.$root.querySelector('.mx-launch .mx-c3'); if (c) { c.classList.remove('tick'); void c.offsetWidth; c.classList.add('tick'); }
             this.play('listen', 2200, 'dinliyor…');
         },
         submit() {
