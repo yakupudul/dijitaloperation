@@ -19,8 +19,8 @@ window.moxiChat = function () {
         bubbles: store.get('bubbles', '1') === '1',
         bubbleText: '', bubbleUrl: null, bubbleKind: '', bubbleTimer: null,
         rank: 1,
-        look: store.get('look', 'robot'),
-        cycleLook() { this.look = this.look === 'yakup' ? 'robot' : 'yakup'; store.set('look', this.look); this.$nextTick(() => this.play('bow', 1400, 'selam!')); },
+        look: ['samurai', 'robot', 'yakup'].includes(store.get('look2', '')) ? store.get('look2', '') : 'samurai',
+        cycleLook() { const o = ['samurai', 'robot', 'yakup']; this.look = o[(o.indexOf(this.look) + 1) % o.length]; store.set('look2', this.look); this.$nextTick(() => this.play('bow', 1400, 'selam!')); },
         boot() {
             this.rank = +(this.$root.dataset.rank || 1);
             this.growth(true);

@@ -12,7 +12,7 @@
 .m-all{transform-origin:100px 224px; animation:breathe 3.2s ease-in-out infinite}
 .m-head{transform-origin:100px 190px; transition:transform .35s ease}
 .m-hat{transform-origin:100px 92px; transition:transform .35s ease; animation:hatsway 6s ease-in-out infinite}
-.m-tails{transform-origin:142px 97px; animation:flutter 2.6s ease-in-out infinite}
+.m-tails{transform-origin:142px 97px; animation:flutter 1.4s ease-in-out infinite}
 .m-eyes{transition:transform .25s ease}
 .m-eo{transform-origin:100px 136px; animation:blink 4.6s infinite}
 .m-eh,.m-es,.m-mouth .mo,.m-mouth .mr,.m-mouth .mw,.m-mouth .mz,.m-zzz{display:none}
@@ -101,20 +101,20 @@
 @keyframes hatfix{0%,100%{transform:none}40%{transform:translateY(-6px) rotate(-5deg)}55%{transform:translateY(-6px) rotate(4deg)}75%{transform:none}}
 @keyframes yawn{0%,100%{transform:none}30%,70%{transform:scale(1.5,1.8)}}
 @keyframes stretch{0%,100%{transform:none}35%,65%{transform:scale(.97,1.05)}}
-@keyframes flutter{0%,100%{transform:rotate(0)}50%{transform:rotate(4deg) skewY(-2deg)}}
+@keyframes flutter{0%,100%{transform:rotate(0)}50%{transform:rotate(9deg) skewY(-4deg)}}
 @keyframes thinkhat{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(4deg)}}
 @keyframes zz{0%{opacity:0; transform:translate(0,0)}30%{opacity:1}100%{opacity:0; transform:translate(10px,-18px)}}
 .m-zzz text{animation:zz 2.4s infinite; font:700 16px "Baloo 2", system-ui, sans-serif; fill:#1f6461}
 .m-zzz text:nth-child(2){animation-delay:1.2s}
 
-@keyframes breathe{50%{transform:scale(1.012,.988)}}
+@keyframes breathe{50%{transform:scale(1.03,.97)}}
 @keyframes shadow{50%{transform:scaleX(1.06)}}
 @keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
 @keyframes hatsway{0%,100%{rotate:0deg}50%{rotate:1.5deg}}
 @keyframes spin{to{--a:360deg}}
 @keyframes dot{0%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
-@keyframes talkbob{50%{transform:translateY(-1.5px)}}
-@keyframes hop{30%{transform:translateY(-7px)}60%{transform:translateY(0)}}
+@keyframes talkbob{50%{transform:translateY(-3px)}}
+@keyframes hop{30%{transform:translateY(-16px) scale(.98,1.03)}60%{transform:translateY(0) scale(1.04,.96)}}
 @media (prefers-reduced-motion: reduce){ .moxi *{animation:none!important; transition:none!important} }
 
 
@@ -156,6 +156,10 @@
 @media (max-width:480px){ .mx-panel{height:calc(100vh - 130px)} }
 /* rütbe: Samuray şapka şeridi, Usta omuz arması, Şogun altın boynuzlar */
 .mx-look{width:100%; height:100%}
+.moxi.look-samurai .m-head{transform-origin:100px 156px} .moxi.look-samurai .m-hat{transform-origin:100px 80px}
+.moxi.look-samurai .m-eo{transform-origin:100px 118px} .moxi.look-samurai .m-scroll{transform-origin:144px 112px}
+.moxi.look-samurai .m-brow-l{transform-origin:83px 106px} .moxi.look-samurai .m-brow-r{transform-origin:117px 106px}
+.moxi.look-samurai .m-alert{transform-origin:150px 62px} .moxi.look-samurai.v-yawn .m-mouth .mr{transform-origin:101px 136px}
 .moxi.look-robot.v-yawn .m-mouth .mr{animation:none}
 .m-r2,.m-r3,.m-r4{display:none}
 .moxi.rank-2 .m-r2,.moxi.rank-3 .m-r2,.moxi.rank-4 .m-r2,.moxi.rank-3 .m-r3,.moxi.rank-4 .m-r3,.moxi.rank-4 .m-r4{display:inline}
@@ -181,7 +185,7 @@
             <b>Moxi</b>
             <span class="mx-rank" title="{{ $rank ? $rank['points'].' puan'.($rank['next'] !== null ? ' · '.$rank['next_name'].' için '.$rank['next'] : '') : '' }}">{{ $rank['name'] ?? 'Çırak' }}</span>
             <span class="mx-status" x-text="status">{{ $busy ? 'düşünüyor…' : 'hazır' }}</span>
-            <button type="button" class="mx-icon" @click="cycleLook()" title="Moxi'nin görünümü: fütüristik ya da yakup">Görünüm</button>
+            <button type="button" class="mx-icon" @click="cycleLook()" title="Moxi'nin görünümü: samuray, fütüristik ya da yakup">Görünüm</button>
             <button type="button" class="mx-icon" @click="book = !book" :aria-pressed="book" title="Moxi'nin defteri: senden öğrendikleri">Defter</button>
             <button type="button" class="mx-icon" @click="toggleBubbles()" x-text="bubbles ? '💬 Balon' : '💬 Kapalı'" title="Ara sıra konuşma balonları"></button>
             <button type="button" class="mx-icon" @click="cycleVoice()" x-text="voiceLabel()" title="Ses: konuşma, mırıltı ya da sessiz"></button>
@@ -284,8 +288,9 @@
 
     <button type="button" class="mx-mascot" wire:ignore @click="tap()" :aria-label="open ? 'Moxi\'yi kapat' : 'Moxi\'yi aç'" aria-label="Moxi">
         <div class="moxi" :class="[mood, 'rank-' + rank, 'look-' + look]">
+            <template x-if="look === 'samurai'"><div class="mx-look">@include('operator.partials.moxi-mascot-samurai')</div></template>
+            <template x-if="look === 'robot'"><div class="mx-look">@include('operator.partials.moxi-mascot')</div></template>
             <template x-if="look === 'yakup'"><div class="mx-look">@include('operator.partials.moxi-mascot-yakup')</div></template>
-            <template x-if="look !== 'yakup'"><div class="mx-look">@include('operator.partials.moxi-mascot')</div></template>
         </div>
     </button>
 </div>
