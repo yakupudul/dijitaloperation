@@ -41,6 +41,7 @@
  <path d="M72 152 L87 149 L93 187 L70 187 Z" fill="url(#moxi-gGold)"/><path d="M128 152 L113 149 L107 187 L130 187 Z" fill="url(#moxi-gGold)"/>
  <path d="M86 147 L100 178 L114 147 L107 147 L100 163 L93 147Z" fill="#fff4dc"/>
  <g transform="translate(52 156)"><circle r="6.5" fill="#1f6461"/><circle cx="-2.2" cy="-2.2" r="1.8" fill="#FDCF3C"/><circle cx="2.2" cy="-2.2" r="1.8" fill="#FDCF3C"/><circle cx="-2.2" cy="2.2" r="1.8" fill="#FDCF3C"/><circle cx="2.2" cy="2.2" r="1.8" fill="#FDCF3C"/></g>
+ <g class="m-r3" transform="translate(148 156)"><circle r="6.5" fill="#c8452c"/><circle r="2.6" fill="#FDCF3C"/><path d="M-3 6 L-5 15 M0 6 L0 16 M3 6 L5 15" stroke="#c8452c" stroke-width="2" stroke-linecap="round"/></g>
  <rect x="64" y="181" width="72" height="10" rx="3" fill="#c8452c"/><path d="M66 184 L134 184" stroke="#f3a07f" stroke-width="1.5" opacity=".6"/>
  <path d="M58 158 Q48 172 56 190 L72 186 Q70 170 72 160Z" fill="url(#moxi-gTeal)"/><circle cx="62" cy="190" r="7" fill="url(#moxi-gSkin)"/>
  <g class="m-arm-r"><path d="M142 158 Q152 172 144 190 L128 186 Q130 170 128 160Z" fill="url(#moxi-gTeal)"/><circle cx="138" cy="190" r="7" fill="url(#moxi-gSkin)"/>
@@ -73,6 +74,8 @@
   <path d="M112 44 L138 62" stroke="#c7f1e8" stroke-width="3" stroke-linecap="round" opacity=".25"/>
   <g transform="translate(100 70)"><rect x="-9" y="-9" width="18" height="18" rx="5" fill="url(#moxi-gGold)"/><circle cx="-3.4" cy="-3.4" r="3" fill="#1f6461"/><circle cx="3.4" cy="-3.4" r="3" fill="#1f6461"/><circle cx="-3.4" cy="3.4" r="3" fill="#1f6461"/><circle cx="3.4" cy="3.4" r="3" fill="#1f6461"/></g>
   <circle cx="100" cy="35" r="4.8" fill="url(#moxi-gGold)"/>
+  <path class="m-r2" d="M30 77 Q100 60 170 77" stroke="#FDCF3C" stroke-width="3.2" fill="none" stroke-linecap="round"/>
+  <path class="m-r4" d="M93 63 Q82 38 66 40 Q82 50 97 68Z M107 63 Q118 38 134 40 Q118 50 103 68Z" fill="url(#moxi-gGold)" stroke="#a8681a" stroke-width="1"/>
   <circle class="m-alert" cx="150" cy="62" r="6.5" fill="#e2553f" stroke="#fff4dc" stroke-width="2.5"/>
  </g>
 </g>

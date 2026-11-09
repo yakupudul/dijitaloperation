@@ -1,6 +1,7 @@
 {{-- Moxi, the corner assistant (yakup 2026-11-09). Mascot moves, sounds and speech: operator/partials/moxi-script. --}}
 <div class="mx-root @if ($alert) has-alert @endif" x-data="moxiChat()" x-init="boot()"
     @moxi-think.window="think()" @moxi-said.window="said($event.detail)" @moxi-happy.window="happy($event.detail)"
+    data-rank="{{ $rank['level'] ?? 1 }}" data-rank-name="{{ $rank['name'] ?? 'Çırak' }}" data-cards="{{ $doneCards }}"
     wire:poll.{{ $busy ? '2s' : ($waitingJobs ? '30s' : '90s') }}="refresh" data-moxi>
     <style>
 /* ---------- Moxi (SVG, yağlı boya filtresi) ---------- */
@@ -153,19 +154,53 @@
 .mx-form textarea{flex:1; min-width:0; resize:none; font:inherit; padding:8px 10px; border-radius:10px; border:1px solid #e6e3d6; background:#fbfaf6; color:#1f2a2a; max-height:120px}
 .mx-form textarea:focus{outline:2px solid #FDCF3C; outline-offset:1px}
 @media (max-width:480px){ .mx-panel{height:calc(100vh - 130px)} }
+/* rütbe: Samuray şapka şeridi, Usta omuz arması, Şogun altın boynuzlar */
+.m-r2,.m-r3,.m-r4{display:none}
+.moxi.rank-2 .m-r2,.moxi.rank-3 .m-r2,.moxi.rank-4 .m-r2,.moxi.rank-3 .m-r3,.moxi.rank-4 .m-r3,.moxi.rank-4 .m-r4{display:inline}
+.mx-rank{font-size:11px; font-weight:700; color:#1f6461; background:#e8f3f1; border-radius:20px; padding:2px 8px; white-space:nowrap}
+/* konuşma balonu */
+.mx-bubble{position:absolute; right:58px; bottom:96px; width:max-content; max-width:min(260px, calc(100vw - 90px)); background:#fff; color:#1f2a2a; border:2px solid #1f6461;
+  border-radius:16px 16px 4px 16px; padding:8px 12px; font-size:13px; font-weight:600; box-shadow:0 8px 24px rgba(20,40,38,.18); cursor:pointer; text-align:left}
+.mx-bubble.tip{border-color:#FDCF3C; box-shadow:inset 3px 0 0 #FDCF3C, 0 8px 24px rgba(20,40,38,.18)}
+.mx-bubble.milestone{border-color:#c8452c}
+.mx-bubble small{display:block; font-weight:500; color:#1f6461; margin-top:2px}
+/* defter */
+.mx-book{flex:1; overflow-y:auto; padding:12px; background:#fbfaf6; display:grid; gap:8px; align-content:start}
+.mx-book li{display:flex; gap:8px; align-items:flex-start; background:#fff; border:1px solid #eeebe0; border-radius:10px; padding:7px 10px; list-style:none}
+.mx-book ul{margin:0; padding:0; display:grid; gap:6px}
+.mx-book li span{flex:1}
+.mx-book li em{font-style:normal; font-size:11px; font-weight:700; color:#1f6461; text-transform:uppercase; letter-spacing:.04em}
+.mx-book li button{border:0; background:none; color:#b4412b; cursor:pointer; font-size:13px}
 
     </style>
 
     <section class="mx-panel" x-show="open" x-cloak x-transition.origin.bottom.right role="dialog" aria-label="Moxi">
         <header class="mx-head">
             <b>Moxi</b>
+            <span class="mx-rank" title="{{ $rank ? $rank['points'].' puan'.($rank['next'] !== null ? ' · '.$rank['next_name'].' için '.$rank['next'] : '') : '' }}">{{ $rank['name'] ?? 'Çırak' }}</span>
             <span class="mx-status" x-text="status">{{ $busy ? 'düşünüyor…' : 'hazır' }}</span>
+            <button type="button" class="mx-icon" @click="book = !book" :aria-pressed="book" title="Moxi'nin defteri: senden öğrendikleri">Defter</button>
+            <button type="button" class="mx-icon" @click="toggleBubbles()" x-text="bubbles ? '💬 Balon' : '💬 Kapalı'" title="Ara sıra konuşma balonları"></button>
             <button type="button" class="mx-icon" @click="cycleVoice()" x-text="voiceLabel()" title="Ses: konuşma, mırıltı ya da sessiz"></button>
             <button type="button" class="mx-icon" wire:click="clear" title="Ekranı temizle (Moxi yine hatırlar)">Temizle</button>
             <button type="button" class="mx-icon" @click="toggle()" aria-label="Kapat">✕</button>
         </header>
 
-        <div class="mx-log" x-ref="log">
+        <div class="mx-book" x-show="book" x-cloak>
+            <div class="mx-tag">Moxi'nin senden öğrendikleri. Her cevapta bunlara uyar; yanlışsa ✕ ile unuttur.</div>
+            @if ($notebook === [])
+                <div class="mx-empty">Defter boş. "Bundan sonra fiyatları +KDV yaz" gibi şeyler söyledikçe buraya not eder.</div>
+            @else
+                <ul>
+                    @foreach ($notebook as $note)
+                        <li wire:key="mx-note-{{ $note['id'] }}"><span><em>{{ ['bilgi' => 'Bilgi', 'tercih' => 'Tercih', 'ders' => 'Ders'][$note['kind']] ?? 'Bilgi' }}</em><br>{{ $note['text'] }}</span>
+                            <button type="button" wire:click="forget({{ $note['id'] }})" title="Unut" aria-label="Unut">✕</button></li>
+                    @endforeach
+                </ul>
+            @endif
+        </div>
+
+        <div class="mx-log" x-ref="log" x-show="!book">
             @forelse ($rows as $row)
                 @switch($row->role)
                     @case('user')
@@ -238,8 +273,14 @@
         </form>
     </section>
 
+    <div wire:ignore>
+        <button type="button" class="mx-bubble" x-show="bubbleText && !open" x-cloak x-transition.origin.bottom.right :class="bubbleKind" @click="bubbleClick()">
+            <span x-text="bubbleText"></span><small x-show="bubbleUrl">Göster →</small>
+        </button>
+    </div>
+
     <button type="button" class="mx-mascot" wire:ignore @click="tap()" :aria-label="open ? 'Moxi\'yi kapat' : 'Moxi\'yi aç'" aria-label="Moxi">
-        <div class="moxi" :class="mood">
+        <div class="moxi" :class="[mood, 'rank-' + rank]">
             @include('operator.partials.moxi-mascot')
         </div>
     </button>

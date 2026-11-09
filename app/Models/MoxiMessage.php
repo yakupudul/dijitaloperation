@@ -21,6 +21,9 @@ class MoxiMessage extends Model
 
     public const string AUDIT = 'audit';
 
+    /** A line in Moxi's notebook: what it learned from the operator (status done = kept, cancelled = forgotten). */
+    public const string NOTE = 'note';
+
     public const string PENDING = 'pending';
 
     public const string DONE = 'done';

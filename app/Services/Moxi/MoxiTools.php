@@ -106,6 +106,7 @@ final class MoxiTools
             ['name' => 'hatirlatma', 'description' => 'KART: satış kaydı için Takvim\'e hatırlatma ya da toplantı koyar.', 'input_schema' => $object(['lead_id' => $int('Satış kaydı id.'), 'kind' => $str('Tür.', ['task', 'meeting']), 'title' => $str('Başlık.'), 'date' => $date, 'time' => $str('Saat, SS:DD.')], ['lead_id', 'date'])],
             ['name' => 'teklif', 'description' => 'KART: satış kaydının aylık teklifini (TL) ve hizmetini yazar; 0 teklifi siler.', 'input_schema' => $object(['lead_id' => $int('Satış kaydı id.'), 'amount' => $int('Aylık TL.'), 'service' => $str('Hizmet.', array_keys(SalesLead::SERVICES))], ['lead_id', 'amount'])],
             ['name' => 'marka_bilgisi', 'description' => 'KART: operatörün söylediği bir marka bilgisini epikrize yazar (telefon, garanti, fiyat, uzman, fark…). Yalnız operatörün kendi sözü; tahmin asla. field ya da question_id gerekir.', 'input_schema' => $object(['brand_id' => $int('Marka id.'), 'field' => $str('Epikriz alanı (marka_dosyasi epikriz alanları).'), 'value' => $str('Bilgi, sade Türkçe.'), 'scope' => $str('Hangi hizmet ya da şube için.'), 'question_id' => $int('Cevapladığı açık soru id.')], ['brand_id', 'value'])],
+            ['name' => 'deftere_yaz', 'description' => 'Defterine kalıcı bir şey yazar: operatörün söylediği genel bir bilgi (bilgi), nasıl çalışmak istediği (tercih) ya da seni düzelttiği bir yer (ders). Kısa, tek cümle. Markaya özel bilgi için marka_bilgisi kartı kullan.', 'input_schema' => $object(['text' => $str('Öğrendiğin, tek cümle.'), 'kind' => $str('Tür.', ['bilgi', 'tercih', 'ders'])], ['text', 'kind'])],
             ['name' => 'claude_istegi', 'description' => 'Senin yapamayacağın bir işi (yazı, analiz, site işi, kod) Claude\'a iletir. Claude kuyruk turunda (08:27, 12:27, 16:27, 21:27) yapar, cevap bu kutuya gelir.', 'input_schema' => $object(['title' => $str('İşin kısa adı.'), 'detail' => $str('Operatörün istediği, tüm ayrıntısıyla.'), 'brand_id' => $int('İlgili marka (varsa).')], ['title', 'detail'])],
             ['name' => 'oneri_yaz', 'description' => 'Denetimci: panelde iş yaparken gördüğün bir aksaklığı ya da daha iyi bir yolu Geliştirme havuzuna öneri olarak yazar. Operatör onaylarsa Claude kodlar. Aynı bulgu iki kez yazılmaz.', 'input_schema' => $object(['kind' => $str('Tür: improvement (akış, hata, daha iyi yol) ya da design (görünüm).', ['improvement', 'design']), 'title' => $str('Ne değişmeli, kısa.'), 'detail' => $str('Sorun, neden önemli, önerilen çözüm.'), 'evidence' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Ekran, kayıt id, örnek.']], ['kind', 'title', 'detail'])],
         ];
@@ -134,6 +135,7 @@ final class MoxiTools
                 'satis_kaydi' => ['text' => self::cut(self::json($this->lead((int) ($input['lead_id'] ?? 0)))), 'message' => null],
                 'ekran_bul' => ['text' => self::json($this->screens((string) ($input['q'] ?? ''))), 'message' => null],
                 'bekleyenler' => ['text' => self::json($this->waiting()), 'message' => null],
+                'deftere_yaz' => $this->learn($input, $user, $page),
                 'claude_istegi' => $this->request($input, $user, $page),
                 'oneri_yaz' => $this->propose($input, $user, $page),
                 default => ['text' => 'HATA: böyle bir araç yok.', 'message' => null],
@@ -305,7 +307,19 @@ final class MoxiTools
     }
 
     /** @return list<array{label: string, count: ?int, url: string}> */
-    private function waiting(): array
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array{text: string, message: ?MoxiMessage}
+     */
+    private function learn(array $input, User $user, ?string $page): array
+    {
+        $note = app(MoxiCharacter::class)->learn($user, (string) ($input['text'] ?? ''), (string) ($input['kind'] ?? 'bilgi'), $page);
+
+        return ['text' => $note !== null ? 'Deftere yazıldı.' : 'HATA: boş not.', 'message' => null];
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function waiting(): array
     {
         $labels = collect(self::menu())->keyBy('route');
         $rows = [];

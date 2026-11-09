@@ -14,6 +14,7 @@ use App\Models\SystemChange;
 use App\Models\User;
 use App\Services\AiTasks\AiWorkers;
 use App\Services\Moxi\MoxiAgent;
+use App\Services\Moxi\MoxiCharacter;
 use App\Services\Moxi\MoxiTools;
 use App\Services\Sales\SalesLeads;
 use App\Support\Roles;
@@ -193,6 +194,57 @@ class MoxiAssistantTest extends TestCase
         foreach (app(MoxiTools::class)->definitions() as $tool) {
             $this->assertStringStartsWith('{', (string) json_encode($tool['input_schema']['properties']), $tool['name'].': properties must be a JSON object');
         }
+    }
+
+    public function test_a_tool_called_without_arguments_goes_back_to_the_api_as_an_object(): void
+    {
+        $this->fakeClaude([
+            ['stop_reason' => 'tool_use', 'content' => [['type' => 'tool_use', 'id' => 't1', 'name' => 'bekleyenler', 'input' => new \stdClass]]],
+            ['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => 'Bekleyen iş yok.']]],
+        ]);
+        $this->ask('Bekleyen ne var?');
+
+        $this->assertSame(MoxiMessage::DONE, MoxiMessage::query()->where('role', MoxiMessage::USER)->sole()->status);
+        Http::assertSent(fn (Request $request): bool => str_contains($request->body(), '"tool_result"') && str_contains($request->body(), '"input":{}'));
+    }
+
+    public function test_moxi_keeps_what_it_learns_in_a_notebook_the_operator_can_edit(): void
+    {
+        $this->fakeClaude([
+            ['stop_reason' => 'tool_use', 'content' => [['type' => 'tool_use', 'id' => 't1', 'name' => 'deftere_yaz', 'input' => ['text' => 'Fiyatları hep +KDV yaz.', 'kind' => 'tercih']]]],
+            ['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => 'Not ettim.']]],
+            ['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => '14.000 ₺ + KDV.']]],
+        ]);
+        $this->ask('Bundan sonra fiyatları hep +KDV yaz');
+        $note = MoxiMessage::query()->where('role', MoxiMessage::NOTE)->sole();
+        $this->assertSame('tercih', $note->meta['kind']);
+
+        $this->ask('Paket fiyatı ne?');
+        Http::assertSent(fn (Request $request): bool => str_contains(json_encode($request->data()['system'] ?? [], JSON_UNESCAPED_UNICODE), 'Fiyatları hep +KDV yaz.'));
+        Livewire::test(Moxi::class)->assertSee('Fiyatları hep +KDV yaz.')->call('forget', $note->id);
+        $this->assertSame([], app(MoxiCharacter::class)->notebook($this->admin->id));
+    }
+
+    public function test_bubbles_tell_useful_things_or_a_joke_and_the_rank_grows_with_work(): void
+    {
+        $character = app(MoxiCharacter::class);
+        $joke = $character->bubble($this->admin, '/satis', 1);
+        $this->assertSame('joke', $joke['kind']);
+        $this->assertNotSame('', $joke['text']);
+
+        $lead = app(SalesLeads::class)->quickAdd(['company' => 'Dentafix'], $this->admin);
+        $lead->forceFill(['next_step' => 'Ara', 'next_step_at' => now()->subDay()])->save();
+        $tip = $character->bubble($this->admin, '/satis', 0);
+        $this->assertSame('tip', $tip['kind']);
+        $this->assertStringContainsString('gecikti', $tip['text']);
+        $this->assertSame(route('operator.sales'), $tip['url']);
+
+        $this->assertSame('Çırak', $character->rank($this->admin->id)['name']);
+        foreach (range(1, 10) as $i) {
+            MoxiMessage::query()->create(['user_id' => $this->admin->id, 'role' => MoxiMessage::CARD, 'status' => MoxiMessage::DONE, 'body' => 'Kart '.$i]);
+        }
+        $this->assertSame('Samuray', $character->rank($this->admin->id)['name']);
+        Livewire::test(Moxi::class)->assertSee('data-rank="2"', false)->assertSee('data-cards="10"', false);
     }
 
     public function test_chat_text_is_escaped_and_only_safe_links_are_made(): void

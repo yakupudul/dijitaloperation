@@ -15,7 +15,17 @@ window.moxiChat = function () {
         timer: null,
         trVoice: null,
         speaking: false,
+        book: false,
+        bubbles: store.get('bubbles', '1') === '1',
+        bubbleText: '', bubbleUrl: null, bubbleKind: '', bubbleTimer: null,
+        rank: 1,
         boot() {
+            this.rank = +(this.$root.dataset.rank || 1);
+            this.growth(true);
+            // A bubble now and then: at most one every 12 minutes, never in the first 3, never while the chat is open,
+            // while typing, while asleep or in a hidden tab.
+            if (!store.get('bubbleAt')) store.set('bubbleAt', String(Date.now() - 9 * 60000));
+            setInterval(() => this.maybeBubble(), 60000);
             document.addEventListener('pointerdown', ac, { once: true });
             try { const pick = () => { const vs = speechSynthesis.getVoices().filter(v => /^tr/i.test(v.lang)); this.trVoice = vs.find(v => /google|natural|online|neural/i.test(v.name)) || vs[0] || null; }; pick(); speechSynthesis.onvoiceschanged = pick; } catch (e) {}
             let frame = 0;
@@ -31,8 +41,37 @@ window.moxiChat = function () {
             });
             setInterval(() => this.idle(), 9000);
             this.play('enter', 1200); setTimeout(() => this.play('bow', 1500), 1250);
-            window.Livewire?.hook?.('commit', ({ succeed }) => succeed(() => queueMicrotask(() => this.scroll())));
+            window.Livewire?.hook?.('commit', ({ succeed }) => succeed(() => queueMicrotask(() => { this.scroll(); this.growth(false); })));
             this.$nextTick(() => this.scroll());
+        },
+        growth(first) {
+            const level = +(this.$root.dataset.rank || 1), name = this.$root.dataset.rankName || '', cards = +(this.$root.dataset.cards || 0);
+            const was = +store.get('rank', '0'), wasCards = +store.get('cards', '-1');
+            this.rank = level;
+            store.set('rank', String(level)); store.set('cards', String(cards));
+            if (was > 0 && level > was) { this.showBubble('Rütbe atladım: artık ' + name + '! Birlikte çok iş yaptık.', null, 'milestone'); this.sfx('sword'); this.play('happy', 1600); return; }
+            if (wasCards < 0 || first) return;
+            const marks = { 1: 'İlk işimizi birlikte yaptık! 🎉', 10: '10. iş tamam. Kılıç ısınıyor.', 50: '50 iş! Dojoda adımız konuşuluyor.', 100: '100. iş! Bu bir efsane.', 250: '250 iş. Şogun bile kıskanır.' };
+            for (const m of Object.keys(marks).map(Number)) { if (wasCards < m && cards >= m) { this.showBubble(marks[m], null, 'milestone'); return; } }
+        },
+        toggleBubbles() { this.bubbles = !this.bubbles; store.set('bubbles', this.bubbles ? '1' : '0'); if (!this.bubbles) this.hideBubble(); },
+        maybeBubble() {
+            if (!this.bubbles || this.open || this.mood === 'sleep' || this.mood !== '' || document.visibilityState !== 'visible') return;
+            if (Date.now() - this.last < 20000) return;
+            if (Date.now() - +store.get('bubbleAt', '0') < 12 * 60000) return;
+            store.set('bubbleAt', String(Date.now()));
+            this.$wire.bubble(location.href).then((b) => { if (b && b.text && !this.open) this.showBubble(b.text, b.url, b.kind); }).catch(() => {});
+        },
+        showBubble(text, url, kind) {
+            this.bubbleText = text; this.bubbleUrl = url || null; this.bubbleKind = kind || '';
+            this.sfx('pop'); if (this.mood === '') this.play('talk', 1800);
+            clearTimeout(this.bubbleTimer); this.bubbleTimer = setTimeout(() => this.hideBubble(), kind === 'milestone' ? 9000 : 6500);
+        },
+        hideBubble() { this.bubbleText = ''; this.bubbleUrl = null; clearTimeout(this.bubbleTimer); },
+        bubbleClick() {
+            const url = this.bubbleUrl; this.hideBubble();
+            if (url) { window.Livewire?.navigate ? window.Livewire.navigate(url) : (location.href = url); return; }
+            if (!this.open) this.tap();
         },
         scroll() { const log = this.$refs.log; if (log) log.scrollTop = log.scrollHeight; },
         play(mood, ms, label) {
@@ -48,6 +87,7 @@ window.moxiChat = function () {
         },
         wake() { this.last = Date.now(); if (this.mood === 'sleep') { this.sfx('wake'); this.play('wake', 700, 'uyandı!'); return true; } return false; },
         tap() {
+            this.hideBubble();
             if (this.wake()) return;
             this.toggle();
             if (this.open) { this.sfx('bow'); this.play('bow', 1400, 'selam!'); this.$nextTick(() => { this.scroll(); this.$refs.input?.focus(); }); } else { this.play('poke', 700); }
@@ -125,6 +165,7 @@ window.moxiChat = function () {
                 confused: () => { this.tone(500, 330, .25, 'triangle', .06); this.tone(420, 560, .22, 'triangle', .05, .28); },
                 wake: () => { this.tone(392, 784, .12, 'square', .035); this.tone(523, 1046, .14, 'square', .035, .1); },
                 snore: () => this.noise(1.6, 220, 3, .04, 120),
+                pop: () => { this.tone(880, 1320, .08, 'sine', .035); },
             })[name]?.();
         },
     };

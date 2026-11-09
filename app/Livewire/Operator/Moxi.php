@@ -6,6 +6,7 @@ use App\Jobs\Moxi\MoxiTurnJob;
 use App\Models\MoxiMessage;
 use App\Models\SystemChange;
 use App\Services\Moxi\MoxiActions;
+use App\Services\Moxi\MoxiCharacter;
 use App\Services\Operations\SystemChangeDesk;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -112,6 +113,31 @@ final class Moxi extends Component
         $row->forceFill(['status' => $approve ? MoxiMessage::DONE : MoxiMessage::CANCELLED])->save();
     }
 
+    /**
+     * A speech bubble over Moxi's head (the browser asks now and then, only while the chat is closed).
+     *
+     * @return array{text: string, url: ?string, kind: string}|null
+     */
+    public function bubble(?string $page = null): ?array
+    {
+        if (! self::allowed()) {
+            return null;
+        }
+        $this->skipRender();
+
+        return app(MoxiCharacter::class)->bubble(Auth::user(), $page);
+    }
+
+    /** Moxi forgets a line of its notebook (the operator's call). */
+    public function forget(int $id): void
+    {
+        abort_unless(self::allowed(), 403);
+        $note = $this->own($id, MoxiMessage::NOTE);
+        if ($note !== null && $note->status === MoxiMessage::DONE) {
+            $note->forceFill(['status' => MoxiMessage::CANCELLED])->save();
+        }
+    }
+
     public function clear(): void
     {
         // Only the view: the lines stay as Moxi's memory.
@@ -159,8 +185,13 @@ final class Moxi extends Component
                 ->orderByDesc('id')->limit(self::SHOW)->get()->reverse()->values()
             : collect();
 
+        $character = app(MoxiCharacter::class);
+
         return view('livewire.operator.moxi', [
-            'rows' => $rows,
+            'rows' => $rows->where('role', '!=', MoxiMessage::NOTE)->values(),
+            'rank' => self::allowed() ? $character->rank((int) Auth::id()) : null,
+            'doneCards' => self::allowed() ? $character->doneCards((int) Auth::id()) : 0,
+            'notebook' => self::allowed() ? $character->notebook((int) Auth::id()) : [],
             'busy' => self::allowed() && $this->busy(),
             'alert' => self::allowed() && MoxiMessage::query()->where('user_id', Auth::id())->where('role', MoxiMessage::AUDIT)->where('status', MoxiMessage::PENDING)->exists(),
             'waitingJobs' => self::allowed() && MoxiMessage::query()->where('user_id', Auth::id())->where('role', MoxiMessage::REQUEST)->where('status', MoxiMessage::PENDING)->exists(),
