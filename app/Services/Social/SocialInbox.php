@@ -40,9 +40,14 @@ final class SocialInbox
                 if ($account->isManual()) {
                     continue;
                 }
+                $seen = null;
                 foreach (['dms', 'comments'] as $part) {
                     try {
-                        $part === 'dms' ? $this->syncDms($account, $stats) : $this->syncComments($account, $stats);
+                        if ($part === 'dms') {
+                            $seen = $this->syncDms($account, $stats);
+                        } else {
+                            $this->syncComments($account, $stats);
+                        }
                     } catch (SocialGraphException $e) {
                         $stats['errors'][] = $account->platformLabel().' '.($part === 'dms' ? 'mesajlar' : 'yorumlar').': '.$e->getMessage();
                     } catch (Throwable $e) {
@@ -52,6 +57,9 @@ final class SocialInbox
                 }
                 $meta = (array) ($account->meta ?? []);
                 $meta['inbox_synced_at'] = now()->toIso8601String();
+                // How many DM conversations Meta returned: 0 on Instagram usually means the account's
+                // "Allow access to messages" (Connected tools) is off, which Meta does not report as an error.
+                $meta['inbox_dm_seen'] = $seen;
                 $meta['inbox_errors'] = array_values(array_filter($stats['errors'], fn (string $e): bool => str_starts_with($e, $account->platformLabel())));
                 $account->forceFill(['meta' => $meta])->save();
             }
@@ -63,11 +71,11 @@ final class SocialInbox
     }
 
     /** @param  array{threads: int, messages: int, errors: list<string>}  $stats */
-    private function syncDms(SocialAccount $account, array &$stats): void
+    private function syncDms(SocialAccount $account, array &$stats): ?int
     {
         $pageId = $account->platform === SocialAccount::INSTAGRAM ? (string) $account->page_id : (string) $account->external_id;
         if ($pageId === '') {
-            return;
+            return null;
         }
         $query = ['fields' => 'id,updated_time,participants,messages.limit(25){id,message,from,created_time}', 'limit' => 25];
         if ($account->platform === SocialAccount::INSTAGRAM) {
@@ -75,7 +83,8 @@ final class SocialInbox
         }
         $data = $this->graph->get($pageId.'/conversations', (string) $account->access_token, $query);
         $since = now()->subDays(self::FIRST_READ_DAYS);
-        foreach ((array) ($data['data'] ?? []) as $conversation) {
+        $conversations = (array) ($data['data'] ?? []);
+        foreach ($conversations as $conversation) {
             $updated = isset($conversation['updated_time']) ? Carbon::parse($conversation['updated_time']) : null;
             if ($updated !== null && $updated->lt($since) && ! SocialThread::query()->where('social_account_id', $account->id)->where('external_id', (string) $conversation['id'])->exists()) {
                 continue;
@@ -96,6 +105,8 @@ final class SocialInbox
                 'author_name' => isset($other) ? (string) ($other['username'] ?? $other['name'] ?? '') : null,
             ], $messages, $stats);
         }
+
+        return count($conversations);
     }
 
     /** @param  array{threads: int, messages: int, errors: list<string>}  $stats */

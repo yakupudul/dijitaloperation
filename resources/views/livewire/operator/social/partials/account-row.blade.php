@@ -6,6 +6,8 @@
             <p class="text-xs text-gray-500">{{ $account->isManual() ? 'Kopyala ve aç ile paylaşılır' : ($account->enabled ? 'Otomatik yayın' : 'Kapalı') }}{{ $account->connected_at ? ' · bağlandı '.$account->connected_at->timezone($tz)->format('d.m.Y') : '' }}{{ $account->enabled && data_get($account->meta, 'inbox_synced_at') ? ' · mesajlar okundu '.\Illuminate\Support\Carbon::parse(data_get($account->meta, 'inbox_synced_at'))->timezone($tz)->format('d.m H:i') : '' }}</p>
             @if ($account->enabled && ! empty(data_get($account->meta, 'inbox_errors')))
                 <p class="mt-1 text-xs text-error-600" data-inbox-errors>Okunamadı: {{ implode(' · ', (array) data_get($account->meta, 'inbox_errors')) }}</p>
+            @elseif ($account->enabled && $account->platform === \App\Models\SocialAccount::INSTAGRAM && data_get($account->meta, 'inbox_dm_seen') === 0)
+                <p class="mt-1 text-xs text-warning-700" data-inbox-hint>Instagram hiç mesaj göstermiyor. Instagram uygulamasında Ayarlar › Mesajlar ve hikâye yanıtları › Bağlı araçlar › “Mesajlara erişime izin ver” açık olmalı.</p>
             @endif
         </div>
     </div>

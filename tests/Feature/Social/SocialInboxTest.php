@@ -4,6 +4,7 @@ namespace Tests\Feature\Social;
 
 use App\Jobs\Social\DraftSocialReply;
 use App\Livewire\Operator\Inbox\InboxPage;
+use App\Livewire\Operator\Social\SocialPage;
 use App\Models\SalesLead;
 use App\Models\SocialAccount;
 use App\Models\SocialThread;
@@ -74,6 +75,7 @@ final class SocialInboxTest extends TestCase
         $stats = app(SocialInbox::class)->sync();
 
         $this->assertSame([], $stats['errors']);
+        $this->assertSame(1, data_get($this->instagram->fresh()->meta, 'inbox_dm_seen'));
         $dm = SocialThread::query()->where('kind', 'dm')->sole();
         $this->assertSame('drayse', $dm->author_name);
         $this->assertSame('USER9', $dm->author_id);
@@ -93,6 +95,17 @@ final class SocialInboxTest extends TestCase
         app(SocialInbox::class)->sync();
         $this->assertSame(3, SocialThread::query()->count());
         Queue::assertPushed(DraftSocialReply::class, 2);
+    }
+
+    public function test_instagram_with_no_conversations_shows_the_message_access_hint(): void
+    {
+        Queue::fake();
+        Http::fake(['*/PAGE1/conversations*' => Http::response(['data' => []]), '*/IG1/media*' => Http::response(['data' => []])]);
+        app(SocialInbox::class)->sync();
+
+        $this->assertSame(0, data_get($this->instagram->fresh()->meta, 'inbox_dm_seen'));
+        Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'hesaplar'])->test(SocialPage::class)
+            ->assertSee('Mesajlara erişime izin ver');
     }
 
     public function test_draft_is_stored_and_a_service_question_opens_a_sales_card(): void
