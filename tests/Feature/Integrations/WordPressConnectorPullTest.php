@@ -11,6 +11,7 @@ use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
@@ -72,6 +73,34 @@ final class WordPressConnectorPullTest extends TestCase
         $this->ran = [];
         app(WordPressConnectorClient::class)->health($this->connection->fresh());
         $this->assertSame('/moxdop/v1/health', $this->ran[0]['route']);
+    }
+
+    public function test_a_host_that_drops_the_connection_sends_the_request_the_pull_way(): void
+    {
+        $this->siteAsks();
+        // moximu.com 2026-11-09: the host firewall drops MoxDOP's packets; no connection ever opens.
+        Http::swap(new Factory);
+        Http::fake(fn () => throw new ConnectionException('cURL error 28: Connection timed out after 10002 milliseconds (see https://curl.se/libcurl/c/libcurl-errors.html) for https://example.com/wp-json/moxdop/v1/ai/tool'));
+
+        $data = app(WordPressConnectorClient::class)->applyFixes($this->connection->fresh(), [['type' => 'seo_title', 'object_id' => 5, 'reference' => 'r', 'value' => 'Yeni']]);
+
+        $this->assertSame([['ok' => true]], $data['results']);
+        $this->assertSame('pull', $this->connection->fresh()->config['rest_transport']);
+        $this->assertSame('/moxdop/v1/fixes', $this->ran[0]['route']);
+    }
+
+    public function test_a_request_that_reached_the_site_and_timed_out_is_not_sent_again(): void
+    {
+        $this->siteAsks();
+        Http::swap(new Factory);
+        Http::fake(fn () => throw new ConnectionException('cURL error 28: Operation timed out after 180001 milliseconds with 0 bytes received'));
+
+        try {
+            app(WordPressConnectorClient::class)->applyFixes($this->connection->fresh(), [['type' => 'seo_title', 'object_id' => 5, 'reference' => 'r', 'value' => 'Yeni']]);
+            $this->fail('the timeout is reported');
+        } catch (ConnectionException) {
+        }
+        $this->assertSame([], $this->ran, 'a write that may have run on the site is never run a second time');
     }
 
     public function test_the_site_learns_from_its_ask_that_work_comes_this_way(): void

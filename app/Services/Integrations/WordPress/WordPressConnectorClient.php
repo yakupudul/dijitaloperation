@@ -6,6 +6,7 @@ use App\Models\CoreConnection;
 use App\Services\Collection\Providers\Website\WebsiteCrawlState;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -379,8 +380,20 @@ final class WordPressConnectorClient
         try {
             foreach ($order as $i => $transport) {
                 $viaQuery = str_starts_with($transport, 'query');
-                $response = $this->send($method, $viaQuery ? self::queryUrl($url) : $url, $route, $viaQuery ? $query + ['rest_route' => $route] : $query,
-                    $payload, $clientId, $secret, $timeout, str_ends_with($transport, '_v4'));
+                try {
+                    $response = $this->send($method, $viaQuery ? self::queryUrl($url) : $url, $route, $viaQuery ? $query + ['rest_route' => $route] : $query,
+                        $payload, $clientId, $secret, $timeout, str_ends_with($transport, '_v4'));
+                } catch (ConnectionException $e) {
+                    // moximu.com 2026-11-09: the host firewall drops the MoxDOP server's packets, so not even the TCP
+                    // connection opens (cURL "Connection timed out" / "Failed to connect"). Nothing reached the site, so
+                    // nothing can run twice: when the site asks for its work itself, the request goes that way.
+                    if (self::neverConnected($e) && WordPressConnectorCommands::available($connection)) {
+                        WordPressConnectorCommands::setTransport($connection, 'pull');
+
+                        return $this->pulled($connection, $method, $url, $route, $query, $payload, $secret, $timeout);
+                    }
+                    throw $e;
+                }
                 if (self::serverRefusal($response['response'])) {
                     if ($i < count($order) - 1) {
                         continue;
@@ -408,6 +421,12 @@ final class WordPressConnectorClient
             $this->markUnhealthy($connection, $e);
             throw $e;
         }
+    }
+
+    /** The TCP connection never opened (a dropped or refused connect), so the request did not reach the site. */
+    private static function neverConnected(ConnectionException $e): bool
+    {
+        return (bool) preg_match('/cURL error (?:7|28): (?:Failed to connect|Couldn\'t connect|Could not connect|Connection timed out after|Connection refused)/i', $e->getMessage());
     }
 
     /**
