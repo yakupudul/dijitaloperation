@@ -1,145 +1,46 @@
-{{-- Moxi, the corner assistant (yakup 2026-11-09). Mascot moves, sounds and speech: operator/partials/moxi-script. --}}
+{{-- Moxi, the corner assistant (yakup 2026-11-09). The corner button is a chat icon made from the Moximu cone (no character); sounds and speech: operator/partials/moxi-script. --}}
 <div class="mx-root @if ($alert) has-alert @endif" x-data="moxiChat()" x-init="boot()"
     @moxi-think.window="think()" @moxi-said.window="said($event.detail)" @moxi-happy.window="happy($event.detail)"
     data-rank="{{ $rank['level'] ?? 1 }}" data-rank-name="{{ $rank['name'] ?? 'Çırak' }}" data-cards="{{ $doneCards }}"
     wire:poll.{{ $busy ? '2s' : ($waitingJobs ? '30s' : '90s') }}="refresh" data-moxi>
     <style>
-/* ---------- Moxi (SVG, yağlı boya filtresi) ---------- */
-.moxi{--s:1; position:relative; width:calc(200px*var(--s)); height:calc(240px*var(--s)); flex:none}
-.moxi svg{width:100%; height:100%; display:block; overflow:visible}
-.moxi svg *{transform-box:view-box}
-.m-shadow{transform-origin:100px 226px; animation:shadow 3.2s ease-in-out infinite}
-.m-all{transform-origin:100px 224px; animation:breathe 3.2s ease-in-out infinite}
-.m-head{transform-origin:100px 190px; transition:transform .35s ease}
-.m-hat{transform-origin:100px 92px; transition:transform .35s ease; animation:hatsway 6s ease-in-out infinite}
-.m-tails{transform-origin:142px 97px; animation:flutter 1.4s ease-in-out infinite}
-.m-eyes{transition:transform .25s ease}
-.m-eo{transform-origin:100px 136px; animation:blink 4.6s infinite}
-.m-eh,.m-es,.m-mouth .mo,.m-mouth .mr,.m-mouth .mw,.m-mouth .mz,.m-zzz{display:none}
-.m-mouth.open .mc,.m-mouth.round .mc,.m-mouth.wide .mc{display:none}
-.m-mouth.open .mo,.m-mouth.round .mr,.m-mouth.wide .mw{display:inline}
-.m-eyes{transform:translate(var(--ex,0px),var(--ey,0px))}
-.m-sweat,.m-bang,.m-slash{opacity:0}
-.m-slash{stroke-dasharray:140; stroke-dashoffset:140}
-.m-glint{stroke-dasharray:5 40; stroke-dashoffset:45; opacity:0}
-
-.m-arm-r{transform-origin:136px 160px; transition:transform .35s ease}
-.m-scroll{opacity:0; transform-origin:160px 175px; transform:scale(.3) rotate(-30deg); transition:.35s}
-.m-brow-l{transform-origin:82px 122px; transition:transform .3s} .m-brow-r{transform-origin:118px 122px; transition:transform .3s}
-.m-alert{transform-origin:150px 72px; transform:scale(0); transition:.3s cubic-bezier(.5,1.8,.5,1)}
-.m-fx,.m-dots{opacity:0; transition:opacity .25s}
-.m-dots circle{animation:dot 1s infinite; transform-origin:center}
-.m-dots circle:nth-child(2){animation-delay:.15s} .m-dots circle:nth-child(3){animation-delay:.3s}
-
-/* halleri */
-.moxi.listen .m-head{transform:rotate(-6deg) translateX(-2px)}
-.moxi.listen .m-hat{transform:rotate(-6deg)}
-.moxi.listen .m-eyes{transform:translate(var(--lx,0px), 4px)}
-.moxi.listen .m-all{animation-duration:2.2s}
-.moxi.nod .m-head{transform:rotate(-6deg) translateY(3px)}
-.moxi.think .m-eyes{transform:translate(5px,-5px)}
-.moxi.think .m-hat{animation:thinkhat 1.6s ease-in-out infinite}
-.moxi.think .m-dots{opacity:1}
-.moxi.think .m-brow-l{transform:translateY(-3px) rotate(-6deg)}
-.moxi.talk .m-all{animation:talkbob .5s ease-in-out infinite}
-.moxi.talk .m-arm-r{transform:rotate(-35deg)}
-.moxi.happy .m-all{animation:hop .7s ease-out 2}
-.moxi.happy .m-eo,.moxi.sleep .m-eo{display:none}
-.moxi.happy .m-eh{display:inline}
-.moxi.happy .m-fx{opacity:1}
-.moxi.audit .m-scroll{opacity:1; transform:none}
-.moxi.audit .m-arm-r{transform:rotate(-55deg)}
-.moxi.audit .m-brow-r{transform:translateY(-5px) rotate(14deg)}
-.moxi.audit .m-alert{transform:scale(1)}
-.moxi.audit .m-eyes{transform:translateX(4px)}
-.moxi.sleep .m-es,.moxi.sleep .m-zzz{display:inline}
-.moxi.sleep .m-all{animation-duration:5s}
-.moxi.sleep .m-hat{transform:rotate(7deg) translateY(7px)}
-.moxi.sleep .m-tails{animation-duration:4s}
-
-/* yeni hareketler */
-.moxi.enter svg{animation:reveal 1.2s cubic-bezier(.2,.7,.2,1)}
-.moxi.bow .m-head,.moxi.bow .m-hat{animation:bow 1.4s ease-in-out}
-.moxi.bow .m-all{animation:bowbody 1.4s ease-in-out}
-.moxi.bow .m-eo{display:none} .moxi.bow .m-eh{display:inline}
-.moxi.happy .m-slash{animation:slash .7s .15s ease-out}
-.moxi.happy .m-glint,.moxi.v-sword .m-glint{animation:glint .9s ease-in-out}
-.moxi.happy .m-head{animation:proud 1.4s ease-in-out}
-.moxi.think .m-arm-r{transform:rotate(100deg)}
-.moxi.think .m-mouth .mc{display:none} .moxi.think .m-mouth .mz{display:inline}
-.moxi.confused .m-head{transform:rotate(9deg)}
-.moxi.confused .m-hat{transform:rotate(9deg) translate(4px,1px)}
-.moxi.confused .m-arm-r{animation:scratch .35s ease-in-out infinite alternate}
-.moxi.confused .m-sweat{animation:sweat 1.6s ease-in infinite}
-.moxi.confused .m-brow-l{transform:translateY(2px) rotate(8deg)} .moxi.confused .m-brow-r{transform:translateY(-4px) rotate(10deg)}
-.moxi.confused .m-mouth .mc{display:none} .moxi.confused .m-mouth .mz{display:inline}
-.moxi.poke .m-all{animation:poke .5s ease-out}
-.moxi.poke .m-bang,.moxi.wake .m-bang{animation:bang .8s ease-out}
-.moxi.poke .m-eo{transform:scale(1.18)}
-.moxi.wake .m-all{animation:hop .55s ease-out}
-.moxi.wake .m-brow-l,.moxi.wake .m-brow-r{transform:translateY(-5px)}
-.moxi.v-look .m-eyes{animation:look 2.6s ease-in-out}
-.moxi.v-look .m-head{animation:lookhead 2.6s ease-in-out}
-.moxi.v-hat .m-arm-r{animation:armhat 1.8s ease-in-out}
-.moxi.v-hat .m-hat{animation:hatfix 1.8s ease-in-out}
-.moxi.v-yawn .m-eo{display:none} .moxi.v-yawn .m-es{display:inline}
-.moxi.v-yawn .m-mouth .mc{display:none} .moxi.v-yawn .m-mouth .mr{display:inline; animation:yawn 2s ease-in-out; transform-origin:100px 171px}
-.moxi.v-yawn .m-all{animation:stretch 2s ease-in-out}
-@keyframes reveal{0%{clip-path:circle(0% at 50% 55%); filter:blur(8px) saturate(0)}60%{filter:blur(1px) saturate(.6)}100%{clip-path:circle(85% at 50% 55%); filter:none}}
-@keyframes bow{0%,100%{transform:none}30%,62%{transform:translateY(10px)}}
-@keyframes bowbody{0%,100%{transform:none}30%,62%{transform:scale(1.03,.95)}}
-@keyframes slash{0%{opacity:1; stroke-dashoffset:140}60%{opacity:1; stroke-dashoffset:0}100%{opacity:0; stroke-dashoffset:-140}}
-@keyframes glint{0%{opacity:0; stroke-dashoffset:45}20%{opacity:1}100%{opacity:0; stroke-dashoffset:-5}}
-@keyframes proud{0%,100%{transform:none}40%,70%{transform:rotate(-4deg) translateY(-2px)}}
-@keyframes scratch{from{transform:rotate(-165deg)}to{transform:rotate(-178deg)}}
-@keyframes sweat{0%{opacity:0; transform:translateY(-4px)}25%{opacity:1}100%{opacity:0; transform:translateY(14px)}}
-@keyframes poke{0%{transform:none}25%{transform:scale(1.1,.86)}55%{transform:scale(.94,1.08) translateY(-6px)}100%{transform:none}}
-@keyframes bang{0%{opacity:0; transform:translateY(6px) scale(.5)}30%{opacity:1; transform:none}100%{opacity:0}}
-@keyframes look{0%,100%{transform:none}25%,40%{transform:translateX(-5px)}60%,78%{transform:translateX(5px)}}
-@keyframes lookhead{0%,100%{transform:none}25%,40%{transform:rotate(-5deg)}60%,78%{transform:rotate(5deg)}}
-@keyframes armhat{0%,100%{transform:none}35%,70%{transform:rotate(-160deg)}}
-@keyframes hatfix{0%,100%{transform:none}40%{transform:translateY(-6px) rotate(-5deg)}55%{transform:translateY(-6px) rotate(4deg)}75%{transform:none}}
-@keyframes yawn{0%,100%{transform:none}30%,70%{transform:scale(1.5,1.8)}}
-@keyframes stretch{0%,100%{transform:none}35%,65%{transform:scale(.97,1.05)}}
-@keyframes flutter{0%,100%{transform:rotate(0)}50%{transform:rotate(9deg) skewY(-4deg)}}
-@keyframes thinkhat{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(4deg)}}
-@keyframes zz{0%{opacity:0; transform:translate(0,0)}30%{opacity:1}100%{opacity:0; transform:translate(10px,-18px)}}
-.m-zzz text{animation:zz 2.4s infinite; font:700 16px "Baloo 2", system-ui, sans-serif; fill:#1f6461}
-.m-zzz text:nth-child(2){animation-delay:1.2s}
-
-@keyframes breathe{50%{transform:scale(1.03,.97)}}
-@keyframes shadow{50%{transform:scaleX(1.06)}}
-@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
-@keyframes hatsway{0%,100%{rotate:0deg}50%{rotate:1.5deg}}
-@keyframes spin{to{--a:360deg}}
+/* Moxi'nin açma düğmesi (yakup 2026-11-09 "logodaki huniyle bütünleşmiş chat ikonu, karakter yok"): Moximu işaretinin
+   sarı karesi, içinde tek bir huni (yukarıdan bakılan koni, logodaki gibi açıdan renk geçişi) kuyruklu bir sohbet balonu
+   olur; ince sarı çizgi koninin sırtıdır. Düşünürken huni döner, konuşurken nefes alır, uykuda söner. */
+@property --mxa{syntax:'<angle>'; inherits:true; initial-value:0deg}
+.mx-cone{position:relative; display:inline-block; width:56px; height:56px; flex:none}
+.mx-cone i{position:absolute; left:0; top:0; width:56px; height:56px; background:conic-gradient(from var(--mxa) at 30px 26px, #0b302e, #155552 30%, #1f6461 55%, #2e8a85 80%, #4fb0a8 98%, #0b302e);
+  clip-path:path('M7.4 34.2 A24 24 0 1 1 19.9 47.7 L4 54 Z')}
+.mx-cone b{position:absolute; left:29.3px; top:2px; width:1.4px; height:24px; background:#FDCF3C; transform-origin:50% 100%; transform:rotate(var(--mxa)); border-radius:1px}
+.mx-cone.sm{width:22px; height:22px} .mx-cone.sm i,.mx-cone.sm b{zoom:.393}
+.mx-cone.is-typing,.mx-launch.think .mx-cone{animation:mxspin 1.4s linear infinite}
+@keyframes mxspin{to{--mxa:360deg}}
+.mx-launch{position:relative; display:grid; place-items:center; width:64px; height:64px; margin:0 0 0 auto; padding:0; border:0; border-radius:18px; background:#FDCF3C; cursor:pointer;
+  box-shadow:0 10px 26px rgba(15,61,58,.25); transition:transform .18s ease, box-shadow .18s ease}
+.mx-launch > .mx-cone{margin:4px 0 0 4px; transition:opacity .15s, transform .2s}
+.mx-launch:hover{transform:translateY(-2px); box-shadow:0 14px 30px rgba(15,61,58,.3)}
+.mx-launch:focus-visible{outline:3px solid #1f6461; outline-offset:3px}
+.mx-launch .mx-x{position:absolute; inset:0; display:grid; place-items:center; color:#0f3d3a; opacity:0; transition:opacity .15s}
+.mx-launch.is-open > .mx-cone{opacity:0; transform:scale(.6)} .mx-launch.is-open .mx-x{opacity:1}
+.mx-launch.talk > .mx-cone{animation:mxbreath 1.1s ease-in-out infinite}
+@keyframes mxbreath{50%{transform:scale(1.06)}}
+.mx-launch.happy,.mx-launch.bow,.mx-launch.wake{animation:mxpop .6s ease-out}
+@keyframes mxpop{40%{transform:scale(1.12)}}
+.mx-launch.confused > .mx-cone{animation:mxshake .4s ease-in-out 2}
+@keyframes mxshake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.mx-launch.sleep{filter:saturate(.4); opacity:.8}
+.mx-tip{position:absolute; right:74px; top:50%; translate:0 -50%; white-space:nowrap; background:#0f3d3a; color:#fff; font-size:13px; font-weight:500; padding:7px 11px; border-radius:10px;
+  opacity:0; pointer-events:none; transition:opacity .15s}
+.mx-launch:hover .mx-tip,.mx-launch:focus-visible .mx-tip{opacity:1}
+.mx-launch.is-open .mx-tip{display:none}
+.mx-alert-dot{position:absolute; top:-3px; right:-3px; width:14px; height:14px; border-radius:50%; background:#e2553f; border:2px solid #fff; display:none}
+.mx-root.has-alert .mx-alert-dot{display:block}
+.mx-typing .mx-cone{margin:2px}
+.mx-bubble .mx-cone{margin-top:1px}
 @keyframes dot{0%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
-@keyframes talkbob{50%{transform:translateY(-3px)}}
-@keyframes hop{30%{transform:translateY(-16px) scale(.98,1.03)}60%{transform:translateY(0) scale(1.04,.96)}}
-@media (prefers-reduced-motion: reduce){ .moxi *{animation:none!important; transition:none!important} }
-
-
+@media (prefers-reduced-motion: reduce){ .mx-cone,.mx-launch{animation:none!important} }
 [x-cloak]{display:none!important}
 .mx-root{position:fixed; right:max(12px, env(safe-area-inset-right, 0px)); bottom:max(6px, env(safe-area-inset-bottom, 0px)); z-index:9000; font-size:14px; line-height:1.45; color:#1f2a2a}
-.mx-mascot{display:block; width:84px; height:101px; padding:0; margin:0 0 0 auto; border:0; background:none; cursor:pointer; position:relative}
-.mx-mascot .moxi{--s:.42}
-/* açma düğmesi: moximu.com'daki ana düğme gibi (koyu petrol, sarı kare uç), solda Moxi'nin kafası */
-.mx-launch{display:flex; align-items:center; gap:10px; width:auto; height:auto; padding:6px 6px 6px 0; background:#0f3d3a; color:#fff; border-radius:14px;
-  box-shadow:0 10px 28px rgba(15,61,58,.28); font:inherit; text-align:left; transition:background .15s, transform .15s}
-.mx-launch:hover{background:#155552; transform:translateY(-1px)}
-.mx-launch:focus-visible{outline:3px solid #FDCF3C; outline-offset:3px; border-radius:14px}
-.mx-ava{position:relative; width:58px; height:44px; flex:none}
-.mx-ava .moxi{--s:.33; position:absolute; left:-3px; bottom:-12px}
-.mx-ava .m-sun{display:none}
-.mx-lt{display:grid; line-height:1.2; padding-right:2px}
-.mx-lt b{font-size:15px; font-weight:600; letter-spacing:-.01em}
-.mx-lt small{font-size:11.5px; color:#bfd6d3; display:flex; align-items:center; gap:5px; max-width:130px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-.mx-on{width:7px; height:7px; border-radius:50%; background:#5fd38a; flex:none; box-shadow:0 0 0 3px rgba(95,211,138,.18)}
-.mx-chip{width:34px; height:34px; border-radius:9px; background:#FDCF3C; color:#0f3d3a; display:grid; place-items:center; flex:none}
-.mx-chip svg{width:19px; height:19px}
-.mx-launch.is-open{background:#155552}
-@media (max-width:480px){ .mx-lt{display:none} .mx-launch{padding-right:6px} }
-.mx-mascot:focus-visible{outline:3px solid #FDCF3C; outline-offset:2px; border-radius:14px}
-.mx-root.has-alert .m-alert{transform:scale(1)}
 .mx-panel{position:absolute; right:0; bottom:66px; width:min(390px, calc(100vw - 24px)); height:min(600px, calc(100vh - 140px)); display:flex; flex-direction:column;
   background:#fff; border:1px solid #e6e3d6; border-radius:16px; box-shadow:0 18px 50px rgba(20,40,38,.18); overflow:hidden}
 .mx-head{display:flex; align-items:center; gap:8px; padding:10px 12px; border-bottom:1px solid #eeebe0}
@@ -170,27 +71,8 @@
 .mx-form textarea{flex:1; min-width:0; resize:none; font:inherit; padding:8px 10px; border-radius:10px; border:1px solid #e6e3d6; background:#fbfaf6; color:#1f2a2a; max-height:120px}
 .mx-form textarea:focus{outline:2px solid #FDCF3C; outline-offset:1px}
 @media (max-width:480px){ .mx-panel{height:calc(100vh - 96px)} }
-/* rütbe: Samuray şapka şeridi, Usta omuz arması, Şogun altın boynuzlar */
-.mx-look{width:100%; height:100%}
-/* Moximu işareti biçiminde sohbet balonu ikonu */
-.mx-mark{width:18px; height:18px; flex:none; display:inline-block; vertical-align:-4px; overflow:visible}
-.mx-mark .mx-cones circle{transform-box:fill-box; transform-origin:center}
-.mx-mark.is-typing .mx-cones circle{animation:mxcone 1.1s ease-in-out infinite}
-.mx-mark.is-typing .c2{animation-delay:.14s!important} .mx-mark.is-typing .c4{animation-delay:.28s!important} .mx-mark.is-typing .c3{animation-delay:.42s!important}
-@keyframes mxcone{0%,60%,100%{transform:none}30%{transform:translateY(-5px) scale(1.08)}}
-.mx-icon .mx-mark{margin-right:4px}
-.mx-icon.off .mx-mark{filter:grayscale(1); opacity:.55}
-.mx-typing .mx-mark{width:30px; height:30px}
 .mx-bubble{display:flex; gap:9px; align-items:flex-start}
-.mx-bubble .mx-mark{width:22px; height:22px; margin-top:1px}
 .mx-bubble-t{display:block}
-.moxi.look-samurai .m-head{transform-origin:100px 156px} .moxi.look-samurai .m-hat{transform-origin:100px 80px}
-.moxi.look-samurai .m-eo{transform-origin:100px 118px} .moxi.look-samurai .m-scroll{transform-origin:144px 112px}
-.moxi.look-samurai .m-brow-l{transform-origin:83px 106px} .moxi.look-samurai .m-brow-r{transform-origin:117px 106px}
-.moxi.look-samurai .m-alert{transform-origin:150px 62px} .moxi.look-samurai.v-yawn .m-mouth .mr{transform-origin:101px 136px}
-.moxi.look-robot.v-yawn .m-mouth .mr{animation:none}
-.m-r2,.m-r3,.m-r4{display:none}
-.moxi.rank-2 .m-r2,.moxi.rank-3 .m-r2,.moxi.rank-4 .m-r2,.moxi.rank-3 .m-r3,.moxi.rank-4 .m-r3,.moxi.rank-4 .m-r4{display:inline}
 .mx-rank{font-size:11px; font-weight:700; color:#1f6461; background:#e8f3f1; border-radius:20px; padding:2px 8px; white-space:nowrap}
 /* konuşma balonu */
 .mx-bubble{position:absolute; right:0; bottom:66px; width:max-content; max-width:min(260px, calc(100vw - 90px)); background:#fff; color:#1f2a2a; border:2px solid #1f6461;
@@ -213,7 +95,6 @@
             <b>Moxi</b>
             <span class="mx-rank" title="{{ $rank ? $rank['points'].' puan'.($rank['next'] !== null ? ' · '.$rank['next_name'].' için '.$rank['next'] : '') : '' }}">{{ $rank['name'] ?? 'Çırak' }}</span>
             <span class="mx-status" x-text="status">{{ $busy ? 'düşünüyor…' : 'hazır' }}</span>
-            <button type="button" class="mx-icon" @click="cycleLook()" title="Moxi'nin görünümü: samuray, fütüristik ya da yakup">Görünüm</button>
             <button type="button" class="mx-icon" @click="book = !book" :aria-pressed="book" title="Moxi'nin defteri: senden öğrendikleri">Defter</button>
             <button type="button" class="mx-icon" @click="toggleBubbles()" x-text="bubbles ? 'Balon: açık' : 'Balon: kapalı'" title="Ara sıra konuşma balonları"></button>
             <button type="button" class="mx-icon" @click="cycleVoice()" x-text="voiceLabel()" title="Ses: konuşma, mırıltı ya da sessiz"></button>
@@ -297,7 +178,7 @@
                 <div class="mx-empty">Selam! Marka durumu sorabilir, link isteyebilir ya da iş verebilirsin.<br>Örnek: "Gelen kutusu linki", "Portakal Diş'in durumu ne?", "Ayşe Hanım'ı müşteri yap, 14.000, 6 ay".</div>
             @endforelse
             @if ($busy)
-                <div class="mx-msg mx-bot mx-typing" aria-label="Moxi yazıyor">@include('operator.partials.moxi-bubble-icon', ['class' => 'is-typing'])</div>
+                <div class="mx-msg mx-bot mx-typing" aria-label="Moxi yazıyor">@include('operator.partials.moxi-cone', ['class' => 'sm is-typing'])</div>
             @endif
         </div>
 
@@ -310,20 +191,14 @@
 
     <div wire:ignore>
         <button type="button" class="mx-bubble" x-show="bubbleText && !open" x-cloak x-transition.origin.bottom.right :class="bubbleKind" @click="bubbleClick()">
-            @include('operator.partials.moxi-bubble-icon')<span class="mx-bubble-t"><span x-text="bubbleText"></span><small x-show="bubbleUrl">Göster →</small></span>
+            @include('operator.partials.moxi-cone', ['class' => 'sm'])<span class="mx-bubble-t"><span x-text="bubbleText"></span><small x-show="bubbleUrl">Göster →</small></span>
         </button>
     </div>
 
-    <button type="button" class="mx-mascot mx-launch" :class="open ? 'is-open' : ''" wire:ignore @click="tap()" :aria-label="open ? 'Moxi\'yi kapat' : 'Moxi ile konuş'" aria-label="Moxi ile konuş">
-        <span class="mx-ava"><div class="moxi" :class="[mood, 'rank-' + rank, 'look-' + look]">
-            <template x-if="look === 'samurai'"><div class="mx-look">@include('operator.partials.moxi-mascot-samurai')</div></template>
-            <template x-if="look === 'robot'"><div class="mx-look">@include('operator.partials.moxi-mascot')</div></template>
-            <template x-if="look === 'yakup'"><div class="mx-look">@include('operator.partials.moxi-mascot-yakup')</div></template>
-        </div></span>
-        <span class="mx-lt"><b x-text="open ? 'Moxi' : 'Moxi\'ye sor'">Moxi'ye sor</b><small><i class="mx-on"></i><span x-text="status">hazır</span></small></span>
-        <span class="mx-chip" aria-hidden="true">
-            <svg x-show="!open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.2 7.5L3 21l2-5.6A8.4 8.4 0 1 1 21 11.5Z"/><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" stroke-width="2.6"/></svg>
-            <svg x-show="open" x-cloak viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
-        </span>
+    <button type="button" class="mx-mascot mx-launch" :class="[open ? 'is-open' : '', mood]" wire:ignore @click="tap()" :aria-label="open ? 'Moxi\'yi kapat' : 'Moxi\'ye sor'" aria-label="Moxi'ye sor">
+        @include('operator.partials.moxi-cone')
+        <span class="mx-x" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
+        <span class="mx-tip">Moxi'ye sor</span>
+        <span class="mx-alert-dot"></span>
     </button>
 </div>

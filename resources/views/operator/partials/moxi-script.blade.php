@@ -1,4 +1,4 @@
-{{-- Moxi in the browser (yakup 2026-11-09): the mascot's moods, idle moves, sounds made on the fly (Web Audio, no files)
+{{-- Moxi in the browser (yakup 2026-11-09): the corner icon's moods (think = the cone turns, talk = it breathes), sounds made on the fly (Web Audio, no files)
      and speech with the browser's own free Turkish voice. Ses modu (Konuşuyor / Mırıltı / Sessiz) and open/closed are
      remembered in this browser only. --}}
 <script>
@@ -19,8 +19,6 @@ window.moxiChat = function () {
         bubbles: store.get('bubbles', '1') === '1',
         bubbleText: '', bubbleUrl: null, bubbleKind: '', bubbleTimer: null,
         rank: 1,
-        look: ['samurai', 'robot', 'yakup'].includes(store.get('look2', '')) ? store.get('look2', '') : 'samurai',
-        cycleLook() { const o = ['samurai', 'robot', 'yakup']; this.look = o[(o.indexOf(this.look) + 1) % o.length]; store.set('look2', this.look); this.$nextTick(() => this.play('bow', 1400, 'selam!')); },
         boot() {
             this.rank = +(this.$root.dataset.rank || 1);
             this.growth(true);
@@ -85,7 +83,7 @@ window.moxiChat = function () {
             if (this.mood !== '' && this.mood !== 'sleep') return;
             if (this.mood === 'sleep') { if (Math.random() < .3) this.sfx('snore'); return; }
             if (!this.open && Date.now() - this.last > 180000) { this.mood = 'sleep'; return; }
-            if (Math.random() < .5) { const v = ['v-look', 'v-hat', 'v-yawn', 'v-sword'][Math.floor(Math.random() * 4)]; this.play(v, v === 'v-sword' ? 1000 : 2600); }
+            
         },
         wake() { this.last = Date.now(); if (this.mood === 'sleep') { this.sfx('wake'); this.play('wake', 700, 'uyandı!'); return true; } return false; },
         tap() {

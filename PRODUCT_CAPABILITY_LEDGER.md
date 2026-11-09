@@ -8,6 +8,7 @@
 - **Denetçi:** `oneri_yaz` bulguyu Geliştirme havuzuna her zaman `proposed` yazar (hata dense bile); sohbette Onayla/Sonra kartı.
 - **Tarayıcı:** ruh halleri, boşta hareketler, uyku, göz takibi, Web Audio efektleri, tarayıcının ücretsiz Türkçe sesi (Konuşuyor / Mırıltı / Sessiz).
 - **Karakter (aynı gün, yakup "yap"):** konuşma balonları (en çok 12 dakikada bir, sohbet kapalıyken; yarısı paneldeki gerçek sayılardan tıklanır ipucu, yarısı ekrana/saate göre hazır espri, AI maliyeti yok; başlıkta Balon aç/kapat), Moxi'nin defteri (`deftere_yaz`: bilgi/tercih/ders, her turda sisteme okunur, başlıkta Defter, ✕ ile unutturulur, en çok 80 satır), rütbe (Çırak → Samuray 30 → Usta 150 → Şogun 500 puan; cevap 1, yapılan kart 3, biten Claude işi 2; şapka şeridi, omuz arması, altın boynuz), 1/10/50/100/250. iş balonları (`MoxiCharacter`).
+- **Görünüm (aynı akşam, yakup):** karakter kaldırıldı; köşede Moximu işaretinin sarı karesi içinde logodaki huniden yapılmış kuyruklu sohbet ikonu (`operator/partials/moxi-cone`), düşünürken huni döner, üstüne gelince 'Moxi'ye sor'; rütbe yalnız başlıkta.
 - **Durum:** CODED, TESTED (PHPUnit `tests/Feature/Moxi`); canlı kontrol yayından sonra.
 
 ## 2026-10-20 — Yazı kuralları ekran ekran (panel sadeleştirme 4)
