@@ -33,10 +33,9 @@ window.moxiChat = function () {
                 if (frame) return;
                 frame = requestAnimationFrame(() => {
                     frame = 0;
-                    const r = this.$root.querySelector('.mx-mascot')?.getBoundingClientRect(); if (!r) return;
-                    const m = this.$root.querySelector('.mx-mascot .moxi'); if (!m) return;
-                    m.style.setProperty('--ex', Math.max(-4, Math.min(4, (e.clientX - (r.left + r.width / 2)) / 60)).toFixed(1) + 'px');
-                    m.style.setProperty('--ey', Math.max(-3, Math.min(3, (e.clientY - (r.top + r.height * .45)) / 70)).toFixed(1) + 'px');
+                    // The cone "looks" at the pointer: its ridge (the yellow line) turns toward it.
+                    if (this.mood === 'sleep' || this.mood === 'listen') return;
+                    this.look(e.clientX, e.clientY);
                 });
             });
             setInterval(() => this.idle(), 9000);
@@ -73,6 +72,16 @@ window.moxiChat = function () {
             if (url) { window.Livewire?.navigate ? window.Livewire.navigate(url) : (location.href = url); return; }
             if (!this.open) this.tap();
         },
+        gaze: 0,
+        cone() { return this.$root.querySelector('.mx-launch > .mx-cone'); },
+        look(x, y) {
+            const c = this.cone(); if (!c) return;
+            const r = c.getBoundingClientRect(), cx = r.left + r.width * .536, cy = r.top + r.height * .464;
+            const a = Math.atan2(x - cx, -(y - cy)) * 180 / Math.PI;
+            const d = ((a - this.gaze) % 360 + 540) % 360 - 180;
+            this.gaze += d; c.style.setProperty('--g', this.gaze.toFixed(1) + 'deg');
+        },
+        lookAt(el) { const r = el?.getBoundingClientRect(); if (r) this.look(r.left + r.width / 2, r.top + r.height / 2); },
         scroll() { const log = this.$refs.log; if (log) log.scrollTop = log.scrollHeight; },
         play(mood, ms, label) {
             this.mood = mood; if (label) this.status = label;
@@ -82,8 +91,8 @@ window.moxiChat = function () {
         idle() {
             if (this.mood !== '' && this.mood !== 'sleep') return;
             if (this.mood === 'sleep') { if (Math.random() < .3) this.sfx('snore'); return; }
-            if (!this.open && Date.now() - this.last > 180000) { this.mood = 'sleep'; return; }
-            
+            if (!this.open && Date.now() - this.last > 180000) { this.mood = 'sleep'; const c = this.cone(); if (c) { this.gaze = Math.round(this.gaze / 360) * 360 + 180; c.style.setProperty('--g', this.gaze + 'deg'); } return; }
+            if (Math.random() < .55) { const v = ['v-shine', 'v-hop', 'v-peek', 'v-shine'][Math.floor(Math.random() * 4)]; this.play(v, 1500); }
         },
         wake() { this.last = Date.now(); if (this.mood === 'sleep') { this.sfx('wake'); this.play('wake', 700, 'uyandı!'); return true; } return false; },
         tap() {
@@ -95,9 +104,9 @@ window.moxiChat = function () {
         toggle() { this.open = !this.open; store.set('open', this.open ? '1' : '0'); },
         typing() {
             if (this.wake()) return;
-            const n = (this.$refs.input?.value || '').length;
-            const m = this.$root.querySelector('.mx-mascot .moxi');
-            m?.style.setProperty('--lx', (Math.min(n, 40) / 40 * 10 - 5) + 'px');
+            // Listening: the cone turns to the text box and nods with each key.
+            this.lookAt(this.$refs.input);
+            const c = this.cone(); if (c) { c.classList.remove('tick'); void c.offsetWidth; c.classList.add('tick'); }
             this.play('listen', 2200, 'dinliyor…');
         },
         submit() {

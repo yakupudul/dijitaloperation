@@ -8,32 +8,48 @@
    sarı karesi, içinde tek bir huni (yukarıdan bakılan koni, logodaki gibi açıdan renk geçişi) kuyruklu bir sohbet balonu
    olur; ince sarı çizgi koninin sırtıdır. Düşünürken huni döner, konuşurken nefes alır, uykuda söner. */
 @property --mxa{syntax:'<angle>'; inherits:true; initial-value:0deg}
-.mx-cone{position:relative; display:inline-block; width:56px; height:56px; flex:none}
+@property --g{syntax:'<angle>'; inherits:true; initial-value:0deg}
+.mx-cone{--mxa:var(--g); transition:--mxa .8s cubic-bezier(.3,.8,.3,1); position:relative; display:inline-block; width:56px; height:56px; flex:none}
 .mx-cone i{position:absolute; left:0; top:0; width:56px; height:56px; background:conic-gradient(from var(--mxa) at 30px 26px, #0b302e, #155552 30%, #1f6461 55%, #2e8a85 80%, #4fb0a8 98%, #0b302e);
   clip-path:path('M7.4 34.2 A24 24 0 1 1 19.9 47.7 L4 54 Z')}
-.mx-cone b{position:absolute; left:29.3px; top:2px; width:1.4px; height:24px; background:#FDCF3C; transform-origin:50% 100%; transform:rotate(var(--mxa)); border-radius:1px}
+.mx-cone b{position:absolute; left:29.3px; top:2px; width:1.4px; height:24px; background:#FDCF3C; transform-origin:50% 100%; transform:rotate(var(--mxa)); border-radius:1px; transition:opacity .4s, box-shadow .3s}
 .mx-cone.sm{width:22px; height:22px} .mx-cone.sm i,.mx-cone.sm b{zoom:.393}
-.mx-cone.is-typing,.mx-launch.think .mx-cone{animation:mxspin 1.4s linear infinite}
-@keyframes mxspin{to{--mxa:360deg}}
+.mx-cone.is-typing{animation:mxspin 1.4s linear infinite}
+@keyframes mxspin{from{--mxa:var(--g)} to{--mxa:calc(var(--g) + 360deg)}}
+/* canlılık: nefes, bakış (huni imlece döner), dinlerken her tuşta başını sallar, düşünürken döner */
 .mx-launch{position:relative; display:grid; place-items:center; width:64px; height:64px; margin:0 0 0 auto; padding:0; border:0; border-radius:18px; background:#FDCF3C; cursor:pointer;
-  box-shadow:0 10px 26px rgba(15,61,58,.25); transition:transform .18s ease, box-shadow .18s ease}
-.mx-launch > .mx-cone{margin:4px 0 0 4px; transition:opacity .15s, transform .2s}
+  box-shadow:0 10px 26px rgba(15,61,58,.25); transition:transform .18s ease, box-shadow .18s ease, filter .6s, opacity .6s}
+.mx-launch > .mx-cone{margin:4px 0 0 4px; animation:mxbreath 4.2s ease-in-out infinite; transition:--mxa .8s cubic-bezier(.3,.8,.3,1), opacity .15s}
+@keyframes mxbreath{50%{transform:scale(1.035)}}
 .mx-launch:hover{transform:translateY(-2px); box-shadow:0 14px 30px rgba(15,61,58,.3)}
 .mx-launch:focus-visible{outline:3px solid #1f6461; outline-offset:3px}
 .mx-launch .mx-x{position:absolute; inset:0; display:grid; place-items:center; color:#0f3d3a; opacity:0; transition:opacity .15s}
-.mx-launch.is-open > .mx-cone{opacity:0; transform:scale(.6)} .mx-launch.is-open .mx-x{opacity:1}
-.mx-launch.talk > .mx-cone{animation:mxbreath 1.1s ease-in-out infinite}
-@keyframes mxbreath{50%{transform:scale(1.06)}}
-.mx-launch.happy,.mx-launch.bow,.mx-launch.wake{animation:mxpop .6s ease-out}
-@keyframes mxpop{40%{transform:scale(1.12)}}
-.mx-launch.confused > .mx-cone{animation:mxshake .4s ease-in-out 2}
-@keyframes mxshake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
-.mx-launch.sleep{filter:saturate(.4); opacity:.8}
+.mx-launch.is-open > .mx-cone{opacity:0} .mx-launch.is-open .mx-x{opacity:1}
+.mx-cone.tick{animation:mxtick .18s ease-out!important}
+@keyframes mxtick{50%{transform:scale(1.07) translateY(-1px)}}
+.mx-launch.listen > .mx-cone b,.mx-launch.talk > .mx-cone b{box-shadow:0 0 6px 1px rgba(253,207,60,.9)}
+.mx-launch.think > .mx-cone{animation:mxspin 1.3s linear infinite, mxbreath 1.3s ease-in-out infinite}
+.mx-launch.talk > .mx-cone{animation:mxtalk .42s ease-in-out infinite}
+@keyframes mxtalk{50%{transform:scale(1.05)}}
+.mx-launch.happy > .mx-cone,.mx-launch.wake > .mx-cone{animation:mxspin .8s cubic-bezier(.2,.8,.2,1) 1, mxhop .8s ease-out 1}
+@keyframes mxhop{35%{transform:translateY(-6px) scale(1.06)}70%{transform:translateY(0) scale(.97)}}
+.mx-launch.bow > .mx-cone,.mx-launch.poke > .mx-cone{animation:mxhop .6s ease-out 1}
+.mx-launch.confused > .mx-cone{animation:mxwob .5s ease-in-out 3}
+@keyframes mxwob{25%{--mxa:calc(var(--g) - 35deg)}75%{--mxa:calc(var(--g) + 35deg)}}
+.mx-launch.v-hop > .mx-cone{animation:mxhop .7s ease-out 1}
+.mx-launch.v-peek > .mx-cone{animation:mxwob 1.2s ease-in-out 1}
+.mx-launch::after{content:''; position:absolute; inset:0; border-radius:inherit; background:linear-gradient(115deg, transparent 40%, rgba(255,255,255,.6) 50%, transparent 60%) no-repeat; background-size:300% 100%; background-position:120% 0; pointer-events:none}
+.mx-launch.v-shine::after,.mx-launch.happy::after{animation:mxshine 1.1s ease-in-out 1}
+@keyframes mxshine{from{background-position:120% 0}to{background-position:-20% 0}}
+.mx-launch.sleep{filter:saturate(.45); opacity:.82}
+.mx-launch.sleep > .mx-cone{animation:mxbreath 6s ease-in-out infinite}
+.mx-launch.sleep > .mx-cone b{opacity:.25}
 .mx-tip{position:absolute; right:74px; top:50%; translate:0 -50%; white-space:nowrap; background:#0f3d3a; color:#fff; font-size:13px; font-weight:500; padding:7px 11px; border-radius:10px;
   opacity:0; pointer-events:none; transition:opacity .15s}
 .mx-launch:hover .mx-tip,.mx-launch:focus-visible .mx-tip{opacity:1}
 .mx-launch.is-open .mx-tip{display:none}
-.mx-alert-dot{position:absolute; top:-3px; right:-3px; width:14px; height:14px; border-radius:50%; background:#e2553f; border:2px solid #fff; display:none}
+.mx-alert-dot{position:absolute; top:5px; right:5px; width:12px; height:12px; border-radius:50%; background:#e2553f; border:2px solid #FDCF3C; display:none; animation:mxping 2.4s ease-in-out infinite}
+@keyframes mxping{50%{box-shadow:0 0 0 5px rgba(226,85,63,.18)}}
 .mx-root.has-alert .mx-alert-dot{display:block}
 .mx-typing .mx-cone{margin:2px}
 .mx-bubble .mx-cone{margin-top:1px}
