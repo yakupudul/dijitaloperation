@@ -83,7 +83,7 @@ class MoxiAssistantTest extends TestCase
         $message = MoxiMessage::query()->where('role', MoxiMessage::USER)->sole();
         $this->assertSame(MoxiMessage::PENDING, $message->status);
         $this->assertSame('https://app.moximu.com/takvim', $message->page);
-        Queue::assertPushed(MoxiTurnJob::class, fn (MoxiTurnJob $job): bool => $job->messageId === $message->id && $job->queue === 'writes');
+        Queue::assertPushed(MoxiTurnJob::class, fn (MoxiTurnJob $job): bool => $job->messageId === $message->id && $job->queue === 'default');
     }
 
     public function test_moxi_answers_with_its_tools_and_the_cost_counts_toward_the_ai_limits(): void

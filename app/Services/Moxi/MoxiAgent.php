@@ -51,13 +51,15 @@ final class MoxiAgent
         $cost = 0.0;
         $made = [];
         $text = '';
+        // The job runs on the quick lane (170 s): rounds stop and each call shortens so the whole turn ends within ~150 s.
+        $deadline = microtime(true) + 150;
         try {
-            for ($round = 0; $round < self::MAX_ROUNDS; $round++) {
+            for ($round = 0; $round < self::MAX_ROUNDS && microtime(true) < $deadline - 15; $round++) {
                 $response = $this->send([
                     'model' => $model, 'max_tokens' => 2000,
                     'system' => [['type' => 'text', 'text' => $this->system($user, $message->page), 'cache_control' => ['type' => 'ephemeral']]],
                     'tools' => $definitions, 'messages' => $messages,
-                ]);
+                ], (int) min(60, max(10, $deadline - microtime(true))));
                 $usage = (array) ($response['usage'] ?? []);
                 $cost += (float) ($this->pricing->cost('anthropic', $model, (int) ($usage['input_tokens'] ?? 0), (int) ($usage['output_tokens'] ?? 0),
                     (int) ($usage['cache_read_input_tokens'] ?? 0), (int) ($usage['cache_creation_input_tokens'] ?? 0)) ?? 0);
@@ -238,11 +240,11 @@ TXT;
      * @param  array<string, mixed>  $body
      * @return array<string, mixed>
      */
-    private function send(array $body): array
+    private function send(array $body, int $timeout = 60): array
     {
         try {
             $response = Http::withHeaders(['x-api-key' => (string) config('ai.providers.anthropic.key'), 'anthropic-version' => '2023-06-01'])
-                ->timeout(120)->post(rtrim((string) config('ai.providers.anthropic.url', 'https://api.anthropic.com/v1'), '/').'/messages', $body);
+                ->timeout($timeout)->post(rtrim((string) config('ai.providers.anthropic.url', 'https://api.anthropic.com/v1'), '/').'/messages', $body);
         } catch (ConnectionException $error) {
             throw new RuntimeException('Claude API\'ye ulaşılamadı', 0, $error);
         }

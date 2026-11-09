@@ -9,7 +9,7 @@ use Illuminate\Foundation\Queue\Queueable;
 
 /**
  * One Moxi answer, off the web request (a turn with tool rounds can take half a minute); the corner chat polls until the
- * answer line appears. On the "writes" lane, so long background work never makes the operator wait.
+ * answer line appears. On the "default" lane: an answer is a short chat turn, and the "writes" lane backed up past 15 min (2026-11-09).
  */
 final class MoxiTurnJob implements ShouldQueue
 {
@@ -17,11 +17,11 @@ final class MoxiTurnJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 240;
+    public int $timeout = 170;
 
     public function __construct(public int $messageId)
     {
-        $this->onQueue('writes');
+        $this->onQueue('default');
     }
 
     public function handle(MoxiAgent $agent): void

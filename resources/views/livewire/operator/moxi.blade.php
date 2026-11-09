@@ -14,14 +14,15 @@
 .mx-c3 i{display:block; width:15px; height:15px; border-radius:50%; flex:none;
   background:conic-gradient(from 0deg,#155d5a 0deg,#247876 88deg,#28807d 90deg,#2f8c8a 134deg,#164f4c 135deg,#195856 179deg,#02201e 180deg,#093a37 270deg,#155d5a 360deg);
   rotate:calc(var(--g) - 157deg); transition:rotate .8s cubic-bezier(.3,.8,.3,1), scale .3s}
+.mx-launch .mx-c3{gap:3px} .mx-launch .mx-c3 i{width:11px; height:11px}
 .mx-c3.sm{gap:2px} .mx-c3.sm i{width:6px; height:6px}
 .mx-typing .mx-c3 i{width:9px; height:9px}
 .mx-c3 i:nth-child(2){animation-delay:.15s!important} .mx-c3 i:nth-child(3){animation-delay:.3s!important}
 .mx-c3.is-typing i,.mx-launch.think .mx-c3 i{animation:mxh 1s ease-in-out infinite}
 @keyframes mxh{0%,60%,100%{translate:0 0}30%{translate:0 -6px}}
-.mx-launch{position:relative; display:grid; place-items:center; width:70px; height:58px; margin:0 0 6px auto; padding:0; border:0; border-radius:20px 20px 20px 7px; background:#FDCF3C; cursor:pointer;
+.mx-launch{position:relative; display:grid; place-items:center; width:54px; height:44px; margin:0 0 6px auto; padding:0; border:0; border-radius:16px 16px 16px 6px; background:#FDCF3C; cursor:pointer;
   box-shadow:0 10px 26px rgba(15,61,58,.22); transition:transform .18s ease, box-shadow .18s ease, filter .6s, opacity .6s; animation:mxbreath 4.2s ease-in-out infinite}
-.mx-launch::before{content:''; position:absolute; left:0; bottom:-9px; width:16px; height:13px; background:#FDCF3C; clip-path:polygon(0 100%, 0 0, 100% 0)}
+.mx-launch::before{content:''; position:absolute; left:0; bottom:-7px; width:12px; height:10px; background:#FDCF3C; clip-path:polygon(0 100%, 0 0, 100% 0)}
 @keyframes mxbreath{50%{scale:1.03}}
 .mx-launch:hover{transform:translateY(-2px); box-shadow:0 14px 30px rgba(15,61,58,.28)}
 .mx-launch:focus-visible{outline:3px solid #1f6461; outline-offset:4px}
@@ -54,7 +55,7 @@
 @keyframes dot{0%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
 [x-cloak]{display:none!important}
 .mx-root{position:fixed; right:max(12px, env(safe-area-inset-right, 0px)); bottom:max(6px, env(safe-area-inset-bottom, 0px)); z-index:100000; font-size:14px; line-height:1.45; color:#1f2a2a}
-.mx-panel{position:absolute; right:0; bottom:84px; width:min(400px, calc(100vw - 24px)); height:min(620px, calc(100vh - 110px)); display:flex; flex-direction:column;
+.mx-panel{position:absolute; right:0; bottom:68px; width:min(400px, calc(100vw - 24px)); height:min(620px, calc(100vh - 94px)); display:flex; flex-direction:column;
   background:#fff; border:1px solid #e6e3d6; border-radius:16px; box-shadow:0 18px 50px rgba(20,40,38,.18); overflow:hidden}
 .mx-head{display:flex; align-items:center; gap:8px; padding:10px 10px 10px 14px; border-bottom:1px solid #eeebe0; position:relative}
 .mx-head > .mx-c3{background:#FDCF3C; border-radius:9px 9px 9px 3px; padding:7px 6px; flex:none}
@@ -102,12 +103,12 @@
 .mx-form{display:flex; gap:8px; padding:10px 12px; border-top:1px solid #eeebe0; background:#fff}
 .mx-form textarea{flex:1; min-width:0; resize:none; font:inherit; padding:8px 10px; border-radius:10px; border:1px solid #e6e3d6; background:#fbfaf6; color:#1f2a2a; max-height:120px}
 .mx-form textarea:focus{outline:none; border-color:#1f6461; background:#fff; box-shadow:0 0 0 3px rgba(31,100,97,.12)}
-@media (max-width:480px){ .mx-panel{position:fixed; left:8px; right:8px; top:max(8px, env(safe-area-inset-top, 0px)); bottom:92px; width:auto; height:auto} }
+@media (max-width:480px){ .mx-panel{position:fixed; left:8px; right:8px; top:max(8px, env(safe-area-inset-top, 0px)); bottom:76px; width:auto; height:auto} }
 .mx-bubble{display:flex; gap:9px; align-items:flex-start}
 .mx-bubble-t{display:block}
 .mx-rank{font-size:11px; font-weight:700; color:#1f6461; background:#e8f3f1; border-radius:20px; padding:2px 8px; white-space:nowrap}
 /* konuşma balonu */
-.mx-bubble{position:absolute; right:0; bottom:76px; width:max-content; max-width:min(260px, calc(100vw - 90px)); background:#fff; color:#1f2a2a; border:2px solid #1f6461;
+.mx-bubble{position:absolute; right:0; bottom:62px; width:max-content; max-width:min(260px, calc(100vw - 90px)); background:#fff; color:#1f2a2a; border:2px solid #1f6461;
   border-radius:14px 14px 4px 14px; padding:9px 12px; font-size:13px; font-weight:500; box-shadow:0 8px 24px rgba(20,40,38,.18); cursor:pointer; text-align:left}
 .mx-bubble.tip{border-color:#FDCF3C; box-shadow:inset 3px 0 0 #FDCF3C, 0 8px 24px rgba(20,40,38,.18)}
 .mx-bubble.milestone{border-color:#c8452c}
