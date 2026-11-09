@@ -455,7 +455,8 @@ final class SalesLeads
         }
         if ($theyWroteLast && ! FollowUpSequence::isCold($lead)) {
             [$lead->next_step, $lead->next_step_at] = FollowUpSequence::answerNow();
-        } elseif ($lead->next_step_at === null || $created) {
+        } elseif ($lead->next_step_at === null || $created || ($lastOut !== null && SalesTidy::isUnsafeStep($lead->next_step))) {
+            // ("Cevap yaz" / "İlk mesajı gönder" after we already wrote is done: the follow-up after our message takes its place.)
             [$lead->next_step, $lead->next_step_at] = match (true) {
                 FollowUpSequence::isCold($lead) => FollowUpSequence::rewarm(),
                 $lastOut !== null => FollowUpSequence::afterOurMessage(max(1, $lead->followup_step), CarbonImmutable::instance($lastOut)),

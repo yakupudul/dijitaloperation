@@ -6,6 +6,7 @@ use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
 use App\Models\User;
 use App\Models\WhatsAppMessage;
+use Carbon\CarbonImmutable;
 
 /**
  * Satış'ı gerçek işe indirmek (yakup 2026-11-09): the phone backup and Meta's history sync brought hundreds of old chats,
@@ -83,6 +84,11 @@ final class SalesTidy
                     if ($historyOnly && $lead->isOpen() && self::isUnsafeStep($lead->next_step)) {
                         $lead->next_step = null;
                         $lead->next_step_at = null;
+                        $stats['steps']++;
+                    }
+                    // We already answered (live): a leftover "Cevap yaz" turns into the follow-up after our message.
+                    if (! $historyOnly && $lead->isOpen() && self::isUnsafeStep($lead->next_step) && ! $lead->awaitsUs() && $lead->last_contact_at !== null) {
+                        [$lead->next_step, $lead->next_step_at] = FollowUpSequence::afterOurMessage(max(1, (int) $lead->followup_step), CarbonImmutable::instance($lead->last_contact_at));
                         $stats['steps']++;
                     }
                     if (self::isStale($lead)) {

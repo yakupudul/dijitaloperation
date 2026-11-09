@@ -135,6 +135,21 @@ final class SalesHistoryGateTest extends TestCase
         $this->assertFalse($silent->fresh()->isArchived());
     }
 
+    public function test_a_leftover_answer_step_turns_into_the_follow_up_once_we_wrote(): void
+    {
+        $chat = $this->chat('905304440000', 'Fiyat alabilir miyim?', 1, false);
+        $lead = $this->leadOf($chat);
+        $this->assertSame('Cevap yaz', $lead->next_step);
+        // Our answer went out (live); the card was stuck on "Cevap yaz" from before.
+        $this->chat('905304440000', 'Merhaba, 14.000 TL + KDV.', 0, false, 'outgoing');
+        SalesLead::query()->whereKey($lead->id)->update(['next_step' => 'Cevap yaz', 'next_step_at' => now()->subDay()]);
+        app(SalesTidy::class)->sweep();
+        $lead = $lead->fresh();
+        $this->assertFalse($lead->awaitsUs());
+        $this->assertSame('Tek satır hatırlat', $lead->next_step);
+        $this->assertTrue($lead->next_step_at->gt(now()));
+    }
+
     public function test_placeholders_read_as_plain_words(): void
     {
         $this->assertSame('(Okunamayan mesaj, telefonda görün)', MessageText::clean('[errors — metin olarak çözümlenmedi]'));
