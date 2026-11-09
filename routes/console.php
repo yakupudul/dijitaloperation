@@ -1694,18 +1694,26 @@ Schedule::command('moxdop:brands:dossier')->dailyAt('05:40')->timezone('Europe/I
 // Marka rotası (yakup, 2026-11-09): every night the direction of each operational brand (services, ★, summary,
 // positioning, audiences) is compared with the last one seen; a change realigns clusters, ideas, profile posts and demand.
 // A realignment that did not finish (a failed run) is queued again.
-Artisan::command('moxdop:brands:direction {brand? : brand id} {--force : the direction changed (major), realign now} {--reason= : why, shown on the brand page}', function (): void {
+Artisan::command('moxdop:brands:direction {brand? : brand id} {--force : the direction changed (major), realign now} {--reason= : why, shown on the brand page} {--pending : only queue realignments that have not finished}', function (): void {
+    // A realignment queued while the old release's workers still ran (deploy) is lost; unfinished ones are queued again.
+    $pending = \App\Models\BrandDirectionChange::query()->whereNull('applied_at')->where('created_at', '<', now()->subMinutes(5))->where('created_at', '>', now()->subDays(7))->pluck('id');
+    $pending->each(fn ($id) => \App\Jobs\Brand\ApplyBrandDirectionJob::dispatch((int) $id));
+    if ($this->option('pending')) {
+        $this->info('Marka rotası: '.$pending->count().' yarım hizalama kuyruğa alındı.');
+
+        return;
+    }
     $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
     $changed = 0;
     foreach ($brands as $brand) {
         $change = app(\App\Services\Brand\BrandDirection::class)->detect($brand, (bool) $this->option('force'), $this->option('force') ? 'operator' : 'auto', $this->option('reason') ?: null);
         $changed += $change !== null && $change->magnitude !== \App\Models\BrandDirectionChange::BASELINE ? 1 : 0;
     }
-    \App\Models\BrandDirectionChange::query()->whereNull('applied_at')->where('created_at', '<', now()->subHours(2))->where('created_at', '>', now()->subDays(7))
-        ->pluck('id')->each(fn ($id) => \App\Jobs\Brand\ApplyBrandDirectionJob::dispatch((int) $id));
     $this->info('Marka rotası: '.$brands->count().' marka, '.$changed.' değişiklik.');
 })->purpose('Compare each brand\'s direction with the last one seen; a change realigns its clusters, content ideas, profile posts and demand.');
 Schedule::command('moxdop:brands:direction')->dailyAt('05:50')->timezone('Europe/Istanbul')->name('brands-direction')->withoutOverlapping(60);
+Schedule::command('moxdop:brands:direction --pending')->everyTenMinutes()->name('brands-direction-pending')->withoutOverlapping(10)
+    ->when(fn (): bool => Schema::hasTable('brand_direction_changes') && \App\Models\BrandDirectionChange::query()->whereNull('applied_at')->exists());
 
 // Marka epikrizi: after the brand file, one queued pass per operational brand (rules every night; the AI reading of the
 // key pages and the synthesis only when their basis changed or a month passed).
