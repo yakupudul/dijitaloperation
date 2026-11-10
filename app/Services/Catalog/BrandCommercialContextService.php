@@ -87,7 +87,7 @@ final class BrandCommercialContextService
             if (trim((string) $customServiceName) !== '') {
                 $result = $this->catalog->resolveOrCreate(
                     label: (string) $customServiceName,
-                    sector: $customServiceSector ?: $brand->sector,
+                    sector: $customServiceSector ?: ($brand->sectorCategory?->code ?? $brand->sector),
                     actor: $actor,
                 );
                 $customCatalogId = (int) $result['service']->id;

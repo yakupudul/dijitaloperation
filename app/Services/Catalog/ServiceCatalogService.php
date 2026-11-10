@@ -121,6 +121,55 @@ final class ServiceCatalogService
         return [null, ! in_array('', $taken, true) ? '' : (string) $sector];
     }
 
+    /**
+     * A service without a catalog sector (Kategorisiz) is invisible to the whole query pipeline: no query is assigned to
+     * it, the clusterer stops with "hizmetin sektörü yok", so its brands get no clusters, no topic map and no content
+     * ideas (moximu.com 2026-11-10: Klinik SEO and İşletme Profili were created without a sector and the site had no
+     * ideas for them). Such a service takes the sector of the brands that sell it when they all share one, unless the
+     * sector already has a service of the same name. Returns the sector code it has now, or null.
+     */
+    public function adoptBrandSector(ServiceCatalogItem $service): ?string
+    {
+        $codes = ServiceCategory::query()->pluck('code')->map(fn ($c): string => (string) $c)->all();
+        if ($service->sector !== null && in_array((string) $service->sector, $codes, true)) {
+            return (string) $service->sector;
+        }
+        $sectors = DB::table('brand_offerings as o')->join('brands as b', 'b.id', '=', 'o.brand_id')->join('service_categories as c', 'c.id', '=', 'b.sector_id')
+            ->where('o.service_catalog_item_id', $service->id)->whereNull('b.deleted_at')->distinct()->pluck('c.code')->map(fn ($c): string => (string) $c)->all();
+        if (count($sectors) !== 1) {
+            return null;
+        }
+        $code = $sectors[0];
+        $keys = ServiceCatalogName::withoutGlobalScope('visible_service')->where('service_catalog_item_id', $service->id)->pluck('normalized_key')->all();
+        $twin = ServiceCatalogName::withoutGlobalScope('visible_service')->whereIn('normalized_key', $keys ?: [''])
+            ->where('service_catalog_item_id', '!=', $service->id)
+            ->whereIn('service_catalog_item_id', ServiceCatalogItem::withTrashed()->where('sector', $code)->select('id'))->exists();
+        if ($twin) {
+            return null;
+        }
+        $service->forceFill(['sector' => $code])->save();
+
+        return $code;
+    }
+
+    /**
+     * adoptBrandSector for every catalog service an offering of these brands (all brands: null) links while it has no
+     * catalog sector. @return int services that took a sector
+     */
+    public function adoptBrandSectors(?int $brandId = null): int
+    {
+        $codes = ServiceCategory::query()->pluck('code')->all();
+        $adopted = 0;
+        ServiceCatalogItem::query()->where(fn ($q) => $q->whereNull('sector')->orWhereNotIn('sector', $codes ?: ['']))
+            ->whereIn('id', BrandOffering::query()->whereNotNull('service_catalog_item_id')->when($brandId !== null, fn ($q) => $q->where('brand_id', $brandId))->select('service_catalog_item_id'))
+            ->orderBy('id')->get()
+            ->each(function (ServiceCatalogItem $service) use (&$adopted): void {
+                $adopted += $this->adoptBrandSector($service) !== null ? 1 : 0;
+            });
+
+        return $adopted;
+    }
+
     public function addAlias(ServiceCatalogItem $service, string $alias, ?string $locale = null, ?User $actor = null): ServiceCatalogName
     {
         $service = ServiceCatalogItem::query()->findOrFail($service->id);

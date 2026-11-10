@@ -45,11 +45,15 @@ final class BrandOfferingService
         bool $recordActivity = true,
         ?ServiceCatalogItem $catalog = null,
     ): array {
+        // The brand's sector comes from sector_id (the legacy `sector` code column can be empty): a service created
+        // without a sector never gets queries, clusters or content ideas.
         $catalog ??= app(ServiceCatalogService::class)
-            ->resolveOrCreate($label, $brand->sector, locale: $locale, actor: $actor)['service'];
+            ->resolveOrCreate($label, $brand->sectorCategory?->code ?? $brand->sector, locale: $locale, actor: $actor)['service'];
         $linked = BrandOffering::query()->where('brand_id', $brand->id)
             ->where('service_catalog_item_id', $catalog->id)->first();
         if ($linked !== null) {
+            app(ServiceCatalogService::class)->adoptBrandSector($catalog);
+
             return ['offering' => $linked, 'created' => false];
         }
         $label = trim((string) $catalog->primaryName?->raw_label);
@@ -122,6 +126,8 @@ final class BrandOfferingService
 
                 return $offering;
             });
+
+            app(ServiceCatalogService::class)->adoptBrandSector($catalog);
 
             return ['offering' => $offering, 'created' => true];
         } catch (UniqueConstraintViolationException) {

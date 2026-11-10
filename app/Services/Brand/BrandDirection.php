@@ -13,6 +13,7 @@ use App\Models\Cluster;
 use App\Models\DigitalAsset;
 use App\Models\GbpQueuedPost;
 use App\Models\Suggestion;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Queries\KeywordPlanner;
 use App\Services\Site\BrandMemoryService;
 use App\Services\Site\ClusterPageMapper;
@@ -171,6 +172,8 @@ final class BrandDirection
         $sites = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get();
 
         if (! isset($result['memory'])) {
+            // New services of the new direction need the brand's sector before they can get queries and clusters.
+            $result['services_sectored'] = $this->step(fn () => (string) app(ServiceCatalogService::class)->adoptBrandSectors((int) $brand->id));
             $result['memory'] = $this->step(fn () => app(BrandMemoryService::class)->refreshProfile($brand) !== [] ? 'ok' : 'empty');
             $result['clusters_mapped'] = $sites->map(fn (DigitalAsset $site): string => $this->step(fn () => (string) app(ClusterPageMapper::class)->refresh($site, judge: false)['status']))->all();
             $result['ideas_of_removed_services'] = $this->closeRemovedServiceIdeas($brand, $change);
@@ -216,7 +219,9 @@ final class BrandDirection
 
         if (! isset($result['content_pool'])) {
             $result['content_pool'] = ContentCoverage::automaticAllowed()
-                ? $sites->map(fn (DigitalAsset $site): string => $this->step(fn () => (string) Artisan::call('moxdop:content:weekly-titles', ['--site' => (int) $site->id])))->all()
+                // The week's ideas on the new direction now (like "Haftalık içerik öner"); without --weekly the run only
+                // fills sites still in their back-dated fill, so a realigned site stayed empty until Wednesday.
+                ? $sites->map(fn (DigitalAsset $site): string => $this->step(fn () => (string) Artisan::call('moxdop:content:weekly-titles', ['--site' => (int) $site->id, '--weekly' => true])))->all()
                 : 'otomatik içerik kapalı';
         }
         RefreshBrandFilesJob::soon((int) $brand->id);

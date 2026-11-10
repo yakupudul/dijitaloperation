@@ -15,6 +15,7 @@ use App\Models\ServiceCategory;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Site\ClusterPageMapper;
 use App\Services\Site\SiteFlow;
@@ -166,7 +167,8 @@ final class QueryClusterer
         if (($state['status'] ?? null) !== 'running') {
             return $state;
         }
-        $sector = ServiceCategory::query()->where('code', $service->sector)->first();
+        // A service created without a sector takes its brands' sector instead of stopping here for good.
+        $sector = ServiceCategory::query()->where('code', app(ServiceCatalogService::class)->adoptBrandSector($service) ?? $service->sector)->first();
         if ($sector === null) {
             return $this->save($service, ['status' => 'no_sector'] + $state);
         }

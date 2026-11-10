@@ -44,7 +44,7 @@ final class DiscoveryCandidateApplicationService
                 throw ValidationException::withMessages(['offeringId' => 'Bu markaya ait aktif bir hizmet seçin. Arşivlenen hizmet otomatik açılmaz.']);
             }
             $label = $offering->primaryName?->raw_label ?? $value;
-            $service = $offering->catalogItem ?? $this->catalog->resolveOrCreate($label, sector: $brand->sector, actor: $actor, provenance: 'public_discovery')['service'];
+            $service = $offering->catalogItem ?? $this->catalog->resolveOrCreate($label, sector: $brand->sectorCategory?->code ?? $brand->sector, actor: $actor, provenance: 'public_discovery')['service'];
             if ($service->status !== 'active') {
                 throw ValidationException::withMessages(['offeringId' => 'Kütüphanedeki hizmet arşivlenmiş. Önce kütüphaneden gözden geçirin.']);
             }

@@ -59,6 +59,19 @@ final class ContentTopics
         $limit = self::bigSite($scores) ? 2 : 1;
         $active = array_values(array_filter(array_map('intval', (array) ($state->active_service_ids ?? [])),
             fn (int $id): bool => isset($scores[$id]) && ! $this->finished($site, $id)));
+        // ★ main services come first (moximu.com 2026-11-10: after the clinic direction its kept map stayed on Google Ads
+        // while Klinik SEO waited): a kept non-main service gives its place to a main one that has clusters and work.
+        $main = BrandOffering::query()->where('brand_id', $brand->id)->where('status', 'active')->where(fn ($q) => $q->where('priority', 'main')->orWhere('is_priority', true))
+            ->pluck('service_catalog_item_id')->filter()->map(fn ($id): int => (int) $id)->flip()->all();
+        $mainWaiting = array_values(array_filter(array_keys($scores), fn (int $id): bool => isset($main[$id]) && ! in_array($id, $active, true) && ! $this->finished($site, $id)));
+        if ($mainWaiting !== []) {
+            $active = array_values(array_filter($active, fn (int $id): bool => isset($main[$id])));
+            foreach ($mainWaiting as $serviceId) {
+                if (count($active) < $limit) {
+                    $active[] = $serviceId;
+                }
+            }
+        }
         foreach (array_keys($scores) as $serviceId) {
             if (count($active) >= $limit) {
                 break;

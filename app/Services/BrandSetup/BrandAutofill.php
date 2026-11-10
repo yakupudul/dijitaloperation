@@ -8,6 +8,7 @@ use App\Models\BrandSetupProposal;
 use App\Models\DigitalAsset;
 use App\Models\Page;
 use App\Models\User;
+use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Collection\Website\WebsiteCollectionOrchestrator;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Website\SitemapChangeWatcher;
@@ -74,6 +75,12 @@ final class BrandAutofill
         $out = ['queued' => 0, 'applied' => 0, 'crawl' => 0, 'waiting' => 0, 'complete' => 0, 'no_site' => 0, 'archived' => 0, 'renamed' => 0, 'linked' => 0];
         try {
             $out = array_merge($out, app(LanguageServices::class)->run($brandId));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+        try {
+            // A brand service without a catalog sector gets no queries, clusters or content ideas: it takes the brand's.
+            app(ServiceCatalogService::class)->adoptBrandSectors($brandId);
         } catch (Throwable $exception) {
             report($exception);
         }
