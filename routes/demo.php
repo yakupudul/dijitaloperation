@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Calendar\QuickCaptureController;
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
 use App\Http\Controllers\Operator\GbpReviewCardController;
@@ -215,6 +216,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         // Satış (2026-11-04): every prospect on one card; Bugün = whose next step is today, the text ready.
         // Takvim (2026-11-05): own tasks and meetings, prospects' next steps and the brands' work on one calendar.
         Route::livewire('/takvim', CalendarPage::class)->name('operator.calendar');
+        // Hızlı not eklentisi (2026-11-10): the Chrome extension ZIP with this panel's address and the user's key.
+        Route::get('/takvim/hizli-not-eklentisi.zip', [QuickCaptureController::class, 'download'])->middleware('throttle:10,1')->name('operator.calendar.extension');
         Route::livewire('/satis', SalesPage::class)->name('operator.sales');
         // Gelen kutusu (Aşama 2, 2026-11-07): WhatsApp, Instagram / Facebook, forms and today's steps in one queue.
         Route::livewire('/gelen-kutusu', InboxPage::class)->name('operator.inbox');

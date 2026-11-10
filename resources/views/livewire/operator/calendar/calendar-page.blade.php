@@ -48,118 +48,130 @@
         </div>
     @endif
 
+    @if ($extension)
+        @include('livewire.operator.calendar.partials.extension')
+    @endif
+
     @if ($failed)
         <div class="card mt-6 p-4 text-sm text-error-600">Takvim şu an okunamadı; birazdan yeniden dene. Hata kaydedildi.</div>
     @endif
 
-    {{-- Month navigation --}}
-    <div class="mt-6 {{ $report ? 'flex' : 'hidden md:flex' }} items-center gap-2">
-        <button type="button" wire:click="$set('month', '{{ $prev }}')" class="btn-quiet px-2.5" aria-label="Önceki ay">‹</button>
-        <h2 class="min-w-[9rem] text-center text-base font-semibold capitalize text-gray-900 dark:text-white" data-calendar-month>{{ $monthName($monthStart) }}</h2>
-        <button type="button" wire:click="$set('month', '{{ $next }}')" class="btn-quiet px-2.5" aria-label="Sonraki ay">›</button>
-        @if ($monthStart->format('Y-m') !== substr($today, 0, 7))
-            <button type="button" wire:click="$set('month', '')" class="link-neutral ml-1 text-sm">Bugün</button>
-        @endif
-    </div>
+    {{-- Yapılacaklar beside the month on wide screens, above the week on the phone. --}}
+    <div class="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div class="order-last min-w-0 xl:order-first">
+        {{-- Month navigation --}}
+        <div class="{{ $report ? 'flex' : 'hidden md:flex' }} items-center gap-2">
+            <button type="button" wire:click="$set('month', '{{ $prev }}')" class="btn-quiet px-2.5" aria-label="Önceki ay">‹</button>
+            <h2 class="min-w-[9rem] text-center text-base font-semibold capitalize text-gray-900 dark:text-white" data-calendar-month>{{ $monthName($monthStart) }}</h2>
+            <button type="button" wire:click="$set('month', '{{ $next }}')" class="btn-quiet px-2.5" aria-label="Sonraki ay">›</button>
+            @if ($monthStart->format('Y-m') !== substr($today, 0, 7))
+                <button type="button" wire:click="$set('month', '')" class="link-neutral ml-1 text-sm">Bugün</button>
+            @endif
+        </div>
 
-    @if ($report && $monthReport !== null)
-        {{-- Ay dökümü: what was done this month, per brand; drafts and failures are not counted as done. --}}
-        <section class="mt-4" data-calendar-month-report>
-            <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Ay dökümü: bu ay ne yapıldı</h3>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                @foreach (CalendarFeed::KINDS as $kind => $label)
-                    <div class="card p-3"><p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['totals'][$kind] }}</p><p class="text-xs text-gray-500">{{ $label }}</p></div>
-                @endforeach
-            </div>
-            <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
-                <div class="card p-3"><p class="text-xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['meetings'] }}</p><p class="text-xs text-gray-500">toplantı yapıldı</p></div>
-                <div class="card p-3"><p class="text-xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['tasks'] }}</p><p class="text-xs text-gray-500">iş bitti</p></div>
-                <div class="card p-3"><p class="text-xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['leads_new'] }}</p><p class="text-xs text-gray-500">yeni aday</p></div>
-                <div class="card p-3"><p class="text-xl font-semibold text-success-600">{{ $monthReport['leads_won'] }}</p><p class="text-xs text-gray-500">kazanıldı</p></div>
-                <div class="card p-3"><p class="text-xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['leads_lost'] }}</p><p class="text-xs text-gray-500">kaybedildi</p></div>
-            </div>
-            <div class="card mt-4 overflow-x-auto">
-                <table class="w-full min-w-[640px] text-sm">
-                    <thead><tr class="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-800">
-                        <th class="px-4 py-2.5 font-medium">Marka</th>
-                        @foreach (CalendarFeed::KINDS as $label)<th class="px-3 py-2.5 text-right font-medium">{{ $label }}</th>@endforeach
-                        <th class="px-4 py-2.5 text-right font-medium">Hata</th>
-                    </tr></thead>
-                    <tbody>
-                        @forelse ($monthReport['brands'] as $b)
-                            <tr class="border-b border-gray-50 last:border-0 dark:border-gray-800/60" data-calendar-report-row>
-                                <td class="px-4 py-2 font-medium text-gray-900 dark:text-white"><a href="{{ route('operator.brand', $b['brand_id']) }}" wire:navigate class="hover:underline">{{ $b['brand'] }}</a></td>
-                                @foreach (CalendarFeed::KINDS as $kind => $label)<td class="px-3 py-2 text-right tabular-nums {{ $b['counts'][$kind] === 0 ? 'text-gray-300 dark:text-gray-600' : 'text-gray-800 dark:text-gray-200' }}">{{ $b['counts'][$kind] }}</td>@endforeach
-                                <td class="px-4 py-2 text-right tabular-nums {{ $b['failed'] > 0 ? 'text-error-600' : 'text-gray-300 dark:text-gray-600' }}">{{ $b['failed'] }}</td>
-                            </tr>
+        @if ($report && $monthReport !== null)
+            {{-- Ay dökümü: what was done this month, per brand; drafts and failures are not counted as done. --}}
+            <section class="mt-4" data-calendar-month-report>
+                <h3 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">Ay dökümü: bu ay ne yapıldı</h3>
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    @foreach (CalendarFeed::KINDS as $kind => $label)
+                        <div class="card p-3"><p class="text-2xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['totals'][$kind] }}</p><p class="text-xs text-gray-500">{{ $label }}</p></div>
+                    @endforeach
+                </div>
+                <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-5">
+                    <div class="card p-3"><p class="text-xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['meetings'] }}</p><p class="text-xs text-gray-500">toplantı yapıldı</p></div>
+                    <div class="card p-3"><p class="text-xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['tasks'] }}</p><p class="text-xs text-gray-500">iş bitti</p></div>
+                    <div class="card p-3"><p class="text-xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['leads_new'] }}</p><p class="text-xs text-gray-500">yeni aday</p></div>
+                    <div class="card p-3"><p class="text-xl font-semibold text-success-600">{{ $monthReport['leads_won'] }}</p><p class="text-xs text-gray-500">kazanıldı</p></div>
+                    <div class="card p-3"><p class="text-xl font-semibold text-gray-900 dark:text-white">{{ $monthReport['leads_lost'] }}</p><p class="text-xs text-gray-500">kaybedildi</p></div>
+                </div>
+                <div class="card mt-4 overflow-x-auto">
+                    <table class="w-full min-w-[640px] text-sm">
+                        <thead><tr class="border-b border-gray-100 text-left text-xs text-gray-500 dark:border-gray-800">
+                            <th class="px-4 py-2.5 font-medium">Marka</th>
+                            @foreach (CalendarFeed::KINDS as $label)<th class="px-3 py-2.5 text-right font-medium">{{ $label }}</th>@endforeach
+                            <th class="px-4 py-2.5 text-right font-medium">Hata</th>
+                        </tr></thead>
+                        <tbody>
+                            @forelse ($monthReport['brands'] as $b)
+                                <tr class="border-b border-gray-50 last:border-0 dark:border-gray-800/60" data-calendar-report-row>
+                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white"><a href="{{ route('operator.brand', $b['brand_id']) }}" wire:navigate class="hover:underline">{{ $b['brand'] }}</a></td>
+                                    @foreach (CalendarFeed::KINDS as $kind => $label)<td class="px-3 py-2 text-right tabular-nums {{ $b['counts'][$kind] === 0 ? 'text-gray-300 dark:text-gray-600' : 'text-gray-800 dark:text-gray-200' }}">{{ $b['counts'][$kind] }}</td>@endforeach
+                                    <td class="px-4 py-2 text-right tabular-nums {{ $b['failed'] > 0 ? 'text-error-600' : 'text-gray-300 dark:text-gray-600' }}">{{ $b['failed'] }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="{{ count(CalendarFeed::KINDS) + 2 }}" class="px-4 py-6 text-center text-gray-500">Bu ay markalarda yapılmış bir iş yok.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                <p class="mt-2 text-xs text-gray-500">Yalnızca uygulanmış işler sayılır; taslaklar ve başarısız olanlar sayılmaz, başarısızlar "Hata" sütunundadır.</p>
+            </section>
+        @else
+            {{-- Desktop: the month. --}}
+            <section class="mt-4 hidden md:block" data-calendar-grid>
+                <div class="grid grid-cols-7 text-center text-xs text-gray-500">
+                    @foreach ($weekdays as $w)<div class="pb-2">{{ $w }}</div>@endforeach
+                </div>
+                <div class="grid grid-cols-7 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+                    @foreach ($days as $date => $cell)
+                        @php
+                            $inMonth = substr($date, 0, 7) === $monthStart->format('Y-m');
+                            $isToday = $date === $today;
+                            $own = $cell['own'];
+                            $line = $workLine($cell['work']);
+                        @endphp
+                        <button type="button" wire:click="openDay('{{ $date }}')" wire:key="cell-{{ $date }}"
+                            class="group relative flex min-h-[112px] flex-col justify-start border-b border-r border-gray-100 p-2 text-left align-top transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03] {{ $inMonth ? '' : 'bg-gray-50/60 dark:bg-white/[0.01]' }} {{ $isToday ? 'ring-2 ring-inset ring-brand-500 bg-brand-50/50 dark:bg-brand-500/10' : '' }}"
+                            data-calendar-day="{{ $date }}">
+                            <span class="text-xs {{ $isToday ? 'font-semibold text-gray-900 dark:text-white' : ($inMonth ? 'text-gray-500' : 'text-gray-300 dark:text-gray-600') }}">{{ (int) substr($date, 8, 2) }}{{ $isToday ? ' · bugün' : '' }}</span>
+                            <div class="mt-1 space-y-0.5">
+                                @foreach (array_slice($own, 0, 3) as $item)
+                                    <p class="truncate text-[12px] leading-snug {{ $item['done'] ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200' }}">{{ $item['time'] ? $item['time'].' ' : '' }}{{ $item['title'] }}</p>
+                                @endforeach
+                                @if (count($own) > 3)<p class="text-[11px] text-gray-500">+{{ count($own) - 3 }} daha</p>@endif
+                                @if ($cell['sales'] !== [])
+                                    <p class="truncate text-[12px] leading-snug text-gray-800 dark:text-gray-200">Satış: {{ count($cell['sales']) }} kişi</p>
+                                @endif
+                                @if ($isToday && $komutaToday)
+                                    <p class="truncate text-[12px] leading-snug text-gray-800 dark:text-gray-200">Komuta: {{ $komutaToday }} karar</p>
+                                @endif
+                                @if ($cell['work']['failed'] > 0)
+                                    <p class="truncate text-[11.5px] text-error-600">{{ $cell['work']['failed'] }} hata</p>
+                                @endif
+                                @if ($line)
+                                    <p class="truncate text-[11.5px] text-gray-500">{{ $line }}</p>
+                                @endif
+                            </div>
+                        </button>
+                    @endforeach
+                </div>
+            </section>
+
+            {{-- Phone: the next 7 days as a list. --}}
+            <section class="mt-4 space-y-3 md:hidden" data-calendar-agenda>
+                @foreach ($agenda as $date => $cell)
+                    @php $line = $workLine($cell['work']); @endphp
+                    <button type="button" wire:click="openDay('{{ $date }}')" wire:key="agenda-{{ $date }}" class="card block w-full p-3 text-left">
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $dayName($date) }}{{ $date === $today ? ' · bugün' : '' }}</p>
+                        @forelse ($cell['own'] as $item)
+                            <p class="mt-1 text-[13px] {{ $item['done'] ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200' }}">{{ $item['time'] ? $item['time'].' · ' : '' }}{{ $item['title'] }}</p>
                         @empty
-                            <tr><td colspan="{{ count(CalendarFeed::KINDS) + 2 }}" class="px-4 py-6 text-center text-gray-500">Bu ay markalarda yapılmış bir iş yok.</td></tr>
                         @endforelse
-                    </tbody>
-                </table>
-            </div>
-            <p class="mt-2 text-xs text-gray-500">Yalnızca uygulanmış işler sayılır; taslaklar ve başarısız olanlar sayılmaz, başarısızlar "Hata" sütunundadır.</p>
-        </section>
-    @else
-        {{-- Desktop: the month. --}}
-        <section class="mt-4 hidden md:block" data-calendar-grid>
-            <div class="grid grid-cols-7 text-center text-xs text-gray-500">
-                @foreach ($weekdays as $w)<div class="pb-2">{{ $w }}</div>@endforeach
-            </div>
-            <div class="grid grid-cols-7 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-                @foreach ($days as $date => $cell)
-                    @php
-                        $inMonth = substr($date, 0, 7) === $monthStart->format('Y-m');
-                        $isToday = $date === $today;
-                        $own = $cell['own'];
-                        $line = $workLine($cell['work']);
-                    @endphp
-                    <button type="button" wire:click="openDay('{{ $date }}')" wire:key="cell-{{ $date }}"
-                        class="group relative flex min-h-[112px] flex-col justify-start border-b border-r border-gray-100 p-2 text-left align-top transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03] {{ $inMonth ? '' : 'bg-gray-50/60 dark:bg-white/[0.01]' }} {{ $isToday ? 'ring-2 ring-inset ring-brand-500 bg-brand-50/50 dark:bg-brand-500/10' : '' }}"
-                        data-calendar-day="{{ $date }}">
-                        <span class="text-xs {{ $isToday ? 'font-semibold text-gray-900 dark:text-white' : ($inMonth ? 'text-gray-500' : 'text-gray-300 dark:text-gray-600') }}">{{ (int) substr($date, 8, 2) }}{{ $isToday ? ' · bugün' : '' }}</span>
-                        <div class="mt-1 space-y-0.5">
-                            @foreach (array_slice($own, 0, 3) as $item)
-                                <p class="truncate text-[12px] leading-snug {{ $item['done'] ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200' }}">{{ $item['time'] ? $item['time'].' ' : '' }}{{ $item['title'] }}</p>
-                            @endforeach
-                            @if (count($own) > 3)<p class="text-[11px] text-gray-500">+{{ count($own) - 3 }} daha</p>@endif
-                            @if ($cell['sales'] !== [])
-                                <p class="truncate text-[12px] leading-snug text-gray-800 dark:text-gray-200">Satış: {{ count($cell['sales']) }} kişi</p>
-                            @endif
-                            @if ($isToday && $komutaToday)
-                                <p class="truncate text-[12px] leading-snug text-gray-800 dark:text-gray-200">Komuta: {{ $komutaToday }} karar</p>
-                            @endif
-                            @if ($cell['work']['failed'] > 0)
-                                <p class="truncate text-[11.5px] text-error-600">{{ $cell['work']['failed'] }} hata</p>
-                            @endif
-                            @if ($line)
-                                <p class="truncate text-[11.5px] text-gray-500">{{ $line }}</p>
-                            @endif
-                        </div>
+                        @if ($cell['sales'] !== [])<p class="mt-1 text-[13px] text-gray-800 dark:text-gray-200">Satış: {{ count($cell['sales']) }} kişiye yazılacak</p>@endif
+                        @if ($date === $today && $komutaToday)<p class="mt-1 text-[13px] text-gray-800 dark:text-gray-200">Komuta: {{ $komutaToday }} karar</p>@endif
+                        @if ($cell['work']['failed'] > 0)<p class="mt-1 text-xs text-error-600">{{ $cell['work']['failed'] }} hata</p>@endif
+                        @if ($line)<p class="mt-1 text-xs text-gray-500">{{ $line }}</p>@endif
+                        @if ($cell['own'] === [] && $cell['sales'] === [] && ! $line)<p class="mt-1 text-xs text-gray-400">Boş</p>@endif
                     </button>
                 @endforeach
-            </div>
-        </section>
-
-        {{-- Phone: the next 7 days as a list. --}}
-        <section class="mt-4 space-y-3 md:hidden" data-calendar-agenda>
-            @foreach ($agenda as $date => $cell)
-                @php $line = $workLine($cell['work']); @endphp
-                <button type="button" wire:click="openDay('{{ $date }}')" wire:key="agenda-{{ $date }}" class="card block w-full p-3 text-left">
-                    <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ $dayName($date) }}{{ $date === $today ? ' · bugün' : '' }}</p>
-                    @forelse ($cell['own'] as $item)
-                        <p class="mt-1 text-[13px] {{ $item['done'] ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200' }}">{{ $item['time'] ? $item['time'].' · ' : '' }}{{ $item['title'] }}</p>
-                    @empty
-                    @endforelse
-                    @if ($cell['sales'] !== [])<p class="mt-1 text-[13px] text-gray-800 dark:text-gray-200">Satış: {{ count($cell['sales']) }} kişiye yazılacak</p>@endif
-                    @if ($date === $today && $komutaToday)<p class="mt-1 text-[13px] text-gray-800 dark:text-gray-200">Komuta: {{ $komutaToday }} karar</p>@endif
-                    @if ($cell['work']['failed'] > 0)<p class="mt-1 text-xs text-error-600">{{ $cell['work']['failed'] }} hata</p>@endif
-                    @if ($line)<p class="mt-1 text-xs text-gray-500">{{ $line }}</p>@endif
-                    @if ($cell['own'] === [] && $cell['sales'] === [] && ! $line)<p class="mt-1 text-xs text-gray-400">Boş</p>@endif
-                </button>
-            @endforeach
-        </section>
-    @endif
+            </section>
+        @endif
+        </div>
+        <div class="order-first xl:order-last xl:mt-0">
+            @include('livewire.operator.calendar.partials.todos')
+        </div>
+    </div>
 
     {{-- The day window. --}}
     @if ($open !== null)

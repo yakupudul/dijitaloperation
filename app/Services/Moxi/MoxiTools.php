@@ -12,9 +12,11 @@ use App\Mcp\Tools\SaveNote;
 use App\Mcp\Tools\SystemHealth;
 use App\Models\Brand;
 use App\Models\MoxiMessage;
+use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SystemChange;
 use App\Models\User;
+use App\Services\Calendar\QuickCapture;
 use App\Services\Mcp\BrandBriefing;
 use App\Services\Operations\SystemChangeDesk;
 use App\Services\Sales\SalesLeads;
@@ -106,6 +108,8 @@ final class MoxiTools
             ['name' => 'hatirlatma', 'description' => 'KART: satış kaydı için Takvim\'e hatırlatma ya da toplantı koyar.', 'input_schema' => $object(['lead_id' => $int('Satış kaydı id.'), 'kind' => $str('Tür.', ['task', 'meeting']), 'title' => $str('Başlık.'), 'date' => $date, 'time' => $str('Saat, SS:DD.')], ['lead_id', 'date'])],
             ['name' => 'teklif', 'description' => 'KART: satış kaydının aylık teklifini (TL) ve hizmetini yazar; 0 teklifi siler.', 'input_schema' => $object(['lead_id' => $int('Satış kaydı id.'), 'amount' => $int('Aylık TL.'), 'service' => $str('Hizmet.', array_keys(SalesLead::SERVICES))], ['lead_id', 'amount'])],
             ['name' => 'marka_bilgisi', 'description' => 'KART: operatörün söylediği bir marka bilgisini epikrize yazar (telefon, garanti, fiyat, uzman, fark…). Yalnız operatörün kendi sözü; tahmin asla. field ya da question_id gerekir.', 'input_schema' => $object(['brand_id' => $int('Marka id.'), 'field' => $str('Epikriz alanı (marka_dosyasi epikriz alanları).'), 'value' => $str('Bilgi, sade Türkçe.'), 'scope' => $str('Hangi hizmet ya da şube için.'), 'question_id' => $int('Cevapladığı açık soru id.')], ['brand_id', 'value'])],
+            ['name' => 'yapilacaklar', 'description' => 'Operatörün kendi yapılacakları ve notları (Takvim › Yapılacaklar): bugün, geciken, tarihsiz işler ve son notlar. q verilirse işlerde ve notlarda (toplantı notları dahil) arar; "X ile ne konuşmuştuk" gibi sorular için.', 'input_schema' => $object(['q' => $str('Aranan kelime (boş = açık işler ve son notlar).')])],
+            ['name' => 'yapilacak_ekle', 'description' => 'Operatörün söylediği işi, hatırlatmayı ya da notu hemen Takvim\'e yazar (kart yok). Metni operatörün sözüyle ver: "yarın 10\'da Şaban Bey\'i ara" tarihli hatırlatma, "not: …" not, "toplantı: cuma 14:00 …" toplantı olur; tarih yoksa tikleyene kadar Yapılacaklar\'da durur.', 'input_schema' => $object(['text' => $str('Operatörün cümlesi; ilk satır başlık, gerisi not.')], ['text'])],
             ['name' => 'deftere_yaz', 'description' => 'Defterine kalıcı bir şey yazar: operatörün söylediği genel bir bilgi (bilgi), nasıl çalışmak istediği (tercih) ya da seni düzelttiği bir yer (ders). Kısa, tek cümle. Markaya özel bilgi için marka_bilgisi kartı kullan.', 'input_schema' => $object(['text' => $str('Öğrendiğin, tek cümle.'), 'kind' => $str('Tür.', ['bilgi', 'tercih', 'ders'])], ['text', 'kind'])],
             ['name' => 'claude_istegi', 'description' => 'Senin yapamayacağın bir işi (yazı, analiz, site işi, kod) Claude\'a iletir. Claude kuyruk turunda (08:27, 12:27, 16:27, 21:27) yapar, cevap bu kutuya gelir.', 'input_schema' => $object(['title' => $str('İşin kısa adı.'), 'detail' => $str('Operatörün istediği, tüm ayrıntısıyla.'), 'brand_id' => $int('İlgili marka (varsa).')], ['title', 'detail'])],
             ['name' => 'oneri_yaz', 'description' => 'Denetimci: panelde iş yaparken gördüğün bir aksaklığı ya da daha iyi bir yolu Geliştirme havuzuna öneri olarak yazar. Operatör onaylarsa Claude kodlar. Aynı bulgu iki kez yazılmaz.', 'input_schema' => $object(['kind' => $str('Tür: improvement (akış, hata, daha iyi yol) ya da design (görünüm).', ['improvement', 'design']), 'title' => $str('Ne değişmeli, kısa.'), 'detail' => $str('Sorun, neden önemli, önerilen çözüm.'), 'evidence' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Ekran, kayıt id, örnek.']], ['kind', 'title', 'detail'])],
@@ -135,6 +139,8 @@ final class MoxiTools
                 'satis_kaydi' => ['text' => self::cut(self::json($this->lead((int) ($input['lead_id'] ?? 0)))), 'message' => null],
                 'ekran_bul' => ['text' => self::json($this->screens((string) ($input['q'] ?? ''))), 'message' => null],
                 'bekleyenler' => ['text' => self::json($this->waiting()), 'message' => null],
+                'yapilacaklar' => ['text' => self::cut(self::json($this->todos($user, trim((string) ($input['q'] ?? ''))))), 'message' => null],
+                'yapilacak_ekle' => $this->addTodo($input, $user),
                 'deftere_yaz' => $this->learn($input, $user, $page),
                 'claude_istegi' => $this->request($input, $user, $page),
                 'oneri_yaz' => $this->propose($input, $user, $page),
@@ -316,6 +322,35 @@ final class MoxiTools
         $note = app(MoxiCharacter::class)->learn($user, (string) ($input['text'] ?? ''), (string) ($input['kind'] ?? 'bilgi'), $page);
 
         return ['text' => $note !== null ? 'Deftere yazıldı.' : 'HATA: boş not.', 'message' => null];
+    }
+
+    /** @return array<string, mixed> */
+    private function todos(User $user, string $q): array
+    {
+        $link = route('operator.calendar');
+        if ($q === '') {
+            $board = app(QuickCapture::class)->board((int) $user->id, 10);
+
+            return ['takvim' => $link, 'count' => $board['count'], 'today' => $board['today'], 'late' => $board['late'], 'open' => $board['open'], 'notes' => $board['notes']];
+        }
+        $like = '%'.mb_strtolower($q).'%';
+        $rows = Reminder::query()->where('user_id', $user->id)
+            ->where(fn ($w) => $w->whereRaw('lower(title) like ?', [$like])->orWhereRaw('lower(coalesce(notes, \'\')) like ?', [$like])->orWhereRaw('lower(coalesce(outcome, \'\')) like ?', [$like]))
+            ->orderByDesc('id')->limit(20)->get();
+
+        return ['takvim' => $link, 'q' => $q, 'found' => $rows->map(fn (Reminder $r): array => [
+            'id' => $r->id, 'kind' => $r->kind, 'title' => $r->title, 'notes' => $r->notes ? mb_strimwidth($r->notes, 0, 600, '…') : null,
+            'meeting_note' => $r->outcome ? mb_strimwidth($r->outcome, 0, 600, '…') : null, 'url' => $r->url, 'done' => $r->done_at !== null,
+            'date' => $r->remind_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i'), 'written' => $r->created_at?->timezone('Europe/Istanbul')->format('d.m.Y'),
+        ])->all()];
+    }
+
+    /** @return array{text: string, message: null} */
+    private function addTodo(array $input, User $user): array
+    {
+        $row = app(QuickCapture::class)->capture($user, (string) ($input['text'] ?? ''));
+
+        return ['text' => QuickCapture::said($row).' [Takvim]('.route('operator.calendar').')', 'message' => null];
     }
 
     /** @return list<array<string, mixed>> */

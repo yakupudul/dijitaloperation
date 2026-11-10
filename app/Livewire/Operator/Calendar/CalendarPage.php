@@ -8,6 +8,7 @@ use App\Models\SalesLead;
 use App\Services\Assistant\ReminderService;
 use App\Services\Calendar\CalendarFeed;
 use App\Services\Calendar\CalendarIcs;
+use App\Services\Calendar\QuickCapture;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
 use Carbon\CarbonImmutable;
@@ -50,8 +51,20 @@ final class CalendarPage extends Component
 
     public string $note = '';
 
+    /** Yapılacaklar (2026-11-10): the one-line box; "yarın 10'da …", "not: …" and plain to-dos all go here. */
+    public string $quick = '';
+
+    /** The phone shortcut "Hızlı not" opens Takvim with ?hizli=1: the box gets the cursor at once. */
+    public bool $focusQuick = false;
+
+    public bool $allNotes = false;
+
+    /** The browser extension card ("+" from any tab). */
+    public bool $extension = false;
+
     public function mount(): void
     {
+        $this->focusQuick = request()->boolean('hizli');
         $lead = (int) request()->query('aday', 0);
         if ($lead > 0 && SalesLead::query()->whereKey($lead)->exists()) {
             // "Toplantı ekle" from a prospect's card opens the form with that prospect.
@@ -179,6 +192,31 @@ final class CalendarPage extends Component
         $this->say('Silindi.');
     }
 
+    /** One line from the Yapılacaklar box: a to-do, a reminder with a date, a meeting or a note (QuickCapture rules). */
+    public function quickAdd(QuickCapture $capture): void
+    {
+        $text = trim($this->quick);
+        if ($text === '') {
+            throw ValidationException::withMessages(['quick' => 'Bir şey yaz: "yarın 10\'da Şaban Bey\'i ara" ya da "not: …".']);
+        }
+        $row = $capture->capture(auth()->user(), $text);
+        $this->quick = '';
+        $this->focusQuick = true;
+        $this->say(QuickCapture::said($row));
+    }
+
+    public function showExtension(): void
+    {
+        $this->extension = ! $this->extension;
+    }
+
+    /** A new key; the installed extension stops working until the new one is downloaded. */
+    public function renewCaptureKey(): void
+    {
+        QuickCapture::token(auth()->user(), true);
+        $this->say('Eklenti anahtarı yenilendi. Eklentiyi yeniden indirip kur; eskisi artık kaydetmez.');
+    }
+
     /** Shows the read-only feed address (created on first ask) to paste into Google Takvim. */
     public function showFeed(): void
     {
@@ -220,8 +258,21 @@ final class CalendarPage extends Component
             'brands' => $this->adding ? Brand::query()->orderBy('name')->get(['id', 'name']) : collect(),
             'leads' => $this->adding ? SalesLead::query()->open()->orderByDesc('updated_at')->limit(200)->get() : collect(),
             'komuta' => $open['komuta'] ?? null,
+            'board' => $this->board(),
             'komutaToday' => ! $failed && ! $this->report && $gridFrom->toDateString() <= $now->toDateString() && $gridTo->toDateString() >= $now->toDateString() ? $feed->komuta() : null,
         ]);
+    }
+
+    /** @return array<string, mixed>|null */
+    private function board(): ?array
+    {
+        try {
+            return app(QuickCapture::class)->board((int) auth()->id(), $this->allNotes ? 100 : 6);
+        } catch (Throwable $error) {
+            report($error);
+
+            return null;
+        }
     }
 
     private function mine(int $id): Reminder

@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\BacklinkSource;
 use App\Models\Brand;
 use App\Models\GbpQueuedPost;
+use App\Models\Reminder;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
 use App\Services\GoogleAds\Desk\GoogleAdsDesk;
@@ -180,6 +181,10 @@ final class OperatorMenu
         // Pazarlama carries the social badge (Aşama 4): drafts waiting for approval and posts to copy by hand.
         $put('operator.marketing', 'soft', fn (): int => SocialPost::query()->where('status', SocialPost::DRAFT)->where('publish_at', '>=', now())->count()
             + SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->count());
+        // Takvim (2026-11-10): own to-dos waiting for a tick: without a date, late, or due today.
+        $put('operator.calendar', 'soft', fn (): int => Reminder::query()->openTodos()->count()
+            + Reminder::query()->whereIn('kind', ['task', 'meeting'])->whereNull('done_at')->where('repeat', 'none')
+                ->whereBetween('remind_at', [now()->timezone('Europe/Istanbul')->startOfDay()->utc(), now()->timezone('Europe/Istanbul')->endOfDay()->utc()])->count());
         // Gelen kutusu (2026-11-07): answers owed and today's steps, in one number.
         $put('operator.inbox', 'soft', fn (): int => app(InboxQueue::class)->openCount());
         // Bağlantılar: applications ready to send and rows for the operator's own call or visit.

@@ -1,0 +1,25 @@
+:root { --accent: #fdcf3c; --teal: #1e7a78; --ink: #1f2328; --muted: #6b7280; --line: #e7e5e0; --bg: #ffffff; --soft: #f5f4f0; --red: #c2410c; }
+@media (prefers-color-scheme: dark) { :root { --ink: #f3f4f6; --muted: #9ca3af; --line: #2e3138; --bg: #17191d; --soft: #212328; } }
+* { box-sizing: border-box; }
+body { width: 360px; margin: 0; padding: 12px; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", Inter, sans-serif; color: var(--ink); background: var(--bg); }
+textarea { width: 100%; resize: none; border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; font: inherit; color: inherit; background: var(--bg); outline: none; }
+textarea:focus { border-color: var(--teal); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.page { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--muted); font-size: 12px; }
+.page span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 220px; }
+button { border: 0; border-radius: 9px; padding: 7px 14px; font: 600 13px/1 inherit; font-family: inherit; background: var(--accent); color: #1f2328; cursor: pointer; }
+button:disabled { opacity: .6; }
+.said { margin: 8px 0 0; padding: 7px 10px; border-radius: 9px; background: var(--soft); }
+.said.err { color: var(--red); }
+h3 { margin: 14px 0 4px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+h3.late { color: var(--red); }
+ul { list-style: none; margin: 0; padding: 0; }
+li { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; }
+li input { margin: 2px 0 0; accent-color: var(--teal); }
+li .t { min-width: 0; overflow-wrap: anywhere; }
+li .m { display: block; font-size: 11.5px; color: var(--muted); }
+li.done .t { color: var(--muted); text-decoration: line-through; }
+.empty { color: var(--muted); margin: 12px 0 0; }
+footer { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; }
+footer a { color: var(--teal); text-decoration: none; }
+.hint { color: var(--muted); }

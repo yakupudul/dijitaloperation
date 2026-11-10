@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -16,9 +17,12 @@ class Reminder extends Model
 
     public const array KINDS = ['task' => 'İş', 'meeting' => 'Toplantı'];
 
+    /** A free note (toplantı notu, telefon notu, fikir): no date, never pushed, kept until deleted (2026-11-10). */
+    public const string NOTE = 'note';
+
     protected $fillable = [
         'user_id', 'customer_id', 'brand_id', 'prospect_id', 'sales_lead_id', 'kind', 'title', 'notes', 'remind_at', 'ends_at', 'all_day',
-        'place', 'outcome', 'repeat', 'notified_at', 'followup_notified_at', 'done_at',
+        'place', 'outcome', 'repeat', 'notified_at', 'followup_notified_at', 'done_at', 'url',
     ];
 
     protected function casts(): array
@@ -27,6 +31,24 @@ class Reminder extends Model
             'remind_at' => 'datetime', 'ends_at' => 'datetime', 'notified_at' => 'datetime', 'followup_notified_at' => 'datetime',
             'done_at' => 'datetime', 'all_day' => 'boolean',
         ];
+    }
+
+    /**
+     * Yapılacaklar (2026-11-10): open own tasks that wait for a tick: the ones without a date, and dated ones whose day
+     * has passed (they stay until done instead of disappearing into last week).
+     *
+     * @param  Builder<Reminder>  $query
+     */
+    public function scopeOpenTodos(Builder $query, ?int $userId = null): void
+    {
+        $query->when($userId !== null, fn (Builder $q) => $q->where('user_id', $userId))->where('kind', 'task')->whereNull('done_at')
+            ->where(fn (Builder $q) => $q->whereNull('remind_at')
+                ->orWhere(fn (Builder $d) => $d->where('repeat', 'none')->where('remind_at', '<', now()->timezone('Europe/Istanbul')->startOfDay()->utc())));
+    }
+
+    public function isNote(): bool
+    {
+        return $this->kind === self::NOTE;
     }
 
     public function isMeeting(): bool

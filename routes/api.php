@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Calendar\QuickCaptureController;
 use App\Http\Controllers\Integrations\WhatsAppWebhookController;
 use App\Http\Controllers\Integrations\WordPressConnectorCommandsController;
 use App\Http\Controllers\Integrations\WordPressConnectorEventsController;
@@ -46,3 +47,8 @@ Route::match(['OPTIONS', 'GET', 'HEAD', 'PUT', 'PROPFIND', 'PROPPATCH', 'MKCOL',
 
 // Satış (2026-11-05): site forms (moximu.com) posted server-to-server with the Form bağlantısı token.
 Route::post('/satis/form', LeadFormController::class)->middleware('throttle:30,1')->name('api.sales.form');
+
+// Hızlı not (2026-11-10): the browser extension's "+"; the capture key in the Authorization header is the login.
+Route::get('/hizli-not', [QuickCaptureController::class, 'index'])->middleware('throttle:60,1')->name('api.quick-capture.index');
+Route::post('/hizli-not', [QuickCaptureController::class, 'store'])->middleware('throttle:30,1')->name('api.quick-capture.store');
+Route::post('/hizli-not/{reminder}/tik', [QuickCaptureController::class, 'toggle'])->whereNumber('reminder')->middleware('throttle:60,1')->name('api.quick-capture.toggle');

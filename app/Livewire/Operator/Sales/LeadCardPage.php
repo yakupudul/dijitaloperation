@@ -525,7 +525,7 @@ final class LeadCardPage extends Component
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'analysing' => in_array($lead->analysis_status, ['queued', 'running'], true),
             'researching' => in_array($lead->research_status, ['queued', 'running'], true),
-            'meetings' => Reminder::query()->where('sales_lead_id', $lead->id)->orderByDesc('remind_at')->limit(10)->get(),
+            'meetings' => Reminder::query()->where('sales_lead_id', $lead->id)->whereNotNull('remind_at')->orderByDesc('remind_at')->limit(10)->get(),
             'duplicate' => $lead->duplicate_of_id !== null ? SalesLead::query()->find($lead->duplicate_of_id) : null,
         ]);
     }

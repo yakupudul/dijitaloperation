@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8">
+    <title>MoxDOP hızlı not</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <form id="form">
+        <textarea id="text" rows="3" placeholder="Yaz, Enter'a bas.&#10;yarın 10'da Şaban Bey'i ara · not: … · toplantı: cuma 14:00 …" autofocus></textarea>
+        <div class="row">
+            <label class="page"><input type="checkbox" id="withPage" checked> <span id="pageLabel">Bu sayfayı ekle</span></label>
+            <button type="submit" id="save">Kaydet</button>
+        </div>
+        <p id="said" class="said" hidden></p>
+    </form>
+    <section id="list"></section>
+    <footer><a href="#" id="open">Takvim'i aç</a><span class="hint">Shift+Enter yeni satır</span></footer>
+    <script src="config.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>
