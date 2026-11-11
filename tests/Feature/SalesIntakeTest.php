@@ -65,7 +65,8 @@ class SalesIntakeTest extends TestCase
         $this->assertSame('contacted', $lead->fresh()->stage);
         $lead = $lead->fresh();
         $leads->markSent($lead, 'Aylık 12.000 TL + KDV.');
-        $this->assertSame('priced', $lead->fresh()->stage);
+        $this->assertSame('contacted', $lead->fresh()->stage, 'our own price does not move the card');
+        $leads->setStage($lead->fresh(), 'priced');
         $leads->meetingPlanned($lead = $lead->fresh());
         $this->assertSame('priced', $lead->fresh()->stage, 'never back');
 

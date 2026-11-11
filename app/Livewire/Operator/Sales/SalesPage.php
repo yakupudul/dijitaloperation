@@ -514,7 +514,7 @@ final class SalesPage extends Component
             ];
         }
         usort($rows, fn (array $a, array $b): int => [$b['late'], (int) ($b['agreement']?->monthlyValue() ?? 0)] <=> [$a['late'], (int) ($a['agreement']?->monthlyValue() ?? 0)]);
-        $offers = SalesLead::query()->open()->relevant()->where(fn ($q) => $q->whereNotNull('offer_amount')->orWhereIn('stage', ['priced', 'thinking']));
+        $offers = SalesLead::query()->open()->relevant()->realOffers();
 
         return ['rows' => $rows, 'strip' => [
             'mrr' => $agreements->mrr(), 'offers' => (int) (clone $offers)->sum('offer_amount'), 'won_month' => $agreements->wonThisMonth(),
@@ -711,7 +711,7 @@ final class SalesPage extends Component
             'bugun' => fn (SalesLead $l): bool => $l->isDue(),
             'adimsiz' => fn (SalesLead $l): bool => $l->next_step_at === null,
             'soguyan' => fn (SalesLead $l): bool => $l->stage !== 'later' && ($l->lastTouchAt() ?? $l->created_at)?->lt($cold) === true,
-            'teklif' => fn (SalesLead $l): bool => $l->offer_amount !== null || in_array($l->stage, ['priced', 'thinking'], true),
+            'teklif' => fn (SalesLead $l): bool => $l->hasRealOffer(),
         ];
     }
 
@@ -785,7 +785,7 @@ final class SalesPage extends Component
     private function money(): array
     {
         $active = Customer::query()->where('status', 'active');
-        $offers = SalesLead::query()->open()->relevant()->where(fn ($q) => $q->whereNotNull('offer_amount')->orWhereIn('stage', ['priced', 'thinking']));
+        $offers = SalesLead::query()->open()->relevant()->realOffers();
         // The agreements are the truth once entered; until then the customers' monthly fee column.
         $mrr = Agreement::query()->exists() ? (float) app(Agreements::class)->mrr() : (float) (clone $active)->sum('monthly_fee');
 

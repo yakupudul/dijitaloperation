@@ -53,7 +53,7 @@ class SalesLeadsTableTest extends TestCase
         $lead = $leads->quickAdd(['name' => 'Dt. Eslem', 'phone' => '0532 111 22 33'], $this->admin);
         $leads->markSent($lead, 'Hocam SEO + İşletme Profili aylık 14.000 TL + KDV.', $this->admin);
         $lead = $lead->fresh();
-        $this->assertSame('priced', $lead->stage);
+        $this->assertSame('contacted', $lead->stage, 'our own price is not the offer stage');
         $this->assertSame(14000, $lead->offer_amount);
         $this->assertSame('seo_gbp', $lead->offer_service);
         $this->assertFalse($lead->offer_confirmed, 'read from the text: a suggestion until confirmed');

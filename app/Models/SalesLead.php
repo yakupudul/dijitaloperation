@@ -297,6 +297,22 @@ class SalesLead extends Model
         return $this->isOpen() && $this->next_step_at !== null && $this->next_step_at->lte(now()->endOfDay());
     }
 
+    /**
+     * A real offer on the table: the operator entered the amount, or the prospect's own move put the card at "teklif"
+     * (they asked the price or answered it). An amount only read from our own message is not one (Satış Düzeni 1.1).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeRealOffers(Builder $query): void
+    {
+        $query->where(fn (Builder $q) => $q->where('offer_confirmed', true)->orWhereIn('stage', ['priced', 'thinking']));
+    }
+
+    public function hasRealOffer(): bool
+    {
+        return (bool) $this->offer_confirmed || in_array($this->stage, ['priced', 'thinking'], true);
+    }
+
     /** Moves the stage forward to $stage when it is further along the open line; never back, never out of won/lost. */
     public function advanceTo(string $stage): bool
     {

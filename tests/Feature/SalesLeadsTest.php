@@ -111,7 +111,8 @@ class SalesLeadsTest extends TestCase
 
         $leads->markSent($lead, 'Aylık 12.000 TL + KDV.', $this->admin);
         $lead = $lead->fresh();
-        $this->assertSame('priced', $lead->stage, 'a price in our message moves the card');
+        $this->assertSame('contacted', $lead->stage, 'our own price does not move the card: the offer stage is the prospect\'s move');
+        $this->assertSame(12000, $lead->offer_amount, 'the amount is still remembered');
         $this->assertSame('2026-11-11', $lead->next_step_at->timezone('Europe/Istanbul')->toDateString());
 
         $leads->markSent($lead, 'Üçüncü mesaj.', $this->admin);
@@ -164,6 +165,44 @@ class SalesLeadsTest extends TestCase
         $kinds = $timeline->pluck('kind')->all();
         sort($kinds);
         $this->assertSame(['message_in', 'message_in', 'message_out', 'system'], $kinds, 'the chat and the card events are one timeline');
+    }
+
+    public function test_the_offer_stage_needs_the_prospects_move_and_an_old_wrong_read_goes_back(): void
+    {
+        Http::fake();
+        app(WhatsAppConnection::class)->save($this->admin, [
+            'waba_id' => '111111111', 'phone_number_id' => '222222222', 'business_phone' => '905388610288', 'business_context' => 'Ajans',
+            'access_token' => 'test-access-token', 'app_secret' => 'test-app-secret', 'verify_token' => 'test-verify-token-12345',
+            'enabled' => true, 'automatic_suggestions' => false,
+        ]);
+        $integration = app(WhatsAppConnection::class)->integration();
+        $conversation = WhatsAppConversation::query()->create([
+            'integration_id' => $integration->id, 'phone_number_id' => 'backup', 'contact_id' => '905007776655', 'contact_name' => 'Sessiz Aday',
+            'last_message_at' => now()->subDays(3), 'last_incoming_at' => now()->subDays(4),
+        ]);
+        WhatsAppMessage::query()->create(['conversation_id' => $conversation->id, 'message_id' => 'c1', 'direction' => 'incoming', 'message_type' => 'text', 'body' => 'Merhaba', 'sent_at' => now()->subDays(4)]);
+        WhatsAppMessage::query()->create(['conversation_id' => $conversation->id, 'message_id' => 'c2', 'direction' => 'outgoing', 'message_type' => 'text', 'body' => 'Merhaba, paketimiz aylık 14.000 TL + KDV.', 'sent_at' => now()->subDays(3)]);
+
+        $leads = app(SalesLeads::class);
+        $lead = $leads->fromConversation($conversation);
+        $this->assertSame('talking', $lead->stage, 'we named a price nobody asked for and nobody answered');
+        $this->assertSame(14000, $lead->offer_amount);
+        $this->assertSame(0, SalesLead::query()->realOffers()->count(), 'not an offer on the table');
+
+        // A card the old rule had read as "teklif verildi" goes back when the chat is read again; one set by hand stays.
+        $lead->forceFill(['stage' => 'priced'])->save();
+        $leads->fromConversation($conversation);
+        $this->assertSame('talking', $lead->fresh()->stage);
+        $leads->setStage($lead->fresh(), 'priced', null, $this->admin);
+        $leads->fromConversation($conversation);
+        $this->assertSame('priced', $lead->fresh()->stage, 'the operator chose it');
+        $leads->setStage($lead->fresh(), 'talking', null, $this->admin);
+
+        // They answer after seeing the price: now it is an offer.
+        WhatsAppMessage::query()->create(['conversation_id' => $conversation->id, 'message_id' => 'c3', 'direction' => 'incoming', 'message_type' => 'text', 'body' => 'Anladım, eşimle konuşayım', 'sent_at' => now()]);
+        $conversation->update(['last_message_at' => now(), 'last_incoming_at' => now()]);
+        $this->assertContains($lead->fresh()->stage, ['priced', 'thinking']);
+        $this->assertSame(1, SalesLead::query()->realOffers()->count());
     }
 
     public function test_sharing_an_exported_chat_from_the_phone_fills_the_card_once(): void

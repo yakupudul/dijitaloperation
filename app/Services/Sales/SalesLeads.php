@@ -237,7 +237,7 @@ final class SalesLeads
 
     /**
      * A WhatsApp chat that is not a customer's becomes a card (or joins the card with the same phone). Its stage is
-     * read from the chat: nobody answered → new; we wrote → contacted; a price in our messages → priced. Old silent
+     * read from the chat: nobody answered → new; we wrote → contacted; a price they asked for or answered → priced. Old silent
      * chats wait for the re-warm round instead of filling Bugün.
      */
     public function fromConversation(WhatsAppConversation $conversation): ?SalesLead
@@ -436,10 +436,17 @@ final class SalesLeads
                 // We wrote and they answered: a conversation.
                 $lead->advanceTo('talking');
             }
+            // "Teklif verildi" is the prospect's move, not ours (Satış Düzeni 1.1): a price in our own message counts only
+            // when they asked for it or answered after seeing it. The amount is still remembered as read from the message.
             $priced = $this->quotedPrice($conversation);
             if ($priced !== null) {
-                $lead->advanceTo('priced');
-                $lead->suggestOfferFrom($priced);
+                $lead->suggestOfferFrom($priced['body']);
+                if ($this->prospectEngagedWithPrice($conversation, $priced['at'])) {
+                    $lead->advanceTo('priced');
+                } elseif ($lead->stage === 'priced' && ! $lead->offer_confirmed && ! $this->stageSetByHand($lead, 'priced')) {
+                    // Read as "priced" by the old rule: back to where the chat really is.
+                    $lead->stage = $lastIn !== null ? 'talking' : 'contacted';
+                }
             }
             if ($lastIn !== null && $lastIn->gte($lastOut) && self::isThinking((string) WhatsAppMessage::query()->where('conversation_id', $conversation->id)
                 ->where('direction', 'incoming')->orderByDesc('sent_at')->value('body'))) {
@@ -494,15 +501,50 @@ final class SalesLeads
     }
 
     /** The newest text we sent that names a price (or KDV), or null when no price was written yet. */
-    private function quotedPrice(WhatsAppConversation $conversation): ?string
+    /** @return array{body: string, at: ?CarbonImmutable}|null our newest message that names a price */
+    private function quotedPrice(WhatsAppConversation $conversation): ?array
     {
-        foreach (WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'outgoing')->orderByDesc('sent_at')->limit(60)->get(['body']) as $message) {
+        foreach (WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'outgoing')->orderByDesc('sent_at')->limit(60)->get(['body', 'sent_at']) as $message) {
             if (preg_match('/\d{1,3}[\.\s]?\d{3}\s*(tl|₺)|\bkdv\b/iu', (string) $message->body)) {
-                return (string) $message->body;
+                return ['body' => (string) $message->body, 'at' => $message->sent_at !== null ? CarbonImmutable::instance($message->sent_at) : null];
             }
         }
 
         return null;
+    }
+
+    /** The prospect asked what it costs, or wrote something readable after our price message. */
+    private function prospectEngagedWithPrice(WhatsAppConversation $conversation, ?CarbonImmutable $pricedAt): bool
+    {
+        $incoming = WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'incoming')
+            ->where(fn ($q) => $q->whereNull('message_type')->orWhereNotIn('message_type', WhatsAppMessage::UNREADABLE_TYPES))
+            ->orderByDesc('sent_at')->limit(60)->get(['body', 'sent_at']);
+        foreach ($incoming as $message) {
+            if ($pricedAt !== null && $message->sent_at !== null && $message->sent_at->gt($pricedAt)) {
+                return true;
+            }
+            if (self::asksPrice((string) $message->body)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function asksPrice(string $text): bool
+    {
+        return preg_match('/fiyat|ücret|ne kadar|kaç\s*(tl|lira|para)|kaça|tutar|maliyet|bütçe|aylı[kğ]ı? ne/iu', $text) === 1;
+    }
+
+    /** The operator chose this stage on the card (a stage event with a user), so no rule moves the card out of it. */
+    private function stageSetByHand(SalesLead $lead, string $stage): bool
+    {
+        if (! $lead->exists) {
+            return false;
+        }
+
+        return SalesLeadEvent::query()->where('lead_id', $lead->id)->where('kind', 'stage')->orderByDesc('id')->limit(20)->get(['meta'])
+            ->contains(fn (SalesLeadEvent $event): bool => data_get($event->meta, 'to') === $stage && data_get($event->meta, 'by') !== null);
     }
 
     /** A card with a phone and no chat yet: the inbox chat with that number joins it (its messages become the timeline). */
@@ -634,8 +676,12 @@ final class SalesLeads
         $lead->last_contact_at = now();
         $lead->advanceTo('contacted');
         if ($text !== null && preg_match('/\d{1,3}[\.\s]?\d{3}\s*(tl|₺)/iu', $text)) {
-            $lead->advanceTo('priced');
+            // Our price alone is not an offer stage (Satış Düzeni 1.1); it is one when they had asked what it costs.
             $lead->suggestOfferFrom($text);
+            $conversation = $lead->conversation_id !== null ? WhatsAppConversation::query()->find($lead->conversation_id) : null;
+            if ($conversation !== null && $this->prospectEngagedWithPrice($conversation, null)) {
+                $lead->advanceTo('priced');
+            }
         }
         [$lead->next_step, $lead->next_step_at] = FollowUpSequence::afterOurMessage($lead->followup_step);
         // What yakup changed in the AI's text is how he writes: the next drafts read his recent edited messages.
