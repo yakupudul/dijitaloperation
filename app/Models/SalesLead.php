@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\Sales\SalesAnalysisWriter;
 use App\Support\Sales\LeadKinds;
 use App\Support\Sales\PhoneNumber;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -294,7 +295,13 @@ class SalesLead extends Model
 
     public function isDue(): bool
     {
-        return $this->isOpen() && $this->next_step_at !== null && $this->next_step_at->lte(now()->endOfDay());
+        return $this->isOpen() && $this->next_step_at !== null && $this->next_step_at->lte(self::endOfToday());
+    }
+
+    /** The end of the working day the operator lives in (Istanbul), as the moment stored times are compared with. */
+    public static function endOfToday(): CarbonImmutable
+    {
+        return CarbonImmutable::now('Europe/Istanbul')->endOfDay()->utc();
     }
 
     /**

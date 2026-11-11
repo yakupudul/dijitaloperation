@@ -208,7 +208,7 @@ final class CalendarFeed
     {
         $today = CarbonImmutable::now(self::TZ)->startOfDay();
         $includesToday = $today->betweenIncluded($from->startOfDay(), $to);
-        $query = SalesLead::query()->open()->whereNotNull('next_step_at')
+        $query = SalesLead::query()->open()->relevant()->whereNotNull('next_step_at')
             ->where('next_step_at', '<=', $to->utc())
             ->where('next_step_at', '>=', $includesToday ? CarbonImmutable::create(2000) : $from->utc())
             ->orderBy('next_step_at')->limit(300);

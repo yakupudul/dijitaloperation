@@ -14,9 +14,12 @@ use App\Models\SalesLeadEvent;
 use App\Models\User;
 use App\Services\Assistant\ReminderService;
 use App\Services\Calendar\CalendarFeed;
+use App\Services\Inbox\InboxQueue;
+use App\Services\Sales\SalesLeads;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -177,10 +180,33 @@ class CalendarTest extends TestCase
         $theirs = Reminder::query()->create(['user_id' => $other->id, 'title' => 'Başkası', 'remind_at' => '2026-11-05 07:00:00']);
         try {
             Livewire::actingAs($this->admin)->test(CalendarPage::class)->call('remove', $theirs->id);
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+        } catch (ModelNotFoundException) {
         }
         $this->assertNotNull($theirs->fresh());
 
         Livewire::actingAs($this->admin)->test(CalendarPage::class)->call('startAdding', '2026-11-05', 'task')->set('form.title', '')->call('save')->assertHasErrors('form.title');
+    }
+
+    public function test_sales_steps_due_today_are_the_same_records_on_sales_inbox_and_calendar(): void
+    {
+        // 23:30 in Istanbul (20:30 UTC): "today" still ends at Istanbul midnight.
+        CarbonImmutable::setTestNow('2026-11-05 20:30:00');
+        $make = fn (string $name, CarbonImmutable $at, array $extra = []) => SalesLead::query()->create(array_merge(
+            ['name' => $name, 'source' => 'manual', 'stage' => 'contacted', 'lifecycle' => 'prospect', 'next_step' => 'Ara', 'next_step_at' => $at], $extra));
+        $make('Bugün', CarbonImmutable::parse('2026-11-05 20:45:00'));
+        $make('Dün', CarbonImmutable::parse('2026-11-04 08:00:00'));
+        $make('Yarın sabaha karşı', CarbonImmutable::parse('2026-11-05 22:30:00')); // 01:30 Istanbul, tomorrow
+        $make('Arşivde', CarbonImmutable::parse('2026-11-04 08:00:00'), ['archived_at' => now(), 'archive_reason' => 'history']);
+        $make('İlgisiz', CarbonImmutable::parse('2026-11-04 08:00:00'), ['lifecycle' => 'irrelevant']);
+
+        $due = app(SalesLeads::class)->due()->pluck('name')->sort()->values()->all();
+        $this->assertSame(['Bugün', 'Dün'], $due);
+
+        $today = CarbonImmutable::now(CalendarFeed::TZ);
+        $calendar = collect(app(CalendarFeed::class)->sales($today->startOfDay(), $today->endOfDay()))->pluck('title')->sort()->values()->all();
+        $this->assertCount(2, $calendar);
+
+        $inbox = app(InboxQueue::class)->items()->filter(fn ($item): bool => $item->lead !== null)->map(fn ($item): string => (string) $item->lead->name)->sort()->values()->all();
+        $this->assertSame(['Bugün', 'Dün'], $inbox);
     }
 }

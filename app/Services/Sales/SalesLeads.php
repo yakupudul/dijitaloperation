@@ -1088,10 +1088,16 @@ final class SalesLeads
         return $rows->sortByDesc(fn (array $row): string => $row['at']->format('Y-m-d H:i:s'))->values()->take($limit);
     }
 
-    /** @return Builder<SalesLead> open cards whose next step is today or overdue, the oldest step first */
+    /**
+     * Open cards whose next step is today or overdue, the oldest step first. The one source of "bugün yapılacak adım" for
+     * Satış, Gelen kutusu, Takvim and the drafts (Satış Düzeni 1.3): no irrelevant or archived record, and "today" ends
+     * at midnight in Istanbul, not in UTC.
+     *
+     * @return Builder<SalesLead>
+     */
     public function due(): Builder
     {
-        return SalesLead::query()->open()->whereNotNull('next_step_at')->where('next_step_at', '<=', now()->endOfDay())->orderBy('next_step_at');
+        return SalesLead::query()->open()->relevant()->whereNotNull('next_step_at')->where('next_step_at', '<=', SalesLead::endOfToday())->orderBy('next_step_at');
     }
 
     /** Customers' chats where the last word is theirs (a request waiting), newest first. */
