@@ -352,6 +352,18 @@ final class RepairDesk
         return $this->learned ??= app(OutcomeTracker::class)->workTypes();
     }
 
+    /** @param  array<string, mixed>  $action  true when one of the row's site changes sets noindex on */
+    public static function closesToGoogle(array $action): bool
+    {
+        foreach ((array) ($action['changes'] ?? []) as $change) {
+            if (is_array($change) && ($change['type'] ?? null) === 'noindex' && (bool) ($change['value'] ?? false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @param  array{brand_id: int, kind: string, risk: string}  $row */
     public static function packageKey(array $row): string
     {
@@ -1090,6 +1102,12 @@ final class RepairDesk
             return null;
         }
         $row += ['editable' => [], 'asset_id' => $s->target_id !== null ? (int) $s->target_id : null];
+
+        // Kırmızı çizgi (Bağlantı Düzeni 3.1): a row that closes a page to Google (noindex) never goes in a bulk approval;
+        // it is approved one by one, with the page named.
+        if (self::closesToGoogle($action) && in_array($row['risk'] ?? null, [self::LOW, self::MEDIUM], true)) {
+            $row['risk'] = self::HIGH;
+        }
 
         return $row + ['open' => $this->openLink($s, $row, $action)];
     }

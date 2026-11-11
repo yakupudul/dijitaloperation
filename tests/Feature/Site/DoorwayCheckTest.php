@@ -5,6 +5,7 @@ namespace Tests\Feature\Site;
 use App\Ai\Agents\Site\DoorwayCheckAgent;
 use App\Models\Page;
 use App\Models\Suggestion;
+use App\Services\Repair\RepairDesk;
 use App\Services\Repair\SeoFieldsBatch;
 use App\Services\Repair\SiteAudit;
 use App\Services\Repair\WebHealthAudit;
@@ -44,6 +45,8 @@ final class DoorwayCheckTest extends SiteTestCase
         $this->assertSame([Suggestion::OPEN, DoorwayCheck::TITLES['other_business'].' (1 sayfa)'], [$row->status, $row->title]);
         $this->assertSame([['type' => 'noindex', 'object_id' => 900, 'reference' => 'doorway-noindex-'.$other->id, 'value' => true]], data_get($row->action, 'changes'));
         $this->assertSame(['checked' => 0, 'flagged' => 0, 'closed' => 0, 'waiting' => 0], app(DoorwayCheck::class)->run(), 'a page is read once');
+        $deskRisks = (new RepairDesk)->rows()->whereIn('id', $rows->pluck('id'))->pluck('risk')->unique()->values()->all();
+        $this->assertSame([RepairDesk::HIGH], $deskRisks, 'closing a page to Google is never part of a bulk approval');
         $this->assertSame(2, Suggestion::query()->where('action->check', DoorwayCheck::CHECK)->count(), 'a new run keeps the same rows');
 
         $row->forceFill(['status' => Suggestion::APPROVED, 'resolved_by' => $this->admin->id])->save();
