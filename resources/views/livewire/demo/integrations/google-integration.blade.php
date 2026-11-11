@@ -5,7 +5,10 @@
     $gAppReady = ($integration['app_configuration_label'] ?? '') === __('operator.states.configured');
     $gAuthReady = ($integration['auth_status'] ?? '') === 'connected';
     $gAccountsReady = (int) ($integration['bound'] ?? 0) > 0;
-    $gDataReady = $gAccountsReady && ($integration['collection_state'] ?? '') === 'completed';
+    // Bağlantı Düzeni 1.12: one truth for "is data coming": the stored data, not whether a collection happens to be
+    // running right now (the step used to say "İlk veri çekimi bekleniyor" next to "Veri geliyor").
+    $gHasData = in_array($integration['data_state'] ?? '', ['fresh', 'stale'], true);
+    $gDataReady = $gAccountsReady && ($gHasData || ($integration['collection_state'] ?? '') === 'completed');
     $steps = [
         ['label' => 'Uygulama', 'detail' => $gAppReady ? 'Hazır' : 'Client ID / Secret gerekli', 'done' => $gAppReady, 'tab' => 'configuration'],
         ['label' => 'Yetki', 'detail' => $gAuthReady ? 'Google bağlı' : 'Google ile yetki verin', 'done' => $gAuthReady, 'tab' => 'configuration'],
@@ -31,7 +34,7 @@
                 <p class="page-sub flex flex-wrap items-center gap-x-3 gap-y-1">
                     <x-ta.pill :tone="$stateColor">{{ $L($integration['state_label']) }}</x-ta.pill>
                     @if (($integration['last_check'] ?? '—') !== '—')<span>Son kontrol {{ $integration['last_check'] }}</span>@endif
-                    @if (! empty($integration['next_action_label']))
+                    @if (! empty($integration['next_action_label']) && ! (($integration['next_action'] ?? '') === 'collect' && $gDataReady))
                         <span>Sonraki adım: {{ $L($integration['next_action_label']) }}</span>
                     @endif
                 </p>
@@ -95,13 +98,13 @@
         @if (! empty($preflight))
             <section>
                 <div class="section-head">
-                    <h2 class="section-title">Google ilk veri çekimi</h2>
+                    <h2 class="section-title">{{ $gDataReady ? 'Google veri çekimi' : 'Google ilk veri çekimi' }}</h2>
                     <span class="text-sm text-gray-500" title="Veri çekimi arka planda sürer; sayfadan ayrılabilirsiniz.">{{ $preflight['summary']['eligible_resources'] ?? 0 }} bağlı kaynak veri çekimine hazır</span>
                 </div>
                 <ul class="card">
                     @foreach ($preflight['summary']['by_connector'] ?? [] as $provider => $counts)
                         <li class="card-row text-sm">
-                            <span class="min-w-0 flex-1 text-gray-900 dark:text-white">{{ \Illuminate\Support\Str::headline(str_replace('_', ' ', $provider)) }}</span>
+                            <span class="min-w-0 flex-1 text-gray-900 dark:text-white">{{ ['search_console' => 'Search Console', 'gsc' => 'Search Console', 'ga4' => 'Google Analytics', 'gbp' => 'İşletme Profili', 'google_business_profile' => 'İşletme Profili', 'google_ads' => 'Google Ads'][$provider] ?? \Illuminate\Support\Str::headline(str_replace('_', ' ', $provider)) }}</span>
                             <span class="text-[13px] tabular-nums text-gray-500">{{ $counts['eligible'] ?? 0 }} uygun, {{ $counts['bound'] ?? 0 }} bağlı</span>
                         </li>
                     @endforeach
@@ -109,7 +112,7 @@
                         @if (($connector['status'] ?? '') !== 'ready')
                             <li class="card-row text-sm">
                                 <x-ta.pill tone="look">{{ $connector['provider_or_source'] ?? $connector['capability'] }}</x-ta.pill>
-                                <span class="min-w-0 flex-1 text-gray-700 dark:text-gray-300">{{ $connector['label'] }}</span>
+                                <span class="min-w-0 flex-1 text-gray-700 dark:text-gray-300">{{ $L($connector['label']) }}</span>
                             </li>
                         @endif
                     @endforeach

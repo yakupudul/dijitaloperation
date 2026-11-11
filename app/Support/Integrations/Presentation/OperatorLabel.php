@@ -27,6 +27,7 @@ final class OperatorLabel
         'Collection not run' => 'Veri çekimi henüz çalışmadı',
         'No data available' => 'Veri yok',
         'Data available' => 'Veri geliyor',
+        'Data collection capability not yet available' => 'Bu kaynaktan veri çekimi henüz yok',
         'Stale or partial materialization' => 'Veri eski ya da eksik',
         'Stale / partial data' => 'Veri eski ya da eksik',
         'Materialization present but not available' => 'Veri var ama kullanılamıyor',
@@ -89,7 +90,9 @@ final class OperatorLabel
             return 'Yetki: '.self::turkish(substr($label, strlen('Authorization · ')));
         }
         if (str_starts_with($label, 'Last collection · ')) {
-            return 'Son veri çekimi: '.substr($label, strlen('Last collection · '));
+            $status = substr($label, strlen('Last collection · '));
+
+            return 'Son veri çekimi: '.(['running' => 'sürüyor', 'completed' => 'tamamlandı', 'failed' => 'başarısız', 'queued' => 'sırada', 'partial' => 'kısmen tamamlandı', 'cancelled' => 'iptal edildi'][$status] ?? $status);
         }
 
         return str_replace(' → ', ', ', $label);
