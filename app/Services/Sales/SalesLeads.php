@@ -396,7 +396,11 @@ final class SalesLeads
         }
         $lastOut = WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'outgoing')->max('sent_at');
         $lastOut = $lastOut !== null ? CarbonImmutable::parse($lastOut) : null;
-        $lastIn = $conversation->last_incoming_at;
+        // What they last said that can be read: a message WhatsApp did not share ("Okunamayan mesaj") moves nothing, the
+        // card does not start owing an answer for it (Marka Düzeni 1.6).
+        $readableIn = WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'incoming')
+            ->where(fn ($q) => $q->whereNull('message_type')->orWhereNotIn('message_type', WhatsAppMessage::UNREADABLE_TYPES))->max('sent_at');
+        $lastIn = $readableIn !== null ? CarbonImmutable::parse($readableIn) : null;
         // Imported history (the phone backup, Meta's history sync) tells what was said, not whether it was answered on
         // the phone: until a live message arrives the card owes nothing and gets no automatic step (yakup 2026-11-09).
         $messages = WhatsAppMessage::query()->where('conversation_id', $conversation->id);

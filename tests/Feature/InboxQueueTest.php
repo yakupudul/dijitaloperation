@@ -160,6 +160,22 @@ final class InboxQueueTest extends TestCase
         $this->get('/')->assertOk()->assertSee('Gelen kutusu');
     }
 
+    public function test_a_message_whatsapp_did_not_share_owes_no_answer(): void
+    {
+        $unreadable = $this->chat('905550000091', 'Okunamayan');
+        WhatsAppMessage::query()->where('conversation_id', $unreadable->id)->update(['message_type' => 'errors']);
+        $answered = $this->chat('905550000092', 'Cevaplanan', null, 5);
+        WhatsAppMessage::query()->create(['conversation_id' => $answered->id, 'message_id' => 'out-92', 'direction' => 'outgoing', 'message_type' => 'text', 'body' => 'Merhaba', 'sent_at' => now()->subHours(4)]);
+        WhatsAppMessage::query()->create(['conversation_id' => $answered->id, 'message_id' => 'err-92', 'direction' => 'incoming', 'message_type' => 'unsupported', 'body' => '[WhatsApp bu mesajın içeriğini paylaşmadı · telefonda görün]', 'sent_at' => now()->subHours(1)]);
+        $answered->update(['last_message_at' => now()->subHours(1), 'last_incoming_at' => now()->subHours(1)]);
+        $readable = $this->chat('905550000093', 'Okunan');
+
+        $owed = app(InboxQueue::class)->view('borclu')->map(fn (InboxItem $item): string => $item->title)->all();
+
+        $this->assertSame(['Okunan'], $owed);
+        $this->assertNotNull($readable->id);
+    }
+
     public function test_done_later_and_irrelevant_take_a_line_out_and_a_new_message_brings_it_back(): void
     {
         $chat = $this->chat('905001112233', 'Dr. Ayşe');

@@ -233,7 +233,7 @@ final class InboxQueue
         foreach (self::latestMessages($conversations->pluck('id')->all()) as $row) {
             $previews[$row->conversation_id] = ($row->direction === 'outgoing' ? 'Sen: ' : '').self::oneLine((string) $row->body);
         }
-        $live = WhatsAppMessage::query()->whereIn('conversation_id', $conversations->pluck('id'))->where('direction', 'incoming')->where('is_history', false)
+        $live = WhatsAppMessage::query()->whereIn('conversation_id', $conversations->pluck('id'))->owingAnswer()
             ->distinct()->pluck('conversation_id')->flip();
 
         return $conversations->map(fn (WhatsAppConversation $c): InboxItem => $this->conversationItem($c, $leads, $previews[$c->id] ?? '', $c->last_message_at, isset($live[$c->id])))->values();
@@ -261,7 +261,8 @@ final class InboxQueue
             ->whereColumn('last_incoming_at', '>=', 'last_message_at')
             ->where('last_incoming_at', '>=', $since)
             // Imported history never owes an answer (yakup 2026-11-09): whether it was answered on the phone is unknown.
-            ->whereHas('messages', fn ($q) => $q->where('direction', 'incoming')->where('is_history', false))
+            // Nor does a message WhatsApp did not share (Marka Düzeni 1.6): only a readable live message after our last one.
+            ->whereHas('messages', fn ($q) => $q->owingAnswer())
             ->where(fn ($q) => $q->whereNull('snoozed_until')->orWhere('snoozed_until', '<=', now()))
             ->orderByDesc('last_incoming_at')->limit(200)->get();
         if ($conversations->isEmpty()) {
@@ -305,7 +306,7 @@ final class InboxQueue
     /** @param  array{leads: Collection<int, SalesLead>, customerLeads: Collection<int, SalesLead>, customers: Collection<int, Customer>}  $leads */
     private function conversationItem(WhatsAppConversation $conversation, array $leads, ?string $preview = null, ?CarbonInterface $at = null, ?bool $live = null): InboxItem
     {
-        $live ??= WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'incoming')->where('is_history', false)->exists();
+        $live ??= WhatsAppMessage::query()->where('conversation_id', $conversation->id)->owingAnswer()->exists();
         $lead = $leads['leads'][$conversation->id] ?? ($conversation->customer_id !== null ? ($leads['customerLeads'][$conversation->customer_id] ?? null) : null);
         $customer = $conversation->customer_id !== null ? ($leads['customers'][$conversation->customer_id] ?? Customer::query()->find($conversation->customer_id)) : $lead?->customer;
         if ($preview === null) {
