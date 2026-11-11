@@ -76,6 +76,12 @@ final class ErrorCenterTest extends TestCase
         UserNotification::query()->delete();
         $this->artisan('moxdop:ops:error-digest')->assertSuccessful();
         $this->assertSame('Hata merkezi: 1 iş seni bekliyor · sistem 1 sorunu kendisi hallediyor', UserNotification::query()->sole()->presentation['title']);
+
+        // The next morning's digest takes the place of this one: the bell keeps one row.
+        $this->travel(1)->days();
+        $this->artisan('moxdop:ops:error-digest')->assertSuccessful();
+        $this->assertSame(2, UserNotification::query()->count());
+        $this->assertSame(1, UserNotification::query()->whereNull('archived_at')->count(), 'yesterday\'s digest left the bell');
     }
 
     public function test_closed_accounts_and_mixed_stale_alerts_land_in_the_right_bucket(): void

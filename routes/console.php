@@ -1651,7 +1651,7 @@ Artisan::command('moxdop:ops:error-digest', function (ErrorTriage $triage, Query
     }
     $parts = array_filter([$you > 0 ? $you.' iş seni bekliyor' : null, $code > 0 ? $code.' yazılım hatası' : null]);
     $notifier->send(null, 'Hata merkezi: '.implode(', ', $parts).' · sistem '.(int) ($counts[ErrorTriage::AUTO] ?? 0).' sorunu kendisi hallediyor',
-        route('operator.settings.system-health', [], false));
+        route('operator.settings.system-health', [], false), replaceEarlier: true);
     $this->info('Digest sent: you='.$you.' code='.$code);
 })->purpose('Daily Hata merkezi digest (only what needs the operator).');
 Schedule::command('moxdop:ops:error-digest')->dailyAt('08:52')->name('ops-error-digest')->withoutOverlapping(30);

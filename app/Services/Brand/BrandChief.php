@@ -96,7 +96,7 @@ final class BrandChief
             return ['status' => 'failed', 'message' => $exception->getMessage()];
         }
         if ($notify && $plan !== []) {
-            $this->notifier->send(null, 'Şef: bu haftanın planı hazır ('.count($plan).' iş)', route('operator.today', [], false).'#sef-plani');
+            $this->notifier->send(null, 'Şef: bu haftanın planı hazır ('.count($plan).' iş)', route('operator.today', [], false).'#sef-plani', replaceEarlier: true);
         }
 
         return ['status' => 'ready', 'lines' => count($plan)];
