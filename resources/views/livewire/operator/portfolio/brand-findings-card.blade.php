@@ -137,6 +137,22 @@
                     </div>
                 </div>
             @endif
+
+            {{-- Marka Düzeni 2.5: the brand's switch between the old row-producing order and the new one (findings + monthly session). --}}
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-5 dark:border-gray-800" data-new-order="{{ $brand->new_order_at ? '1' : '0' }}">
+                <p class="min-w-0 flex-1 basis-72 text-[13px] text-gray-500 dark:text-gray-400">
+                    @if ($brand->new_order_at)
+                        <span class="font-medium text-gray-900 dark:text-white">Yeni düzen açık</span> ({{ $day($brand->new_order_at) }}). Bu markada gece denetimlerinin satırları, haftalık yazı fikirleri ve "senin elinle" listesi sana düşmüyor; iş bu sayfadaki bulgulardan yürüyor.@if ($held > 0) {{ $held }} eski satır kenarda duruyor, eski düzene dönersen geri gelir.@endif
+                    @else
+                        <span class="font-medium text-gray-900 dark:text-white">Bu marka eski düzende.</span> Yeni düzene alırsan gece denetimlerinin satırları, haftalık yazı fikirleri ve "senin elinle" listesi bu marka için sana düşmez; açık satırlar silinmez, kenara alınır. Veri toplama, sorgular ve kümeler çalışmaya devam eder.
+                    @endif
+                </p>
+                @if ($brand->new_order_at)
+                    <button type="button" wire:click="newOrder(false)" wire:loading.attr="disabled" class="btn-quiet" data-new-order-off>Eski düzene dön</button>
+                @else
+                    <button type="button" wire:click="newOrder(true)" wire:loading.attr="disabled" class="btn" data-new-order-on>Yeni düzene al</button>
+                @endif
+            </div>
         </section>
     @endif
 </div>

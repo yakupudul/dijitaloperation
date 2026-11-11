@@ -61,6 +61,7 @@ use App\Services\Brand\BrandDirection;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandFollowUp;
 use App\Services\Brand\BrandGaps;
+use App\Services\Brand\NewOrder;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
 use App\Services\BrandSetup\BrandAutofill;
 use App\Services\Collection\Activity\ActivityTierService;
@@ -1438,6 +1439,8 @@ Schedule::command('moxdop:repair:autopilot')
 Artisan::command('moxdop:ads:quiet-dormant', function (DormantAdWork $work): void {
     $result = $work->sync();
     $this->info($result['quiet'].' iş sessizde, '.$result['reopened'].' iş yeniden açıldı.');
+    // Marka başına "yeni düzen": rows opened by bulk updates since last night are set aside too (no job of its own).
+    $this->info(app(NewOrder::class)->sweep().' satır yeni düzendeki markalarda kenara alındı.');
 })->purpose('Snooze the open work of Pasif ad accounts (no spend for dormant_days); reopen it when they spend again');
 
 Schedule::command('moxdop:ads:quiet-dormant')

@@ -5,6 +5,7 @@ namespace App\Services\Operations;
 use App\Models\AgencySetting;
 use App\Models\Brand;
 use App\Models\SettingChange;
+use App\Services\Brand\NewOrder;
 use App\Services\Sales\StandingRules;
 use App\Support\SchemaState;
 use App\Support\WriteLevels;
@@ -66,7 +67,7 @@ final class SettingChanges
 
     public static function undoable(SettingChange $change): bool
     {
-        return ! $change->secret && $change->undone_at === null && preg_match('/^(agency|level|job|sales):/', (string) $change->target) === 1;
+        return ! $change->secret && $change->undone_at === null && preg_match('/^(agency|level|job|sales|order):/', (string) $change->target) === 1;
     }
 
     /** Puts the value before the change back (a later change of the same setting is overwritten: the operator asked for the old value). */
@@ -83,6 +84,7 @@ final class SettingChanges
                 'agency' => $this->agency($rest, $before),
                 'level' => $this->level($rest, $before),
                 'job' => app(ScheduledJobs::class)->set($rest, (bool) $before),
+                'order' => $before ? app(NewOrder::class)->on(Brand::query()->findOrFail((int) $rest)) : app(NewOrder::class)->off(Brand::query()->findOrFail((int) $rest)),
                 'sales' => $rest === 'prices' ? StandingRules::savePrices((string) $before) : StandingRules::save((string) $before),
             };
         } finally {

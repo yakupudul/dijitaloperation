@@ -2260,6 +2260,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
 
+- **Marka 2.5 marka başına "yeni düzen"** (`App\Services\Brand\NewOrder`, `brands.new_order_at`; anahtar marka sayfası Bulgular kartının altında): açılınca markanın açık / recheck öneri satırları `action.new_order` işaretiyle ertelenir (silinmez), sonradan açılan satır `Suggestion::saving` kancasında kenara alınır, toplu güncellemeyle açılanları gece `moxdop:ads:quiet-dormant` süpürür (yeni iş yok). Kapatınca satırlar eski durumuna döner. Veri toplama, sorgular, kümeler sürer.
+
 - **Bağlantı 2.3 Ayarlar üç grupta**: `DemoMenu` alt öğeleri `group` taşır (Ajans / Kurallar / Makine); `OperatorMenu::sectionTabs` grubu döndürür, layout önce grup haplarını, altında açık grubun sekmelerini gösterir.
 - **Bağlantı 2.4 Zamanlanmış işler** (`/settings/jobs`, `ScheduledJobs`): gerçek takvimden işler, sıklık, son çalışma, 30 günlük süre ve hata (`usage_daily`), aç / kapa (`agency_settings.jobs_off`; routes/console.php sonundaki skip kancası). Sistemi ayakta tutan işler (yedek, kuyruk, deploy, uyarılar) kapatılamaz.
 - **Bağlantı 2.5 Değişiklik kaydı** (`/settings/changes`, `SettingChanges`, tablo `setting_changes`, değerler şifreli): ajans ayarları (model `updating`), yetki kademeleri, zamanlanmış iş anahtarı, satış sabit kararları ve fiyat listesi kaydedilir; "Geri al" eski değeri koyar. Sırlar değer saklanmadan "değiştirildi" diye düşer, geri alınmaz. Yeni ayar yazan kod `SettingChanges::record()` çağırmalı.

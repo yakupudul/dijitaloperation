@@ -7,12 +7,15 @@ use App\Mcp\Tools\BrandFindings;
 use App\Models\AgencySetting;
 use App\Models\Brand;
 use App\Models\BrandFinding;
+use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Brand\Findings;
+use App\Services\Brand\NewOrder;
 use App\Services\Moxi\MoxiTools;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -85,5 +88,31 @@ class BrandFindingsTest extends TestCase
         $this->actingAs($member);
         Livewire::test(BrandFindingsCard::class, ['brandId' => $this->brand->id])->call('solve', $row->id)->assertForbidden();
         $this->assertSame('open', $row->fresh()->status);
+    }
+
+    public function test_new_order_sets_the_brands_open_rows_aside_and_brings_them_back(): void
+    {
+        Cache::flush();
+        MoxiTools::callMcp(BrandFindings::class, ['action' => 'save', 'brand_id' => $this->brand->id, 'area' => 'Web sitesi', 'title' => 'Başlık eksik', 'evidence' => 'Ana sayfada başlık etiketi boş']);
+        $row = fn (Brand $brand, string $key): Suggestion => Suggestion::query()->create(['brand_id' => $brand->id, 'fingerprint' => $key, 'channel' => 'search',
+            'decision_key' => 'test.row', 'material_hash' => 'x', 'reason' => 'Deneme.', 'priority' => 5,
+            'target_type' => 'brand', 'target_id' => $brand->id, 'action_type' => 'note', 'title' => 'Satır '.$key, 'status' => 'open']);
+        $other = Brand::factory()->create(['name' => 'Başka Marka']);
+        $old = $row($this->brand, 'a');
+        $elsewhere = $row($other, 'b');
+
+        $card = Livewire::test(BrandFindingsCard::class, ['brandId' => $this->brand->id])->assertSee('Bu marka eski düzende.')
+            ->call('newOrder', true)->assertSee('1 açık satır kenara alındı')->assertSee('Yeni düzen açık');
+        $this->assertSame('snoozed', $old->fresh()->status);
+        $this->assertSame('open', data_get($old->fresh()->action, 'new_order.status'));
+        $this->assertSame('open', $elsewhere->fresh()->status, 'other brands are untouched');
+        $this->assertSame('snoozed', $row($this->brand, 'c')->fresh()->status, 'a row a check opens later is set aside as it is saved');
+        Suggestion::query()->where('brand_id', $this->brand->id)->update(['status' => 'open']);
+        $this->assertSame(2, app(NewOrder::class)->sweep(), 'the nightly sweep catches bulk-written rows');
+
+        $card->call('newOrder', false)->assertSee('2 satır geri geldi')->assertSee('Bu marka eski düzende.');
+        $this->assertSame('open', $old->fresh()->status);
+        $this->assertNull(data_get($old->fresh()->action, 'new_order'));
+        $this->assertNull($old->fresh()->snoozed_until);
     }
 }

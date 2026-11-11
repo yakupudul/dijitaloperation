@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Brand\NewOrder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +45,12 @@ class Suggestion extends Model
     public const array CHANNEL_LABELS = ['search' => 'Arama', 'maps' => 'Harita', 'google_ads' => 'Google Ads', 'meta' => 'Meta'];
 
     protected $guarded = ['id'];
+
+    protected static function booted(): void
+    {
+        // Marka başına "yeni düzen": a row that would land on the desk of a new-order brand is set aside (NewOrder).
+        static::saving(fn (self $suggestion) => NewOrder::hold($suggestion));
+    }
 
     /**
      * Opens a suggestion once per (brand, fingerprint): when another check of the same brand saved it a moment earlier,

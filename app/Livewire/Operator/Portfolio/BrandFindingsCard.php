@@ -6,6 +6,7 @@ use App\Livewire\Concerns\AdminOnly;
 use App\Models\Brand;
 use App\Models\BrandFinding;
 use App\Services\Brand\Findings;
+use App\Services\Brand\NewOrder;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -53,6 +54,15 @@ final class BrandFindingsCard extends Component
         $this->message = '';
     }
 
+    /** Marka Düzeni 2.5: the brand's "yeni düzen" switch (open rows are set aside, never deleted; switching back returns them). */
+    public function newOrder(bool $on, NewOrder $order): void
+    {
+        $this->adminOnly();
+        $brand = Brand::query()->findOrFail($this->brandId);
+        $count = $on ? $order->on($brand) : $order->off($brand);
+        $this->message = $on ? 'Yeni düzen açıldı. '.$count.' açık satır kenara alındı.' : 'Eski düzene dönüldü. '.$count.' satır geri geldi.';
+    }
+
     private function row(int $id): BrandFinding
     {
         return BrandFinding::query()->where('brand_id', $this->brandId)->findOrFail($id);
@@ -62,6 +72,6 @@ final class BrandFindingsCard extends Component
     {
         $brand = Brand::query()->findOrFail($this->brandId);
 
-        return view('livewire.operator.portfolio.brand-findings-card', ['brand' => $brand, 'page' => $findings->page($brand)]);
+        return view('livewire.operator.portfolio.brand-findings-card', ['brand' => $brand, 'page' => $findings->page($brand), 'held' => $brand->new_order_at !== null ? NewOrder::heldCount((int) $brand->id) : 0]);
     }
 }
