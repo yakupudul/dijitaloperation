@@ -8,6 +8,7 @@ use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\ServiceCategory;
 use App\Services\Sales\Agreements;
+use App\Services\Sales\ClosingSteps;
 use App\Services\Sales\FollowUpSequence;
 use App\Services\Sales\LeadResearcher;
 use App\Services\Sales\ProspectSiteCheck;
@@ -366,6 +367,21 @@ final class LeadCardPage extends Component
         $this->say('Kazanıldı: '.($brand?->name ?? $lead->title()).($terms !== null ? ' · anlaşma başladı.' : ' markası açıldı; anlaşmayı marka sayfasından gir.'));
     }
 
+    /** Anlaşma adımları: "Sözleşme imzalandı" (today) or taken back. */
+    public function contractSigned(ClosingSteps $closing, bool $signed = true): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $ok = $closing->contract($this->lead(), $signed ? CarbonImmutable::now('Europe/Istanbul')->toDateString() : null);
+        $this->say($ok ? ($signed ? 'Sözleşme imzalandı olarak işlendi.' : 'Sözleşme işareti kaldırıldı.') : 'Önce anlaşma şartlarını gir.');
+    }
+
+    /** Anlaşma adımları: "İlk ödeme alındı" ticks the agreement's first open payment. */
+    public function firstPaymentTaken(ClosingSteps $closing, Agreements $agreements): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $this->say($closing->firstPayment($this->lead(), $agreements) ? 'İlk ödeme alındı olarak işlendi.' : 'İşaretlenecek ödeme yok; önce anlaşma şartlarını gir.');
+    }
+
     /** "Doğru": Claude's suggested kind becomes the record's. */
     public function confirmKind(SalesLeads $leads): void
     {
@@ -526,6 +542,7 @@ final class LeadCardPage extends Component
             'findings' => array_values(array_filter((array) ($lead->findings ?? []), 'is_array')),
             'today' => CarbonImmutable::now('Europe/Istanbul')->toDateString(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'closing' => app(ClosingSteps::class)->of($lead),
             'analysing' => in_array($lead->analysis_status, ['queued', 'running'], true),
             'researching' => in_array($lead->research_status, ['queued', 'running'], true),
             'meetings' => Reminder::query()->where('sales_lead_id', $lead->id)->whereNotNull('remind_at')->orderByDesc('remind_at')->limit(10)->get(),

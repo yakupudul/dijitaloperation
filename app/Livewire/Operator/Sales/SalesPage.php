@@ -16,6 +16,7 @@ use App\Models\WhatsAppMessage;
 use App\Services\Inbox\InboxQueue;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Services\Sales\Agreements;
+use App\Services\Sales\ClosingSteps;
 use App\Services\Sales\CustomerSignals;
 use App\Services\Sales\LeadIntake;
 use App\Services\Sales\ReferralRewards;
@@ -699,6 +700,7 @@ final class SalesPage extends Component
         return view('livewire.operator.sales.sales-page', [
             'dueCount' => $dueCount,
             'five' => $five,
+            'closings' => $this->tab === 'adaylar' && $this->status === 'devam' && trim($this->q) === '' ? app(ClosingSteps::class)->open() : collect(),
             'doorWeek' => $this->tab === 'adaylar' && $this->status === 'devam' ? SalesLead::query()->where('lifecycle', 'irrelevant')->where('lost_at', '>=', now()->subDays(7))->whereNotNull('classification->door->kind')->whereNull('classification->door->kept')->count() : 0,
             'openCount' => (clone $open)->count(),
             'stageCounts' => $stageCounts,

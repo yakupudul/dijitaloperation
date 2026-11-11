@@ -15,9 +15,11 @@ use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Services\Assistant\WhatsAppContactLinker;
+use App\Services\Brand\Findings;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Support\Sales\LeadKinds;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -818,6 +820,7 @@ final class SalesLeads
                 $brand = Brand::query()->create(['customer_id' => $customer->id, 'name' => $name, 'primary_country' => 'TR', 'sector_id' => $lead->sector_id]);
                 $lead->customer_id = $customer->id;
                 $lead->brand_id = $brand->id;
+                $this->handOver($lead, $brand);
             }
             $opportunity = $lead->openOpportunity() ?? $this->opportunityFromOffer($lead, $user);
             $this->setStage($lead, 'won', null, $user, 'Kazanıldı: '.$brand->name.' markası açıldı.');
@@ -835,6 +838,43 @@ final class SalesLeads
 
             return $brand;
         });
+    }
+
+    /**
+     * Devir (Satış Düzeni 3.3): what was found while selling becomes the new brand's first findings, so its page does
+     * not open empty and the setup starts from there. The research findings come first; without them the site check's.
+     */
+    private function handOver(SalesLead $lead, Brand $brand): void
+    {
+        if (! SchemaState::hasTable('brand_findings')) {
+            return;
+        }
+        $day = ($lead->research_at ?? $lead->findings_at ?? now())->timezone('Europe/Istanbul')->format('d.m.Y');
+        $areas = ['site' => 'Web sitesi', 'web' => 'Web sitesi', 'maps' => 'İşletme Profili', 'gbp' => 'İşletme Profili', 'google' => 'İşletme Profili', 'instagram' => 'Diğer', 'ads' => 'Google Ads'];
+        $rows = [];
+        foreach ((array) ($lead->research['findings'] ?? []) as $finding) {
+            if (is_array($finding) && filled($finding['title'] ?? null)) {
+                $source = mb_strtolower((string) ($finding['source'] ?? ''));
+                $area = collect($areas)->first(fn (string $name, string $key): bool => str_contains($source, $key)) ?? 'Diğer';
+                $rows[] = ['area' => $area, 'title' => (string) $finding['title'], 'saw' => (string) ($finding['detail'] ?? ''),
+                    'evidence' => 'Satış analizinden, '.$day.(filled($finding['source'] ?? null) ? ' · kaynak: '.$finding['source'] : '')];
+            }
+        }
+        if ($rows === []) {
+            foreach ((array) ($lead->findings ?? []) as $finding) {
+                if (is_array($finding) && filled($finding['title'] ?? null) && ($finding['severity'] ?? 'info') !== 'info') {
+                    $rows[] = ['area' => 'Web sitesi', 'title' => (string) $finding['title'], 'saw' => (string) ($finding['consequence'] ?? ''), 'plan' => (string) ($finding['fix'] ?? ''),
+                        'evidence' => 'Satış sırasındaki site taramasından, '.$day.(filled($lead->website) ? ' · '.$lead->website : '')];
+                }
+            }
+        }
+        $findings = app(Findings::class);
+        foreach (array_slice($rows, 0, 12) as $row) {
+            $findings->save($brand, ['kind' => 'finding', 'title' => mb_substr($row['title'], 0, 255)] + $row);
+        }
+        if ($rows !== []) {
+            $this->event($lead, 'system', 'Satış analizindeki '.min(12, count($rows)).' bulgu marka sayfasına devredildi.');
+        }
     }
 
     /** The first sale as an opportunity, from the card's offer (null when nothing was offered). */

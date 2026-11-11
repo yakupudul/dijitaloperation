@@ -6,6 +6,7 @@ use App\Models\BrandFinding;
 use App\Models\BrandSession;
 use App\Models\Reminder;
 use App\Services\Calendar\CalendarFeed;
+use App\Services\Sales\ClosingSteps;
 use App\Services\Sales\TodayFive;
 use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
@@ -23,7 +24,7 @@ final class Agenda
 
     private const string TZ = 'Europe/Istanbul';
 
-    public function __construct(private readonly CalendarFeed $calendar, private readonly TodayFive $five) {}
+    public function __construct(private readonly CalendarFeed $calendar, private readonly TodayFive $five, private readonly ClosingSteps $closing) {}
 
     /**
      * @return array{rows: list<array{key: string, kind: string, when: ?string, title: string, line: string, url: string, late: bool}>, hidden: int, total: int}
@@ -68,13 +69,16 @@ final class Agenda
     /** Today's people, one line. */
     private function people(): array
     {
+        // Said yes, not set up yet (Satış Düzeni 3.1): nearest to money, so before the day's people.
+        $closing = $this->closing->open()->take(2)->map(fn (array $row): array => ['key' => 'closing:'.$row['lead']->id, 'kind' => 'closing', 'when' => null,
+            'title' => (string) $row['lead']->title(), 'line' => $row['line'], 'url' => route('operator.sales.lead', ['lead' => $row['lead']->id]), 'late' => false])->all();
         $deck = $this->five->deck();
         if ($deck->isEmpty()) {
-            return [];
+            return $closing;
         }
         $names = $deck->take(3)->map(fn (array $row): string => (string) $row['lead']->title())->implode(', ');
 
-        return [['key' => 'people', 'kind' => 'people', 'when' => null, 'title' => 'Bugün '.$deck->count().' kişi',
+        return [...$closing, ['key' => 'people', 'kind' => 'people', 'when' => null, 'title' => 'Bugün '.$deck->count().' kişi',
             'line' => $names.($deck->count() > 3 ? ' ve '.($deck->count() - 3).' kişi daha' : ''), 'url' => route('operator.sales'), 'late' => false]];
     }
 

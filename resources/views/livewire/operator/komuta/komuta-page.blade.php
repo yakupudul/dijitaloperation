@@ -69,7 +69,7 @@
                 @foreach ($agenda['rows'] as $row)
                     <li wire:key="agenda-{{ $row['key'] }}">
                         <a href="{{ $row['url'] }}" wire:navigate class="card-row items-center gap-3 hover:bg-gray-50 dark:hover:bg-white/[0.02]" data-agenda-row="{{ $row['kind'] }}">
-                            <span class="w-[86px] shrink-0 text-[13px] text-gray-500 dark:text-gray-400">{{ ['meeting' => 'Toplantı', 'people' => 'Satış', 'brand' => 'Marka onayı', 'task' => 'Senin işin'][$row['kind']] }}</span>
+                            <span class="w-[86px] shrink-0 text-[13px] text-gray-500 dark:text-gray-400">{{ ['meeting' => 'Toplantı', 'closing' => 'Anlaşma', 'people' => 'Satış', 'brand' => 'Marka onayı', 'task' => 'Senin işin'][$row['kind']] }}</span>
                             <span class="min-w-0 flex-1">
                                 <span class="block truncate text-[15px] font-medium text-gray-900 dark:text-white">@if ($row['when'])<span class="tabular-nums">{{ $row['when'] }}</span> · @endif{{ $row['title'] }}</span>
                                 @if ($row['line'] !== '')<span @class(['block truncate text-[13px]', 'text-error-600 dark:text-error-400' => $row['late'], 'text-gray-500 dark:text-gray-400' => ! $row['late']])>{{ $row['line'] }}</span>@endif

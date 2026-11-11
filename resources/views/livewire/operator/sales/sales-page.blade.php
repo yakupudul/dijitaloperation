@@ -111,6 +111,29 @@
                     </div>
                 @endif
             </form>
+            @if ($closings->isNotEmpty())
+                {{-- Anlaşma adımında (Satış Düzeni 3.1): said yes, not set up yet; nearest to money, so above the day's five. --}}
+                <div class="mb-6" data-sales-closing>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Anlaşma adımında {{ $n($closings->count()) }} kişi</h2>
+                    <ul class="card mt-3">
+                        @foreach ($closings as $row)
+                            <li wire:key="closing-{{ $row['lead']->id }}">
+                                <a href="{{ route('operator.sales.lead', ['lead' => $row['lead']->id]) }}" wire:navigate class="card-row flex-wrap items-center gap-x-3 gap-y-1 hover:bg-gray-50 dark:hover:bg-white/[0.02]" data-sales-closing-row="{{ $row['current'] }}">
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block truncate text-[15px] font-medium text-gray-900 dark:text-white">{{ $row['lead']->title() }}</span>
+                                        <span class="block truncate text-[13px] text-gray-500">{{ $row['line'] }}</span>
+                                    </span>
+                                    <span class="flex shrink-0 items-center gap-1" aria-label="{{ collect($row['steps'])->where('done', true)->count() }} / {{ count($row['steps']) }} adım tamam">
+                                        @foreach ($row['steps'] as $step)
+                                            <span @class(['h-1.5 w-5 rounded-full', 'bg-gray-900 dark:bg-white' => $step['done'], 'bg-gray-200 dark:bg-gray-700' => ! $step['done']]) title="{{ $step['label'] }}"></span>
+                                        @endforeach
+                                    </span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
             @if ($status === 'devam' && trim($q) === '')
                 <div class="mb-6" data-sales-five>
                     <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

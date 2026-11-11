@@ -25,7 +25,7 @@ class Agreement extends Model
 
     protected function casts(): array
     {
-        return ['fee' => 'integer', 'term_months' => 'integer', 'due_day' => 'integer', 'starts_on' => 'date', 'ends_on' => 'date', 'services' => 'array'];
+        return ['fee' => 'integer', 'term_months' => 'integer', 'due_day' => 'integer', 'starts_on' => 'date', 'ends_on' => 'date', 'contract_on' => 'date', 'services' => 'array'];
     }
 
     public function brand(): BelongsTo

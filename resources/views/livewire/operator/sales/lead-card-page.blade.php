@@ -388,6 +388,36 @@
                         </div>
                     </form>
                 @endif
+                @if ($closing !== null)
+                    {{-- Anlaşma adımları (Satış Düzeni 3.1): "Kazanıldı" is five steps; the open one carries its own action. --}}
+                    <div class="mt-4 border-t border-gray-200 pt-3 dark:border-gray-800" data-lead-closing="{{ $closing['current'] ?? 'bitti' }}">
+                        <p class="text-[13px] font-medium text-gray-900 dark:text-white">Anlaşma adımları{{ $closing['finished'] ? ' tamam' : '' }}</p>
+                        <ol class="mt-2 space-y-1.5">
+                            @foreach ($closing['steps'] as $step)
+                                <li class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]" data-lead-closing-step="{{ $step['key'] }}" data-done="{{ $step['done'] ? '1' : '0' }}">
+                                    <span @class(['inline-flex size-5 shrink-0 items-center justify-center rounded-full text-[11px]', 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' => $step['done'], 'border border-gray-300 text-gray-400 dark:border-gray-700' => ! $step['done']]) aria-hidden="true">{{ $step['done'] ? '✓' : $loop->iteration }}</span>
+                                    <span @class(['font-medium text-gray-900 dark:text-white' => $step['key'] === $closing['current'], 'text-gray-500' => $step['key'] !== $closing['current']])>{{ $step['label'] }}</span>
+                                    @if ($step['note'] !== '')<span class="text-gray-500">{{ $step['note'] }}</span>@endif
+                                    @if ($isAdmin && $step['key'] === 'contract' && $closing['agreement'] !== null)
+                                        @if ($step['done'])
+                                            <button type="button" wire:click="contractSigned(false)" class="link-neutral text-xs">geri al</button>
+                                        @else
+                                            <button type="button" wire:click="contractSigned" class="btn h-7 px-2.5 text-[13px]" data-lead-closing-contract>Sözleşme imzalandı</button>
+                                        @endif
+                                    @elseif ($isAdmin && $step['key'] === 'payment' && ! $step['done'] && $closing['agreement'] !== null)
+                                        <button type="button" wire:click="firstPaymentTaken" class="btn h-7 px-2.5 text-[13px]" data-lead-closing-payment>İlk ödeme alındı</button>
+                                    @elseif ($step['key'] === 'access' && ! $step['done'])
+                                        <a href="{{ route('operator.integrations.connection-health', ['gorunum' => 'harita']) }}" wire:navigate class="link-neutral">Erişim iste</a>
+                                    @elseif ($step['key'] === 'setup' && ! $step['done'] && $brand)
+                                        <a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="link-neutral">Marka sayfası</a>
+                                    @elseif (in_array($step['key'], ['contract', 'payment'], true) && $closing['agreement'] === null && $brand)
+                                        <a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="link-neutral">Anlaşmayı gir</a>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ol>
+                    </div>
+                @endif
                 @if ($lead->offer_amount !== null)
                     <p class="mt-3 text-sm text-gray-700 dark:text-gray-300" data-lead-offer>Teklif: <span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ number_format($lead->offer_amount, 0, ',', '.') }} ₺/ay</span>@if ($lead->serviceLabel()) · {{ $lead->serviceLabel() }}@endif @if (! $lead->offer_confirmed)<span class="text-xs text-gray-400">(mesajdan okundu)</span>@endif</p>
                 @endif
