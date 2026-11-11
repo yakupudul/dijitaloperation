@@ -550,6 +550,24 @@ final class SalesLeads
             ->contains(fn (SalesLeadEvent $event): bool => data_get($event->meta, 'to') === $stage && data_get($event->meta, 'by') !== null);
     }
 
+    /**
+     * Was this chat card put at "Teklif verildi" only because our own message carried a price (the rule before Satış
+     * Düzeni 1.1)? Then the stage it really is at; null when the offer stands (they asked or answered, the operator
+     * confirmed or chose it) or the card has no chat to read.
+     */
+    public function stageWithoutOurOwnPrice(SalesLead $lead): ?string
+    {
+        if ($lead->stage !== 'priced' || $lead->offer_confirmed || $lead->conversation_id === null || $this->stageSetByHand($lead, 'priced')) {
+            return null;
+        }
+        $conversation = WhatsAppConversation::query()->find($lead->conversation_id);
+        if ($conversation === null || ($priced = $this->quotedPrice($conversation)) === null || $this->prospectEngagedWithPrice($conversation, $priced['at'])) {
+            return null;
+        }
+
+        return $lead->last_incoming_at !== null ? 'talking' : 'contacted';
+    }
+
     /** A card with a phone and no chat yet: the inbox chat with that number joins it (its messages become the timeline). */
     public function linkConversation(SalesLead $lead): bool
     {

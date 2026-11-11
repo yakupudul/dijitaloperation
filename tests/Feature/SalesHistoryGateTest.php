@@ -177,4 +177,24 @@ final class SalesHistoryGateTest extends TestCase
         $this->assertTrue($lead->last_incoming_at->eq(now()->subDays(3)));
         $this->assertNotSame('Cevap yaz', $lead->next_step);
     }
+
+    public function test_the_hourly_round_takes_back_an_offer_stage_read_from_our_own_price_message(): void
+    {
+        // We wrote a price, they never answered or asked: the old rule had put the card at "Teklif verildi".
+        $silent = $this->chat('905551110011', 'Merhaba', 5, false);
+        $this->chat('905551110011', 'Aylık 14.000 TL + KDV ile başlayabiliriz.', 4, false, 'outgoing');
+        $silentLead = SalesLead::query()->where('conversation_id', $silent->id)->firstOrFail();
+        $silentLead->forceFill(['stage' => 'priced', 'offer_amount' => 14000])->saveQuietly();
+        // They asked the price themselves: a real offer, it stays.
+        $asked = $this->chat('905551110012', 'Fiyat nedir?', 5, false);
+        $this->chat('905551110012', 'Aylık 14.000 TL + KDV.', 4, false, 'outgoing');
+        $askedLead = SalesLead::query()->where('conversation_id', $asked->id)->firstOrFail();
+        $askedLead->forceFill(['stage' => 'priced', 'offer_amount' => 14000])->saveQuietly();
+
+        app(SalesTidy::class)->sweep();
+
+        $this->assertSame('talking', $silentLead->fresh()->stage);
+        $this->assertSame('priced', $askedLead->fresh()->stage);
+        $this->assertSame(14000, (int) SalesLead::query()->open()->relevant()->realOffers()->sum('offer_amount'));
+    }
 }

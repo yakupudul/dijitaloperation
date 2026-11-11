@@ -109,6 +109,12 @@ final class SalesTidy
                         [$lead->next_step, $lead->next_step_at] = FollowUpSequence::afterOurMessage(max(1, (int) $lead->followup_step), CarbonImmutable::instance($lead->last_contact_at));
                         $stats['steps']++;
                     }
+                    // "Teklif verildi" read from our own price message by the old rule: back to where the chat really is,
+                    // so "Teklifte bekleyen" adds up real offers only (Satış Düzeni 1.1).
+                    if ($lead->stage === 'priced' && ! $lead->offer_confirmed && ($real = app(SalesLeads::class)->stageWithoutOurOwnPrice($lead)) !== null) {
+                        $lead->stage = $real;
+                        $stats['steps']++;
+                    }
                     if (self::isStale($lead)) {
                         $lead->archived_at = now();
                         $lead->archive_reason = 'history';
