@@ -176,13 +176,13 @@ final class PagesFromWordPressTest extends TestCase
             $this->wpPost(61, 'https://klinik.example/b/', 'B', '<p>b</p>'),
         ]);
         Page::query()->update(['changed_at' => CarbonImmutable::parse('2026-01-01')]);
-        $hashes = Page::query()->pluck('content_hash')->all();
+        $hashes = Page::query()->orderBy('id')->pluck('content_hash')->all();
 
         $result = $sync->applyEvents($this->site->id, [(object) ['type' => 'maintenance.theme_changed', 'object_type' => 'theme', 'object_id' => 'astra']]);
 
         $this->assertSame(['deleted' => 0, 'touched' => 2], $result);
         $this->assertSame(0, Page::query()->whereDate('changed_at', '2026-01-01')->count());
-        $this->assertSame($hashes, Page::query()->pluck('content_hash')->all(), 'nothing refetched, content unchanged');
+        $this->assertSame($hashes, Page::query()->orderBy('id')->pluck('content_hash')->all(), 'nothing refetched, content unchanged');
         $this->assertTrue(WordPressPageSync::isTemplateChange((object) ['type' => 'maintenance.update_completed', 'object_type' => 'theme']));
         $this->assertFalse(WordPressPageSync::isTemplateChange((object) ['type' => 'maintenance.update_completed', 'object_type' => 'plugin']));
     }
