@@ -2257,3 +2257,26 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   üretilir (`ExternalLinks`) ve kayıtlı kimliklerle en derin ekrana gider (kampanya, reklam grubu, sayfa, yazı düzenleme).
   WordPress bağlantıları eklentinin tek tık girişini kullanır; 1.22.0'dan itibaren giriş doğrudan hedef ekranı açar.
   Panel şifre tutmaz.
+
+## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
+
+yakup 2026-11-11: "tüm yol haritalarını şimdi yap". Beş yol haritasının (Marka, Satış, Günlük, Bağlantı, Pazarlama Düzeni)
+1. aşama düzeltmelerinden yapılanlar:
+
+- **Site kapalı yanlış alarmı:** `UptimeMonitor` cevap alamazsa adresin diğer yazımını (www'li / www'siz) dener; son 6
+  dakikada eklentisi iş soran site kapalı sayılmaz.
+- **Okunamayan WhatsApp mesajı:** WhatsApp'ın paylaşmadığı mesaj (`errors`, `unsupported`) cevap borcu doğurmaz
+  (`WhatsAppMessage::scopeOwingAnswer`, `SalesLeads::readConversation`).
+- **Teklif aşaması:** kayıt "Teklif verildi"ye yalnız aday fiyatla ilgilenince geçer; fiyatı biz yazdık diye geçmez.
+  Teklif toplamları `SalesLead::scopeRealOffers` ile sayılır.
+- **Dil:** yeni kullanıcı ve ayar satırı kurulumun dilini alır (kolon varsayılanı 'en' değil).
+- **Zil:** hata özeti bir öncekinin yerine geçer (`QueryNotifier::send(replaceEarlier: true)`); alt bağlantı Hata merkezine gider.
+- **Bağlantı sağlığı:** harcamasız (pasif) reklam hesabı eksik bağlantı sayılmaz, sayfada ayrı listelenir
+  (`ConnectionHealth::isGap`, özet `passive`).
+- **Meşgul site:** WordPress 503 / 429 dönünce yazma başarısız olmaz; aynı kayıt 2, 5, 15, 30, 60 dakika arayla bekleyip
+  yeniden gider (`ExternalWriteService::BUSY_WAIT_MINUTES`). 502 / 504 eskisi gibi başarısız biter (yazma siteye ulaşmış olabilir).
+- **Arama (Ctrl+K):** satış kayıtları (ad, işletme, telefon, site, not), müşteri kişileri ve açık hatırlatmalar da bulunur.
+- **Ajansın kendi marka sayfası:** tek hedef sayacı Pazarlama'daki başvuru sayacıdır; sitede ölçülen dokunuş ayrı yazılır.
+- **Satış › Müşteriler:** "Bu ay eklenen aylık gelir" yalnız aylık işleri toplar; tek seferlik iş ayrı yazılır.
+- **Dizin:** `dataset_write_batches` ve `website_html_snapshot` tablolarında `raw_ingestion_object_id` dizini; gece
+  temizliği her silmede bu iki tabloyu baştan sona tarıyordu.
