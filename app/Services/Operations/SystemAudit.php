@@ -127,8 +127,8 @@ final class SystemAudit
         if ($b !== null) {
             $out[] = [$b['ok'] ? 'ok' : 'fail', 'Yedek', $b['last_success_at'] !== null ? $b['hours'].' saat önce'.($b['remote'] ? ', uzak kopya var' : ', uzak kopya yok') : 'hiç alınmamış'.($b['last_error'] ? ' · '.mb_substr((string) $b['last_error'], 0, 160) : '')];
         }
-        if (blank(config('moxdop-backup.remote_disk'))) {
-            $out[] = ['warn', 'Yedek sunucu dışında değil', 'MOXDOP_BACKUP_REMOTE_DISK tanımlı değil: sunucu kaybında yedek de gider (S3/SFTP diski tanımlayın)'];
+        if ($b !== null && ($b['remote_target'] ?? null) === null) {
+            $out[] = ['warn', 'Yedek sunucu dışında değil', 'Dış hedef yok: sunucu kaybında yedek de gider (Sistem sağlığı › Sistem yedeği\'nde Google Drive\'ı bağlayın)'];
         }
         $out[] = [$h['two_factor']['admins_without'] === [] ? 'ok' : 'warn', '2FA', $h['two_factor']['admins_without'] === [] ? 'tüm yöneticilerde açık' : count($h['two_factor']['admins_without']).' yöneticide kapalı'];
 

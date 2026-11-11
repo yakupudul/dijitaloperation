@@ -9,8 +9,10 @@ use App\Models\SalesLead;
 use App\Services\Assistant\ReminderService;
 use App\Services\Calendar\CalendarFeed;
 use App\Services\Calendar\CalendarIcs;
+use App\Services\Calendar\GoogleCalendarLink;
 use App\Services\Calendar\PromiseBook;
 use App\Services\Calendar\QuickCapture;
+use App\Services\Integrations\Google\GoogleWorkspace;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
 use Carbon\CarbonImmutable;
@@ -269,6 +271,8 @@ final class CalendarPage extends Component
             'komuta' => $open['komuta'] ?? null,
             'board' => $this->board(),
             'promises' => app(PromiseBook::class)->asked($userId),
+            'googleLinked' => app(GoogleCalendarLink::class)->linked(),
+            'googleConnect' => $this->feedUrl !== null ? rescue(fn (): ?string => app(GoogleWorkspace::class)->connectUrl(), null, false) : null,
             'komutaToday' => ! $failed && ! $this->report && $gridFrom->toDateString() <= $now->toDateString() && $gridTo->toDateString() >= $now->toDateString() ? $feed->komuta() : null,
         ]);
     }

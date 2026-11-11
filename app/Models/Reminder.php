@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Jobs\Calendar\SyncReminderToGoogleJob;
+use App\Services\Calendar\GoogleCalendarLink;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The operator's own calendar entry (Takvim, 2026-11-05): a task or a meeting. Pushed to the phone at remind_at (a
@@ -22,8 +25,28 @@ class Reminder extends Model
 
     protected $fillable = [
         'user_id', 'customer_id', 'brand_id', 'prospect_id', 'sales_lead_id', 'kind', 'title', 'notes', 'remind_at', 'ends_at', 'all_day',
-        'place', 'outcome', 'repeat', 'notified_at', 'followup_notified_at', 'done_at', 'url',
+        'place', 'outcome', 'repeat', 'notified_at', 'followup_notified_at', 'done_at', 'url', 'google_event_id',
     ];
+
+    /** Günlük Düzen 4.3: with Google Takvim linked, a saved or deleted entry follows there (queued, after commit). */
+    protected static function booted(): void
+    {
+        static::saved(function (self $reminder): void {
+            if ($reminder->wasRecentlyCreated || $reminder->wasChanged(['title', 'notes', 'place', 'remind_at', 'ends_at', 'all_day', 'repeat', 'done_at', 'kind'])) {
+                DB::afterCommit(fn () => rescue(function () use ($reminder): void {
+                    if (app(GoogleCalendarLink::class)->linked()) {
+                        SyncReminderToGoogleJob::dispatch((int) $reminder->id);
+                    }
+                }, report: false));
+            }
+        });
+        static::deleted(function (self $reminder): void {
+            if ($reminder->google_event_id !== null) {
+                $eventId = (string) $reminder->google_event_id;
+                DB::afterCommit(fn () => rescue(fn () => SyncReminderToGoogleJob::dispatch((int) $reminder->id, $eventId), report: false));
+            }
+        });
+    }
 
     protected function casts(): array
     {

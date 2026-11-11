@@ -7,6 +7,7 @@ use App\Jobs\DiscoverProviderResourcesJob;
 use App\Models\CoreIntegration;
 use App\Models\User;
 use App\Services\Integrations\Google\GoogleOAuthService;
+use App\Services\Integrations\Google\GoogleWorkspace;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Roles;
@@ -30,7 +31,10 @@ class GoogleOAuthController extends Controller
             $capabilities = [$capability];
         }
 
-        $forceConsent = $request->boolean('force_consent');
+        // Takvim + Drive (GoogleWorkspace): two extra permissions on the same connection; consent is asked again so the
+        // kept refresh token covers them.
+        $workspace = $request->boolean('workspace');
+        $forceConsent = $request->boolean('force_consent') || $workspace;
 
         $result = $oauth->beginAuthorization(
             integration: $integration,
@@ -38,6 +42,7 @@ class GoogleOAuthController extends Controller
             capabilities: $capabilities,
             forceConsent: $forceConsent,
             capabilityContext: is_string($capability) ? $capability : null,
+            extraScopes: $workspace ? GoogleWorkspace::SCOPES : [],
         );
 
         if (isset($result['error'])) {

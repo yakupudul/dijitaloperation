@@ -159,7 +159,7 @@ final class SecurityCard
         if ($status === null) {
             return null;
         }
-        $target = blank(config('moxdop-backup.remote_disk')) ? null : $status['remote_target'];
+        $target = $status['remote_target'];
         $tone = $target === null ? 'bad' : ($status['remote'] ? 'ok' : 'warn');
 
         return $this->row('off_server', $tone, 'Sunucu dışı yedek', match ($tone) {
@@ -167,7 +167,7 @@ final class SecurityCard
             'warn' => 'Hedef var, son kopya gitmedi',
             default => 'Son yedek sunucu dışında da duruyor',
         }, match ($tone) {
-            'bad' => 'Yedekler yalnız aynı sunucuda. Sunucu kaybolursa yedek de gider: bütün markaların verisi, konuşmalar ve ayarlar geri gelmez. Bir dış hedef (S3 ya da SFTP) söylemen yeter, kurulumu ben yaparım.',
+            'bad' => 'Yedekler yalnız aynı sunucuda. Sunucu kaybolursa yedek de gider: bütün markaların verisi, konuşmalar ve ayarlar geri gelmez. Ayarlar › Sistem sağlığı › Sistem yedeği bölümünden Google Drive bağlantısını kurman yeter.',
             'warn' => 'Dış hedef tanımlı ama son yedeğin kopyası oraya ulaşmadı'.(filled($status['remote_error']) ? ': '.mb_substr((string) $status['remote_error'], 0, 160) : '.'),
             default => 'Sunucu kaybolsa bile veri geri yüklenebilir.',
         }, route('operator.settings.system-health'), null);

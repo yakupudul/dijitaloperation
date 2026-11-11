@@ -4,8 +4,10 @@ namespace App\Livewire\Operator\Settings;
 
 use App\Jobs\Verification\RunLiveVerificationJob;
 use App\Models\AgencySetting;
+use App\Services\Integrations\Google\GoogleWorkspace;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Observability\ErrorTriage;
+use App\Services\Operations\DriveBackupCopy;
 use App\Services\Operations\RemoteBackupCopy;
 use App\Services\Operations\ServerStatusReader;
 use App\Services\Operations\SystemHealthReader;
@@ -113,6 +115,13 @@ final class SystemHealthPage extends Component
         $this->message = 'Uzak yedek kapatıldı; yedekler yalnız sunucuda tutulur.';
     }
 
+    /** Google Drive copy of the backup: the folder is there and can be listed. */
+    public function checkDrive(DriveBackupCopy $drive): void
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $this->message = $drive->check();
+    }
+
     public function toggleDatasets(int $automationId): void
     {
         $this->datasetsFor = $this->datasetsFor === $automationId ? null : $automationId;
@@ -130,6 +139,7 @@ final class SystemHealthPage extends Component
             'triage' => $triage->groups(),
             'status' => $server->read(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
+            'drive' => ['linked' => app(DriveBackupCopy::class)->configured(), 'connect' => rescue(fn (): ?string => app(GoogleWorkspace::class)->connectUrl(), null, false)],
             'datasets' => $this->datasetsFor !== null ? $reader->datasets($this->datasetsFor) : [],
         ]);
     }

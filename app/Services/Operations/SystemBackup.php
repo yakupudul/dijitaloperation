@@ -65,7 +65,18 @@ final class SystemBackup
                 } catch (Throwable $exception) {
                     DB::table('system_backups')->where('id', $id)->update(['error' => mb_substr('Uzak kopya alınamadı: '.$exception->getMessage(), 0, 1000)]);
                 }
-            } elseif (filled(config('moxdop-backup.remote_disk'))) {
+            }
+            $drive = app(DriveBackupCopy::class);
+            if ($drive->configured()) {
+                try {
+                    $drive->put($path);
+                    $drive->prune();
+                    $remote = true;
+                } catch (Throwable $exception) {
+                    DB::table('system_backups')->where('id', $id)->update(['error' => mb_substr('Drive kopyası alınamadı: '.$exception->getMessage(), 0, 1000)]);
+                }
+            }
+            if (! $copy->configured() && ! $drive->configured() && filled(config('moxdop-backup.remote_disk'))) {
                 $stream = fopen($path, 'rb');
                 $remote = Storage::disk((string) config('moxdop-backup.remote_disk'))->writeStream('moxdop-backups/'.basename($path), $stream);
                 is_resource($stream) && fclose($stream);
@@ -232,7 +243,7 @@ final class SystemBackup
             'last_error' => $failed !== null && ($last === null || $failed->finished_at > $last->finished_at) ? $failed->error : null,
             'remote' => (bool) ($last->remote_copied ?? false),
             'remote_error' => $last !== null && ! ($last->remote_copied ?? false) && filled($last->error ?? null) ? (string) $last->error : null,
-            'remote_target' => app(RemoteBackupCopy::class)->target(),
+            'remote_target' => app(RemoteBackupCopy::class)->target() ?? app(DriveBackupCopy::class)->target() ?? (filled(config('moxdop-backup.remote_disk')) ? (string) config('moxdop-backup.remote_disk') : null),
             'drill' => self::drill(),
         ];
     }

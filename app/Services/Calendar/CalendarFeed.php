@@ -57,7 +57,7 @@ final class CalendarFeed
     {
         $days = [];
         for ($d = $from->startOfDay(); $d->lte($to); $d = $d->addDay()) {
-            $days[$d->toDateString()] = ['own' => [], 'sales' => [], 'sessions' => [], 'work' => ['done' => 0, 'planned' => 0, 'failed' => 0, 'brands' => 0]];
+            $days[$d->toDateString()] = ['own' => [], 'sales' => [], 'sessions' => [], 'google' => [], 'work' => ['done' => 0, 'planned' => 0, 'failed' => 0, 'brands' => 0]];
         }
         try {
             foreach ($this->sessions($from, $to) as $item) {
@@ -67,6 +67,11 @@ final class CalendarFeed
             }
         } catch (Throwable $error) {
             report($error);
+        }
+        foreach (rescue(fn (): array => app(GoogleCalendarLink::class)->events($from, $to), [], true) as $item) {
+            if (isset($days[$item['date']])) {
+                $days[$item['date']]['google'][] = $item;
+            }
         }
         foreach ($this->own($from, $to, $userId) as $item) {
             if (isset($days[$item['date']])) {
@@ -165,6 +170,7 @@ final class CalendarFeed
             'meetings' => $own->where('kind', 'meeting')->values()->all(),
             'sales' => $this->sales($from, $to),
             'sessions' => rescue(fn (): array => $this->sessions($from, $to), [], true),
+            'google' => rescue(fn (): array => app(GoogleCalendarLink::class)->events($from, $to), [], true),
             'brands' => $brands,
             'komuta' => $today ? $this->komuta() : null,
         ];

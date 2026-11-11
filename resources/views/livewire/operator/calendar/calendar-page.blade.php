@@ -33,7 +33,7 @@
             <p class="mt-1 text-sm text-gray-700 dark:text-gray-300" data-calendar-load>{{ $loadLine !== '' ? 'Önümüzdeki 7 gün: '.$loadLine.'.' : 'Önümüzdeki 7 gün boş.' }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <button type="button" wire:click="showFeed" class="btn-quiet" data-calendar-feed-toggle>Google Takvim'e ekle</button>
+            <button type="button" wire:click="showFeed" class="btn-quiet" data-calendar-feed-toggle>{{ $googleLinked ? 'Google Takvim bağlı' : 'Google Takvim\'e bağla' }}</button>
             <button type="button" wire:click="$toggle('report')" class="btn-quiet" data-calendar-report-toggle>{{ $report ? 'Takvime dön' : 'Ay dökümü' }}</button>
             <button type="button" wire:click="startAdding(null, 'meeting')" class="btn" data-calendar-add-meeting>+ Toplantı</button>
             <button type="button" wire:click="startAdding(null, 'task')" class="btn-primary" data-calendar-add-task>+ İş</button>
@@ -42,8 +42,20 @@
 
     @if ($feedUrl !== null)
         {{-- Read-only feed (4. hafta): Google Takvim subscribes to this address and refreshes it by itself. --}}
-        <div class="card mt-6 p-4" data-calendar-feed>
-            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Google Takvim'e ekle</h2>
+        {{-- Günlük Düzen 4.3: the two-way link first; the read-only address stays for a second phone or person. --}}
+        <div class="card mt-6 p-4" data-calendar-google>
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Google Takvim ile iki yönlü bağlantı</h2>
+            @if ($googleLinked)
+                <p class="mt-1 text-sm text-gray-500">Bağlı. Buraya yazdığın iş ve toplantılar Google Takvim'e kendiliğinden yazılır, Google Takvim'e eklediklerin burada gününde görünür. Aşağıdaki adresi daha önce Google Takvim'e eklediysen oradan kaldır, yoksa aynı iş iki kez görünür.</p>
+            @elseif ($googleConnect)
+                <p class="mt-1 text-sm text-gray-500">Buraya yazdığın iş ve toplantılar Google Takvim'e yazılır, Google Takvim'e eklediklerin burada görünür. Aynı izinle gece yedeğinin kopyası da Google Drive'a gider.</p>
+                <a href="{{ $googleConnect }}" class="btn-primary mt-3 inline-flex">Google Takvim ve Drive'ı bağla</a>
+            @else
+                <p class="mt-1 text-sm text-gray-500">Önce Bağlantılar'dan Google hesabını bağla.</p>
+            @endif
+        </div>
+        <div class="card mt-4 p-4" data-calendar-feed>
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Yalnız okunan takvim adresi</h2>
             <p class="mt-1 text-sm text-gray-500">Toplantıların, işlerin ve yazacağın adaylar telefondaki Google Takvim'de görünür. Takvim yalnızca okur; değişikliği burada yaparsın. Google adresi birkaç saatte bir yeniler.</p>
             <div class="mt-3 flex flex-wrap items-center gap-2">
                 <input type="text" readonly value="{{ $feedUrl }}" class="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 font-mono text-xs text-gray-700 dark:border-gray-700 dark:bg-white/5 dark:text-gray-200" x-on:focus="$el.select()" aria-label="Takvim adresi" data-calendar-feed-url>
@@ -139,6 +151,10 @@
                                     <p class="truncate text-[12px] leading-snug {{ $item['done'] ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200' }}">{{ $item['time'] ? $item['time'].' ' : '' }}{{ $item['title'] }}</p>
                                 @endforeach
                                 @if (count($own) > 3)<p class="text-[11px] text-gray-500">+{{ count($own) - 3 }} daha</p>@endif
+                                @foreach (array_slice($cell['google'] ?? [], 0, 2) as $event)
+                                    <p class="truncate text-[12px] leading-snug text-gray-500" data-calendar-google-event>{{ $event['time'] ? $event['time'].' ' : '' }}{{ $event['title'] }}</p>
+                                @endforeach
+                                @if (count($cell['google'] ?? []) > 2)<p class="text-[11px] text-gray-500">+{{ count($cell['google']) - 2 }} Google</p>@endif
                                 @if ($cell['sales'] !== [])
                                     <p class="truncate text-[12px] leading-snug text-gray-800 dark:text-gray-200">Satış: {{ count($cell['sales']) }} kişi</p>
                                 @endif
@@ -167,7 +183,8 @@
                         @endforelse
                         @if ($cell['sales'] !== [])<p class="mt-1 text-[13px] text-gray-800 dark:text-gray-200">Satış: {{ count($cell['sales']) }} kişiye yazılacak</p>@endif
                         @foreach ($cell['sessions'] as $session)<p class="mt-1 text-[13px] {{ $session['done'] ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200' }}">Oturum: {{ $session['brand'] }}</p>@endforeach
-                        @if ($cell['own'] === [] && $cell['sales'] === [] && $cell['sessions'] === [])<p class="mt-1 text-xs text-gray-400">Boş</p>@endif
+                        @foreach ($cell['google'] ?? [] as $event)<p class="mt-1 text-[13px] text-gray-500">{{ $event['time'] ? $event['time'].' · ' : '' }}{{ $event['title'] }}</p>@endforeach
+                        @if ($cell['own'] === [] && $cell['sales'] === [] && $cell['sessions'] === [] && ($cell['google'] ?? []) === [])<p class="mt-1 text-xs text-gray-400">Boş</p>@endif
                     </button>
                 @endforeach
             </section>
@@ -303,6 +320,20 @@
                             @endforelse
                         </ul>
                     </section>
+
+                    @if (($open['google'] ?? []) !== [])
+                        <section data-calendar-google-day>
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Google Takvim</h3>
+                            <ul class="mt-2 space-y-1">
+                                @foreach ($open['google'] as $event)
+                                    <li class="flex items-start justify-between gap-2 text-[13px]">
+                                        <p class="min-w-0 text-gray-800 dark:text-gray-200"><span class="tabular-nums">{{ $event['time'] ? $event['time'].($event['end'] ? '–'.$event['end'] : '') : 'Tüm gün' }}</span> · {{ $event['title'] }}@if ($event['place'])<span class="block text-xs text-gray-500">{{ $event['place'] }}</span>@endif</p>
+                                        @if ($event['url'])<a href="{{ $event['url'] }}" target="_blank" rel="noopener" class="link-neutral shrink-0 text-xs">Google'da aç</a>@endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </section>
+                    @endif
 
                     @if (($open['sessions'] ?? []) !== [])
                         <section data-calendar-sessions>

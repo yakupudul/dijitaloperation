@@ -55,6 +55,7 @@ class GoogleOAuthService
 
     /**
      * @param  list<string>|null  $capabilities
+     * @param  list<string>  $extraScopes  permissions outside the data connectors (GoogleWorkspace: Takvim, Drive)
      * @return array{url: string}|array{error: string}
      */
     public function beginAuthorization(
@@ -64,6 +65,7 @@ class GoogleOAuthService
         bool $forceConsent = false,
         string $returnRoute = 'operator.integrations.google',
         ?string $capabilityContext = null,
+        array $extraScopes = [],
     ): array {
         $this->assertAdmin($user);
         $this->assertGoogleIntegration($integration);
@@ -90,6 +92,8 @@ class GoogleOAuthService
         if ($scopes === []) {
             $scopes = $this->scopeRegistry->scopesForCapabilities($capabilities);
         }
+
+        $scopes = $this->scopeRegistry->normalize([...$scopes, ...$extraScopes]);
 
         $needsConsent = $forceConsent || ! $hasRefresh;
         $state = Str::random(64);
