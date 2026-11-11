@@ -72,7 +72,9 @@
                             </div>
                             <small class="text-xs tabular-nums text-gray-500 dark:text-gray-400">{{ $label }}</small>
                         </div>
-                        <div class="col-start-3 row-start-1 sm:col-start-auto">@include('livewire.operator.flow.partials.state', ['state' => $row['state']])</div>
+                        {{-- Günlük Düzen 1.4: without sm:row-start-auto the chip took the first cell of the row and pushed the title into the
+                             narrow progress column; `label` is passed so the row's progress text does not leak into the chip. --}}
+                        <div class="col-start-3 row-start-1 sm:col-start-auto sm:row-start-auto">@include('livewire.operator.flow.partials.state', ['state' => $row['state'], 'label' => null])</div>
                         <span class="hidden text-right text-[13px] tabular-nums text-gray-500 sm:block">{{ $row['time'] }}</span>
                     </div>
                     @if ($isOpen && $detail !== null)
@@ -85,7 +87,7 @@
                                     @if ($item['retry'] && $isAdmin)
                                         <button type="button" wire:click="retryItem(@js($item['id']))" wire:loading.attr="disabled" class="btn h-7" data-flow-retry-item>Yeniden dene</button>
                                     @else
-                                        @include('livewire.operator.flow.partials.state', ['state' => $item['state']])
+                                        @include('livewire.operator.flow.partials.state', ['state' => $item['state'], 'label' => null])
                                     @endif
                                 </div>
                             @empty
