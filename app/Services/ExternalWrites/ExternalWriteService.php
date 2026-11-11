@@ -20,6 +20,7 @@ use App\Services\Gbp\GbpSuggestions;
 use App\Services\GoogleAds\GoogleAdsChanges;
 use App\Services\GoogleAds\GoogleAdsSuggestions;
 use App\Services\Integrations\WordPress\SiteDidNotTakeWork;
+use App\Services\Integrations\WordPress\WordPressConnectorBusyException;
 use App\Services\Integrations\WordPress\WordPressManagementService;
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
 use App\Services\Repair\WebHealthAudit;
@@ -51,6 +52,9 @@ final class ExternalWriteService
     public const int SITE_WAIT_MINUTES = 10;
 
     /** Start of the error line of a write that waits for its site (ExternalWriteService::waitForSite). */
+    /** Minutes a write waits after the site answered "busy": the 1st, 2nd, 3rd… time; the last value repeats. */
+    public const array BUSY_WAIT_MINUTES = [2, 5, 15, 30, 60];
+
     public const string SITE_WAIT_ERROR = 'Site işi almayı bekliyor';
 
     public function __construct(
@@ -834,6 +838,21 @@ final class ExternalWriteService
             $this->waitForSite($action, $exception->getMessage());
 
             return;
+        } catch (WordPressConnectorBusyException $exception) {
+            if (! in_array($exception->status, [429, 503], true)) {
+                // A gateway error (502 / 504) may have reached WordPress: that write is not sent twice by itself.
+                $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr($exception->getMessage(), 0, 500)])->save();
+                $this->finished($action);
+
+                return;
+            }
+            // The site refused the request (503 / 429) before doing anything: the same write waits and goes again, each
+            // time later, instead of ending as failed and being approved again a minute later (2026-11-10: one busy site
+            // collected a failed write every minute).
+            $waits = (int) data_get($action->result, 'waits', 0);
+            $this->waitForSite($action, 'site meşgul (HTTP '.$exception->status.')', self::BUSY_WAIT_MINUTES[min($waits, count(self::BUSY_WAIT_MINUTES) - 1)]);
+
+            return;
         } catch (Throwable $exception) {
             $action->forceFill(['status' => 'failed', 'finished_at' => now(), 'error' => mb_substr(trim($exception->getMessage()) ?: class_basename($exception).' (ayrıntı yok)', 0, 500)])->save();
         }
@@ -857,7 +876,7 @@ final class ExternalWriteService
      * failing (2026-10-14: Avrupadent's approved articles and ~1000 site fixes all ended as failed this way and had to
      * be approved again). After SITE_WAIT_HOURS it ends as failed and goes back to the operator with the reason.
      */
-    public function waitForSite(ExternalWriteAction $action, string $reason): void
+    public function waitForSite(ExternalWriteAction $action, string $reason, ?int $delayMinutes = null): void
     {
         $since = data_get($action->result, 'waiting_since');
         $since = is_string($since) ? CarbonImmutable::parse($since) : CarbonImmutable::now();
@@ -869,7 +888,7 @@ final class ExternalWriteService
         $waitId = (string) Str::uuid();
         $action->forceFill(['status' => 'queued', 'started_at' => null, 'error' => mb_substr(self::SITE_WAIT_ERROR.': '.$reason, 0, 500),
             'result' => ['waiting_since' => $since->toIso8601String(), 'waits' => (int) data_get($action->result, 'waits', 0) + 1, 'wait_id' => $waitId]])->save();
-        $this->dispatch($action, undo: false, delayMinutes: self::SITE_WAIT_MINUTES, waitId: $waitId);
+        $this->dispatch($action, undo: false, delayMinutes: $delayMinutes ?? self::SITE_WAIT_MINUTES, waitId: $waitId);
     }
 
     /**
