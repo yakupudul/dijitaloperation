@@ -8,6 +8,7 @@ use App\Models\AgencySetting;
 use App\Models\SalesLead;
 use App\Models\User;
 use App\Services\Sales\SalesLeads;
+use App\Services\Sales\TodayFive;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -172,10 +173,52 @@ class SalesLeadsTableTest extends TestCase
 
         $html = Livewire::test(SalesPage::class)->set('tab', 'adaylar')->html();
         $this->assertStringContainsString('İsimsiz', $html);
-        $this->assertSame(1, substr_count($html, '>+90 536 598 67 51<'), 'the number is written once, in one shape');
+        $table = substr($html, (int) strpos($html, 'data-sales-views'));
+        $this->assertSame(1, substr_count($table, '>+90 536 598 67 51<'), 'the number is written once, in one shape');
         $this->assertStringNotContainsString('+90 +90', $html);
         $this->assertStringContainsString('Harita kaydı için fiyat sordu.', $html);
         $this->assertStringContainsString('Ne istiyor', $html);
         $this->assertStringNotContainsString('E-posta</span>', $html);
+    }
+
+    public function test_today_five_shows_the_nearest_to_money_first_and_the_deck_runs_out(): void
+    {
+        app(TodayFive::class)->reset();
+        $leads = app(SalesLeads::class);
+        $make = function (string $name, array $fill) use ($leads): SalesLead {
+            $lead = $leads->quickAdd(['name' => $name, 'phone' => '0532 '.random_int(100, 999).' '.random_int(10, 99).' '.random_int(10, 99)], $this->admin);
+            $lead->forceFill($fill)->save();
+
+            return $lead->fresh();
+        };
+        $plain = $make('Sıradan Bekleyen', ['last_incoming_at' => now()->subDays(2), 'last_contact_at' => now()->subDays(3)]);
+        $strong = $make('Güçlü Bekleyen', ['last_incoming_at' => now()->subDay(), 'last_contact_at' => now()->subDays(3), 'is_strong' => true, 'draft' => 'Hocam merhaba, hazır cevap.']);
+        $make('Adımı Gelen', ['next_step' => 'Ara', 'next_step_at' => now()->subDay(), 'last_contact_at' => now()->subDays(4)]);
+        foreach (range(1, 4) as $i) {
+            $make('Dolgu '.$i, ['next_step' => 'Yaz', 'next_step_at' => now()->subDays($i), 'last_contact_at' => now()->subDays(9)]);
+        }
+        $later = $make('Yarına Kalan', ['last_incoming_at' => now()->subDay(), 'last_contact_at' => now()->subDays(3), 'next_step' => 'Yaz', 'next_step_at' => now()->addDays(2)]);
+
+        $deck = app(TodayFive::class)->deck();
+        $this->assertCount(5, $deck, 'never more than five, however long the list behind it');
+        $this->assertSame($strong->id, $deck[0]['lead']->id, 'a strong prospect waiting for our answer comes first');
+        $this->assertSame($plain->id, $deck[1]['lead']->id);
+        $this->assertNotContains($later->id, $deck->pluck('lead.id')->all(), 'put off to a later day stays out of today');
+
+        $page = Livewire::test(SalesPage::class)
+            ->assertSeeHtml('data-sales-five-card="'.$strong->id.'"')
+            ->assertSee('Bugün 5 kişi')
+            ->assertSee('Hocam merhaba, hazır cevap.')
+            ->assertDontSeeHtml('data-sales-view="bugun"');
+
+        $page->call('fiveSent', $strong->id)->assertDontSeeHtml('data-sales-five-card="'.$strong->id.'"')->assertSee('Bugün 4 kişi');
+        $this->assertFalse($strong->fresh()->awaitsUs());
+        $page->call('fiveLater', $plain->id)->assertDontSeeHtml('data-sales-five-card="'.$plain->id.'"')->assertSee('Bugün 3 kişi');
+        $this->assertTrue($plain->fresh()->next_step_at->gt(SalesLead::endOfToday()));
+        $this->assertCount(3, app(TodayFive::class)->deck(), 'the deck is not refilled: the day has an end');
+
+        // Someone who writes today joins it: an answer is owed the same day.
+        $new = $make('Bugün Yazan', ['last_incoming_at' => now(), 'last_contact_at' => null]);
+        $this->assertContains($new->id, app(TodayFive::class)->deck()->pluck('lead.id')->all());
     }
 }

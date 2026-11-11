@@ -2259,6 +2259,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   Panel şifre tutmaz.
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
+
+- **Satış 2.4 "Bugün 5 kişi"**: /satis Adaylar'ın üstünde günlük deste (`App\Services\Sales\TodayFive`). Günde bir kez (İstanbul) paraya yakınlığa göre 5 kişi seçilir (güçlü+cevap bekleyen, görüşme, teklif masada, cevap bekleyen, adımı bugün); kart Gönderdim / Sonra (ertesi iş günü) / Kapat ile desteden çıkar, deste yeniden dolmaz; yalnız bugün yazan kişi eklenir. "Bugün / gecikmiş" hızlı süzgeci kalktı.
 - Google bağlantı sayfası: "veri geliyor mu" tek yerden (`data_state` fresh/stale) okunur; veri gelirken "İlk veri çekimi bekleniyor" ve "Sonraki adım: veri çek" satırları çıkmaz.
 - Gelen kutusu 1536 pikselin altında liste ve kişi panelini daraltır; Akış satırında durum etiketi başlığın sütununu almaz.
 - Satış: okunamayan bir WhatsApp mesajının eskiden bıraktığı "sen yazacaksın" damgası saatlik `SalesTidy::sweep` turunda geri alınır (`SalesTidy::unreadableStamp`); tek seferlik veri düzeltmesi yok, kural kendini onarır.

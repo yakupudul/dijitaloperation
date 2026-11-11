@@ -8,6 +8,7 @@ use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\ServiceCategory;
 use App\Services\Sales\Agreements;
+use App\Services\Sales\FollowUpSequence;
 use App\Services\Sales\LeadResearcher;
 use App\Services\Sales\ProspectSiteCheck;
 use App\Services\Sales\SalesAnalysisWriter;
@@ -218,7 +219,9 @@ final class LeadCardPage extends Component
         $this->draft = '';
         $this->nextStep = (string) $fresh->next_step;
         $this->nextStepAt = $fresh->next_step_at?->timezone('Europe/Istanbul')->toDateString() ?? '';
-        $this->say('Gönderildi olarak işlendi. Sonraki adım: '.$fresh->next_step.' · '.$fresh->next_step_at?->timezone('Europe/Istanbul')->format('d.m.Y'));
+        $this->say($fresh->next_step_at !== null
+            ? 'Gönderildi olarak işlendi. Sonraki adım: '.$fresh->next_step.' · '.$fresh->next_step_at->timezone('Europe/Istanbul')->format('d.m.Y')
+            : 'Gönderildi olarak işlendi. Cevap bekleniyor; '.FollowUpSequence::SILENT_CLOSE_DAYS.' gün sessiz kalırsa kart kendiliğinden kapanır.');
     }
 
     public function addNote(SalesLeads $leads): void

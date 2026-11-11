@@ -91,10 +91,54 @@
         {{-- Adaylar (yakup 2026-11-07): every row answers four questions: whose turn is it, when did we last talk and
              about what, what is next and when, how much is it worth. Ready views instead of one stage filter. --}}
         <section class="mt-5" data-sales-leads>
+            {{-- Bugün 5 kişi (Satış Düzeni 2.4): the day's short deck, nearest to money first. It replaces the date list
+                 "bugün / gecikmiş"; a card leaves when it is sent, put off or closed, and the deck is not refilled. --}}
+            @if ($status === 'devam' && trim($q) === '')
+                <div class="mb-6" data-sales-five>
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Bugün {{ $five->count() > 0 ? $n($five->count()).' kişi' : 'bitti' }}</h2>
+                        <p class="text-[13px] text-gray-500">{{ $five->count() > 0 ? 'Paraya en yakın olan önce. Gönder, sonraya bırak ya da kapat; deste bitince gün biter.' : 'Bugün cevap bekleyen ya da adımı gelen kimse kalmadı.' }}</p>
+                    </div>
+                    @if ($five->count() > 0)
+                        <div class="-mx-4 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
+                            @foreach ($five as $i => $row)
+                                @php
+                                    $fl = $row['lead'];
+                                    $ft = $touches[$fl->id] ?? null;
+                                    $fwa = $fl->waNumber();
+                                    $fdraft = filled($fl->draft) ? trim((string) $fl->draft) : '';
+                                    $fsub = collect([filled($fl->name) ? $fl->company : null, $fl->city, $fl->kindLabel()])->filter()->unique()->implode(' · ');
+                                @endphp
+                                <article wire:key="five-{{ $fl->id }}" class="card flex w-[86vw] max-w-[22rem] shrink-0 snap-start flex-col p-4 sm:w-[21rem]" data-sales-five-card="{{ $fl->id }}">
+                                    <p class="text-[12px] text-gray-500"><span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ $i + 1 }}</span> · {{ $row['reason'] }}@if ((int) $fl->offer_amount > 0) · {{ $n($fl->offer_amount) }} ₺@endif</p>
+                                    <a href="{{ route('operator.sales.lead', ['lead' => $fl->id]) }}" wire:navigate class="mt-1 truncate text-[15px] font-semibold text-gray-900 hover:underline dark:text-white">{{ $fl->title() }}</a>
+                                    @if ($fsub !== '')<p class="truncate text-[13px] text-gray-500">{{ $fsub }}</p>@endif
+                                    @if ($ft && $ft['text'] !== '')
+                                        <p class="mt-2 line-clamp-2 text-[13px] text-gray-700 dark:text-gray-300" title="{{ $ft['text'] }}"><span class="text-gray-400">{{ $ft['at']->timezone('Europe/Istanbul')->format('d.m') }} · {{ $ft['label'] }}:</span> {{ $ft['text'] }}</p>
+                                    @endif
+                                    @if ($fdraft !== '')
+                                        <div class="mt-3 max-h-40 overflow-y-auto whitespace-pre-line rounded-lg bg-gray-50 px-3 py-2 text-[13px] leading-5 text-gray-800 dark:bg-white/[0.04] dark:text-gray-200" data-sales-five-draft>{{ $fdraft }}</div>
+                                    @else
+                                        <p class="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-[13px] text-gray-500 dark:bg-white/[0.04]">{{ $fl->next_step ?: 'Cevap yaz' }}. Hazır metin yok; kartı açınca yazılır.</p>
+                                    @endif
+                                    <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
+                                        @if ($fwa !== null)
+                                            <a href="https://wa.me/{{ $fwa }}{{ $fdraft !== '' ? '?text='.rawurlencode($fdraft) : '' }}" target="_blank" rel="noopener" class="btn-dark h-8 px-3 text-[13px]" data-sales-five-wa>WhatsApp'ta aç</a>
+                                        @endif
+                                        <button type="button" wire:click="fiveSent({{ $fl->id }})" wire:loading.attr="disabled" class="btn h-8 px-3 text-[13px]" data-sales-five-sent>Gönderdim</button>
+                                        <button type="button" wire:click="fiveLater({{ $fl->id }})" wire:loading.attr="disabled" class="btn-quiet h-8 px-2 text-[13px]" data-sales-five-later>Sonra</button>
+                                        <button type="button" wire:click="openDialog('close', {{ $fl->id }})" class="btn-quiet h-8 px-2 text-[13px] text-gray-400" data-sales-five-close>Kapat</button>
+                                    </div>
+                                </article>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @endif
             @if (in_array($status, ['devam', 'guclu', 'kararsiz'], true))
                 <div class="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Hızlı süzgeç" data-sales-views>
                     @foreach (SalesPage::VIEWS as $key => $label)
-                        @continue(in_array($key, ['musteriler', 'kaybedilen'], true))
+                        @continue(in_array($key, ['musteriler', 'kaybedilen', 'bugun'], true))
                         @php $c = (int) ($viewCounts[$key] ?? 0); $alert = in_array($key, ['borclu', 'adimsiz'], true) && $c > 0; @endphp
                         <button type="button" wire:click="$set('view', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $view === $key && trim($q) === '']) data-sales-view="{{ $key }}">
                             {{ $key === 'acik' ? 'Hepsi' : $label }} <span @class(['tabular-nums', 'text-error-600' => $alert && $view !== $key, 'text-gray-400' => ! $alert && $view !== $key])>{{ $n($c) }}</span>

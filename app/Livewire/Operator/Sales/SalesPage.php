@@ -26,6 +26,7 @@ use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
 use App\Services\Sales\SalesTidy;
 use App\Services\Sales\StandingRules;
+use App\Services\Sales\TodayFive;
 use App\Support\Roles;
 use App\Support\WhatsApp\MessageText;
 use Carbon\CarbonImmutable;
@@ -208,6 +209,26 @@ final class SalesPage extends Component
         $leads->setStatus($lead, $status, auth()->user());
         $fresh = $lead->fresh();
         $this->say($fresh->title().': '.$fresh->statusLabel().'.'.($status === 'musteri' && $fresh->brand_id ? ' Müşteri ve marka kaydı açıldı; anlaşmayı marka sayfasından gir.' : ''));
+    }
+
+    /** Bugün 5 kişi: the ready text went out (the operator sent it from his phone); the card leaves the deck. */
+    public function fiveSent(int $id, SalesLeads $leads): void
+    {
+        $lead = SalesLead::query()->findOrFail($id);
+        $leads->markSent($lead, filled($lead->draft) ? (string) $lead->draft : null, auth()->user());
+        $this->say($lead->title().': gönderildi olarak işlendi, cevap bekleniyor.');
+    }
+
+    /** Bugün 5 kişi: not today; the same step comes back tomorrow morning. */
+    public function fiveLater(int $id, SalesLeads $leads): void
+    {
+        $lead = SalesLead::query()->findOrFail($id);
+        $day = CarbonImmutable::now('Europe/Istanbul')->addDay();
+        while ($day->isWeekend()) {
+            $day = $day->addDay();
+        }
+        $leads->setNextStep($lead, filled($lead->next_step) ? (string) $lead->next_step : 'Cevap yaz', $day->toDateString(), auth()->user());
+        $this->say($lead->title().': '.$day->format('d.m').' gününe bırakıldı.');
     }
 
     public function saveTodo(SalesLeads $leads): void
@@ -595,9 +616,13 @@ final class SalesPage extends Component
         $touches = [];
         $offerTotal = 0;
         $customers = ['rows' => [], 'strip' => null];
+        $five = collect();
         if ($this->tab === 'adaylar') {
             [$list, $viewCounts, $offerTotal] = $this->leadList();
-            $touches = $this->lastTouches($list);
+            if ($this->status === 'devam' && trim($this->q) === '') {
+                $five = app(TodayFive::class)->deck();
+            }
+            $touches = $this->lastTouches($list->concat($five->pluck('lead'))->unique('id')->values());
             if ($this->view === 'musteriler' && trim($this->q) === '') {
                 $customers = $this->customerTable(app(Agreements::class));
             }
@@ -606,6 +631,7 @@ final class SalesPage extends Component
 
         return view('livewire.operator.sales.sales-page', [
             'dueCount' => $dueCount,
+            'five' => $five,
             'openCount' => (clone $open)->count(),
             'stageCounts' => $stageCounts,
             'list' => $list,
