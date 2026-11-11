@@ -10,6 +10,9 @@
         </div>
         <a href="{{ route('operator.settings', ['section' => 'team']) }}" wire:navigate class="btn w-full sm:w-auto" title="Ayarlar › Ekip ve Yetkiler">Ekibi düzenle</a>
     </header>
+    @if ($notice !== '')
+        <p class="-mt-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-users-notice>{{ $notice }}</p>
+    @endif
     <section class="card -mt-4 overflow-x-auto" data-users>
         <table class="data-table">
             <thead><tr><th>Ad</th><th class="hidden md:table-cell">E-posta</th><th>Rol</th><th class="hidden sm:table-cell">Durum</th><th class="hidden text-right! lg:table-cell">Son giriş</th></tr></thead>
@@ -25,7 +28,19 @@
                                 </span>
                             </span>
                         </td>
-                        <td class="hidden text-gray-500 md:table-cell">{{ $member['email'] }}</td>
+                        <td class="hidden text-gray-500 md:table-cell">
+                            @if ($editing === $member['id'])
+                                <form wire:submit="saveEmail" class="flex items-center gap-2" data-user-email-form>
+                                    <input wire:model="email" type="email" autocomplete="off" class="h-8 w-64 rounded-lg border border-gray-200 bg-white px-2.5 text-sm focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white" aria-label="Giriş e-postası" />
+                                    <button type="submit" class="btn-dark h-8 px-3 text-[13px]">Kaydet</button>
+                                    <button type="button" wire:click="$set('editing', null)" class="btn-quiet h-8 px-2 text-[13px]">Vazgeç</button>
+                                </form>
+                                @error('email')<p class="mt-1 text-xs text-error-600">{{ $message }}</p>@enderror
+                            @else
+                                {{ $member['email'] }}
+                                <button type="button" wire:click="editEmail({{ $member['id'] }})" class="ml-2 text-[12px] text-gray-400 underline decoration-gray-300 underline-offset-2 hover:text-gray-900 dark:hover:text-white" data-user-email-edit>değiştir</button>
+                            @endif
+                        </td>
                         <td class="text-[13px] text-gray-700 dark:text-gray-300">{{ $roleLabels[$member['role']] ?? $member['role'] }}</td>
                         <td class="hidden sm:table-cell"><x-ta.pill :tone="$member['is_active'] ? 'ok' : 'info'">{{ $member['is_active'] ? 'Aktif' : 'Pasif' }}</x-ta.pill></td>
                         <td class="hidden whitespace-nowrap text-right text-xs tabular-nums text-gray-500 lg:table-cell">{{ $member['last_login'] ?? '—' }}</td>
