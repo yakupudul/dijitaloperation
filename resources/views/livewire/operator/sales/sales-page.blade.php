@@ -277,6 +277,11 @@
                                     <span class="text-gray-500">{{ $lead->stage === 'won' ? 'Müşteri oldu '.$lead->won_at?->timezone('Europe/Istanbul')->format('d.m.Y') : 'Kapandı '.$lead->lost_at?->timezone('Europe/Istanbul')->format('d.m.Y') }}</span>
                                 @elseif ($due === null && $lead->history_only)
                                     <button type="button" wire:click="openDialog('todo', {{ $lead->id }})" class="text-gray-400 hover:underline" title="Bu konuşma yalnızca geçmişten biliniyor; telefonda cevaplanıp cevaplanmadığı belli değil. Canlı hatta yeni mesaj gelince adım kendiliğinden yazılır.">Geçmişten · adım yaz</button>
+                                @elseif ($due === null && $lead->awaitsThem())
+                                    <button type="button" wire:click="openDialog('todo', {{ $lead->id }})" class="block w-full text-left hover:underline" title="Son mesaj bizden. Cevap gelmezse kart bu tarihte 'Sessiz kaldı' diye kendiliğinden kapanır; yazarsa yeniden açılır. Tıklayıp kendi adımını yazabilirsin." data-sales-waiting>
+                                        <span class="block truncate text-gray-500">Cevap bekleniyor</span>
+                                        <span class="text-[12px] tabular-nums text-gray-400">{{ $lead->silentCloseAt()?->timezone('Europe/Istanbul')->format('d.m.Y') }} · kapanır</span>
+                                    </button>
                                 @elseif ($due === null)
                                     <button type="button" wire:click="openDialog('todo', {{ $lead->id }})" class="font-semibold text-error-600 hover:underline">Adım yok</button>
                                 @else

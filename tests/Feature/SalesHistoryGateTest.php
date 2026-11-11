@@ -146,8 +146,9 @@ final class SalesHistoryGateTest extends TestCase
         app(SalesTidy::class)->sweep();
         $lead = $lead->fresh();
         $this->assertFalse($lead->awaitsUs());
-        $this->assertSame('Tek satır hatırlat', $lead->next_step);
-        $this->assertTrue($lead->next_step_at->gt(now()));
+        // No automatic follow-up any more (Satış Düzeni 2.3): the card waits for their answer.
+        $this->assertNull($lead->next_step);
+        $this->assertTrue($lead->awaitsThem());
     }
 
     public function test_placeholders_read_as_plain_words(): void
@@ -196,5 +197,42 @@ final class SalesHistoryGateTest extends TestCase
         $this->assertSame('talking', $silentLead->fresh()->stage);
         $this->assertSame('priced', $askedLead->fresh()->stage);
         $this->assertSame(14000, (int) SalesLead::query()->open()->relevant()->realOffers()->sum('offer_amount'));
+    }
+
+    public function test_a_prospect_silent_for_21_days_closes_by_itself_and_opens_again_when_they_write(): void
+    {
+        $silent = $this->chat('905551110021', 'Merhaba, bilgi alabilir miyim?', 30, false);
+        $this->chat('905551110021', 'Tabii, sitenizi inceledik.', 22, false, 'outgoing');
+        $recent = $this->chat('905551110022', 'Merhaba', 12, false);
+        $this->chat('905551110022', 'Buyurun.', 10, false, 'outgoing');
+        $planned = $this->chat('905551110023', 'Merhaba', 30, false);
+        $this->chat('905551110023', 'Buyurun.', 25, false, 'outgoing');
+        $silentLead = SalesLead::query()->where('conversation_id', $silent->id)->firstOrFail();
+        $recentLead = SalesLead::query()->where('conversation_id', $recent->id)->firstOrFail();
+        $plannedLead = SalesLead::query()->where('conversation_id', $planned->id)->firstOrFail();
+        // What the old sequence left behind, and a step the operator planned himself.
+        $silentLead->forceFill(['next_step' => 'Kapanış sorusu sor', 'next_step_at' => now()->subDays(1), 'archived_at' => null])->saveQuietly();
+        $recentLead->forceFill(['next_step' => 'Tek satır hatırlat', 'next_step_at' => now()->subDays(8), 'archived_at' => null])->saveQuietly();
+        $plannedLead->forceFill(['next_step' => 'Perşembe ara', 'next_step_at' => now()->addDays(2), 'archived_at' => null])->saveQuietly();
+
+        $stats = app(SalesTidy::class)->sweep();
+
+        $this->assertSame(1, $stats['closed']);
+        $silentLead = $silentLead->fresh();
+        $this->assertSame('lost', $silentLead->stage);
+        $this->assertSame('silent', $silentLead->lost_reason);
+        $recentLead = $recentLead->fresh();
+        $this->assertTrue($recentLead->isOpen());
+        $this->assertNull($recentLead->next_step, 'the automatic follow-up step is taken off');
+        $this->assertFalse(app(SalesLeads::class)->due()->whereKey($recentLead->id)->exists());
+        $this->assertSame('Perşembe ara', $plannedLead->fresh()->next_step);
+        $this->assertTrue($plannedLead->fresh()->isOpen());
+
+        // They write again: the card is open once more and owes an answer.
+        CarbonImmutable::setTestNow(now()->addHour());
+        $this->chat('905551110021', 'Fiyat alabilir miyim?', 0, false);
+        $silentLead = $silentLead->fresh();
+        $this->assertTrue($silentLead->isOpen());
+        $this->assertTrue($silentLead->awaitsUs());
     }
 }

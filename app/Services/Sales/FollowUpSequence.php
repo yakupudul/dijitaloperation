@@ -7,14 +7,12 @@ use Carbon\CarbonImmutable;
 
 /**
  * When the next step of a prospect falls due (yakup's sales rules, 2026-10-31 → 2026-11-03): a hot lead who wrote
- * gets an answer the same day; after a message of ours the follow-ups come on day 2, 7 and 21, then once a quarter
- * with something new; a cold lead is re-warmed in December with a new finding. Steps land on a weekday morning.
+ * gets an answer the same day; after a message of ours nothing is planned by itself (Satış Düzeni 2.3, 2026-11-11): the
+ * card waits for their answer and closes as "Sessiz kaldı" after 21 silent days; a cold lead is re-warmed in December
+ * with a new finding. Steps land on a weekday morning.
  */
 final class FollowUpSequence
 {
-    /** Days after our message until the next follow-up, by how many we already sent; beyond the list: quarterly. */
-    private const array DAYS = [2, 7, 21];
-
     public const int QUARTER_DAYS = 90;
 
     /** Cold leads (no answer for this long) wait for the next re-warm round instead of filling Bugün. */
@@ -23,24 +21,22 @@ final class FollowUpSequence
     /** The next re-warm round of the silent leads (first week of December, yakup's plan). */
     public const string REWARM_ON = '2026-12-01';
 
-    /** @return array{0: string, 1: CarbonImmutable} next step text and date after our message number $sent */
-    public static function afterOurMessage(int $sent, ?CarbonImmutable $from = null): array
-    {
-        $from ??= CarbonImmutable::now('Europe/Istanbul');
-        $index = max(0, $sent - 1);
-        if ($index < count(self::DAYS)) {
-            $days = self::DAYS[$index];
-            $text = match ($index) {
-                0 => 'Tek satır hatırlat',
-                1 => 'Yeni bir bulgu ile yaz',
-                default => 'Kapanış sorusu sor',
-            };
-        } else {
-            $days = self::QUARTER_DAYS;
-            $text = 'Yeni bir şeyle yaz (vaka, kampanya)';
-        }
+    /** A prospect silent this long after our last message closes on its own as "Sessiz kaldı" (Satış Düzeni 2.3). */
+    public const int SILENT_CLOSE_DAYS = 21;
 
-        return [$text, self::weekdayMorning($from->addDays($days))];
+    /** The follow-up steps the old 2 / 7 / 21 day sequence wrote by itself; they are taken off wherever they still stand. */
+    public const array AUTO_STEPS = ['Tek satır hatırlat', 'Yeni bir bulgu ile yaz', 'Kapanış sorusu sor', 'Yeni bir şeyle yaz (vaka, kampanya)'];
+
+    /**
+     * After a message of ours the ball is theirs: no automatic follow-up step any more (they piled up as overdue work,
+     * Satış Düzeni 2.3). The card shows "Cevap bekleniyor" and closes by itself after SILENT_CLOSE_DAYS; a step the
+     * operator writes by hand stays.
+     *
+     * @return array{0: null, 1: null}
+     */
+    public static function afterOurMessage(int $sent = 1, ?CarbonImmutable $from = null): array
+    {
+        return [null, null];
     }
 
     /** They wrote and we have not answered: the step is today. */

@@ -67,7 +67,7 @@ final class SalesTidy
      * The hourly round: marks which chat cards are history only, takes their "answer now" steps off, archives the stale
      * ones. Returns what changed.
      *
-     * @return array{history: int, live: int, steps: int, archived: int}
+     * @return array{history: int, live: int, steps: int, archived: int, closed: int}
      */
     public function sweep(): array
     {
@@ -129,7 +129,36 @@ final class SalesTidy
                 }
             });
 
+        $stats['closed'] = $this->closeSilent();
+
         return $stats;
+    }
+
+    /**
+     * Satış Düzeni 2.3: the automatic follow-up steps of the old sequence come off, and a prospect who stayed silent
+     * for FollowUpSequence::SILENT_CLOSE_DAYS after our last message closes as "Sessiz kaldı" (it opens again by itself
+     * when they write). Not touched: customers, "Sonra" cards, and any card with a step the operator planned.
+     */
+    private function closeSilent(): int
+    {
+        $closed = 0;
+        $leads = app(SalesLeads::class);
+        SalesLead::query()->open()->relevant()->where('lifecycle', '!=', 'customer')->orderBy('id')
+            ->chunkById(200, function ($rows) use ($leads, &$closed): void {
+                foreach ($rows as $lead) {
+                    if (in_array($lead->next_step, FollowUpSequence::AUTO_STEPS, true)) {
+                        $lead->next_step = null;
+                        $lead->next_step_at = null;
+                        $lead->saveQuietly();
+                    }
+                    if ($lead->next_step_at === null && $lead->stage !== 'later' && $lead->awaitsThem() && $lead->silentCloseAt()?->lte(now())) {
+                        $leads->setStage($lead, 'lost', 'silent', null, FollowUpSequence::SILENT_CLOSE_DAYS.' gün sessiz kaldı, kart kendiliğinden kapandı. Yazarsa yeniden açılır.');
+                        $closed++;
+                    }
+                }
+            });
+
+        return $closed;
     }
 
     /** Is the card's "they wrote last" time the time of an unreadable message, with nothing readable after it? */

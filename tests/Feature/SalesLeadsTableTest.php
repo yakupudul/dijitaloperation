@@ -77,11 +77,11 @@ class SalesLeadsTableTest extends TestCase
         $this->assertFalse($quiet->fresh()->awaitsUs());
 
         $page = Livewire::test(SalesPage::class)->set('tab', 'adaylar');
-        $page->assertSee('Dr. Yaşar')->assertSee('Sende')->assertSee('Ajanslardan yanmış')->assertSee('Adım yok');
+        $page->assertSee('Dr. Yaşar')->assertSee('Sende')->assertSee('Ajanslardan yanmış')->assertSee('Cevap bekleniyor')->assertDontSee('Adım yok');
         $counts = $page->viewData('viewCounts');
         $this->assertSame(2, $counts['acik']);
         $this->assertSame(1, $counts['borclu']);
-        $this->assertSame(1, $counts['adimsiz']);
+        $this->assertSame(0, $counts['adimsiz'], 'a card waiting for their answer is not "adımsız"');
         $this->assertSame(1, $counts['soguyan']);
         $this->assertSame([$waiting->id, $quiet->id], $page->viewData('list')->pluck('id')->all(), 'the one waiting for my answer comes first');
 

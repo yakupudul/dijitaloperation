@@ -162,7 +162,7 @@ final class SalesShare
             $theyWroteLast = $lastIn !== null && ($lastOut === null || $lastIn->gt($lastOut));
             [$lead->next_step, $lead->next_step_at] = $theyWroteLast ? FollowUpSequence::answerNow()
                 : ($lastOut !== null ? FollowUpSequence::afterOurMessage(max(1, $lead->followup_step), CarbonImmutable::instance($lastOut)) : FollowUpSequence::firstMessage());
-            if ($lead->next_step_at->lt(now())) {
+            if ($lead->next_step_at !== null && $lead->next_step_at->lt(now())) {
                 $lead->next_step_at = CarbonImmutable::now('Europe/Istanbul');
             }
         }

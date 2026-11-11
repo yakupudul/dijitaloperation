@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Sales\FollowUpSequence;
 use App\Services\Sales\SalesAnalysisWriter;
 use App\Support\Sales\LeadKinds;
 use App\Support\Sales\PhoneNumber;
@@ -296,6 +297,18 @@ class SalesLead extends Model
     public function isDue(): bool
     {
         return $this->isOpen() && $this->next_step_at !== null && $this->next_step_at->lte(self::endOfToday());
+    }
+
+    /** We wrote last and wait for their answer: nothing is owed, the card closes by itself when they stay silent. */
+    public function awaitsThem(): bool
+    {
+        return $this->isOpen() && $this->last_contact_at !== null && ! $this->awaitsUs();
+    }
+
+    /** The day a card waiting for their answer closes as "Sessiz kaldı" (Satış Düzeni 2.3). */
+    public function silentCloseAt(): ?CarbonImmutable
+    {
+        return $this->last_contact_at !== null ? CarbonImmutable::instance($this->last_contact_at)->addDays(FollowUpSequence::SILENT_CLOSE_DAYS) : null;
     }
 
     /** The end of the working day the operator lives in (Istanbul), as the moment stored times are compared with. */

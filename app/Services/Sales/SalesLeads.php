@@ -477,7 +477,7 @@ final class SalesLeads
                 default => FollowUpSequence::firstMessage(),
             };
             // A follow-up computed from an old message is not overdue by weeks: it is due now at the earliest.
-            if ($lead->next_step_at->lt(now()) && ! FollowUpSequence::isCold($lead)) {
+            if ($lead->next_step_at !== null && $lead->next_step_at->lt(now()) && ! FollowUpSequence::isCold($lead)) {
                 $lead->next_step_at = CarbonImmutable::now('Europe/Istanbul');
             }
         }

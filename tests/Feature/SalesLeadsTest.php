@@ -20,7 +20,6 @@ use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\AiTasks\AiWorkers;
-use App\Services\Sales\FollowUpSequence;
 use App\Services\Sales\PhoneBackupSync;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
@@ -97,7 +96,7 @@ class SalesLeadsTest extends TestCase
         $this->assertSame(1, SalesLead::query()->count());
     }
 
-    public function test_marking_the_message_sent_schedules_the_follow_ups_two_seven_and_twenty_one_days_later(): void
+    public function test_marking_the_message_sent_plans_no_follow_up_and_the_card_waits_for_their_answer(): void
     {
         $leads = app(SalesLeads::class);
         $lead = $leads->quickAdd(['name' => 'Nuri Bey', 'phone' => '0533 222 33 44'], $this->admin);
@@ -106,20 +105,17 @@ class SalesLeadsTest extends TestCase
         $lead = $lead->fresh();
         $this->assertSame('contacted', $lead->stage);
         $this->assertSame(1, $lead->followup_step);
-        $this->assertSame('2026-11-06', $lead->next_step_at->timezone('Europe/Istanbul')->toDateString());
+        // Satış Düzeni 2.3: no automatic 2 / 7 / 21 day step; the card waits and closes by itself after 21 silent days.
+        $this->assertNull($lead->next_step_at);
+        $this->assertTrue($lead->awaitsThem());
+        $this->assertSame('2026-11-25', $lead->silentCloseAt()->timezone('Europe/Istanbul')->toDateString());
         $this->assertSame(1, $lead->events()->where('kind', 'message_out')->count());
 
         $leads->markSent($lead, 'Aylık 12.000 TL + KDV.', $this->admin);
         $lead = $lead->fresh();
         $this->assertSame('contacted', $lead->stage, 'our own price does not move the card: the offer stage is the prospect\'s move');
         $this->assertSame(12000, $lead->offer_amount, 'the amount is still remembered');
-        $this->assertSame('2026-11-11', $lead->next_step_at->timezone('Europe/Istanbul')->toDateString());
-
-        $leads->markSent($lead, 'Üçüncü mesaj.', $this->admin);
-        $this->assertSame('2026-11-25', $lead->fresh()->next_step_at->timezone('Europe/Istanbul')->toDateString());
-
-        $leads->markSent($lead, 'Dördüncü.', $this->admin);
-        $this->assertSame(CarbonImmutable::parse('2026-11-04', 'Europe/Istanbul')->addDays(FollowUpSequence::QUARTER_DAYS)->toDateString(), $lead->fresh()->next_step_at->timezone('Europe/Istanbul')->toDateString(), 'then once a quarter');
+        $this->assertNull($lead->next_step_at);
     }
 
     public function test_a_whatsapp_chat_that_is_not_a_customers_opens_a_card_by_itself_and_their_answer_makes_it_due_today(): void
@@ -146,7 +142,8 @@ class SalesLeadsTest extends TestCase
         $this->assertSame('priced', $lead->stage);
         $this->assertSame(now()->subDays(4)->toDateString(), $lead->fresh()->created_at->toDateString(), 'the card counts from the chat\'s first message (Pazarlama counts the month by it)');
         $this->assertSame('5009998877', $lead->phone_key, 'phone key is the last ten digits');
-        $this->assertSame('2026-11-04', $lead->next_step_at->timezone('Europe/Istanbul')->toDateString(), 'a follow-up computed from an old message is due now, not in the past');
+        $this->assertNull($lead->next_step_at, 'we wrote last: no automatic follow-up, the card waits for their answer');
+        $this->assertTrue($lead->awaitsThem());
 
         // They write again: the observer moves the card to "answer today".
         WhatsAppMessage::query()->create(['conversation_id' => $conversation->id, 'message_id' => 'b3', 'direction' => 'incoming', 'message_type' => 'text', 'body' => 'Başlayalım', 'sent_at' => now()]);

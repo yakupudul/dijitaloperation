@@ -2262,6 +2262,12 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - Google bağlantı sayfası: "veri geliyor mu" tek yerden (`data_state` fresh/stale) okunur; veri gelirken "İlk veri çekimi bekleniyor" ve "Sonraki adım: veri çek" satırları çıkmaz.
 - Gelen kutusu 1536 pikselin altında liste ve kişi panelini daraltır; Akış satırında durum etiketi başlığın sütununu almaz.
 - Satış: okunamayan bir WhatsApp mesajının eskiden bıraktığı "sen yazacaksın" damgası saatlik `SalesTidy::sweep` turunda geri alınır (`SalesTidy::unreadableStamp`); tek seferlik veri düzeltmesi yok, kural kendini onarır.
+- Satış 1.3: "bugün yapılacak adım" tek kaynak `SalesLeads::due()` (ilgisiz ve arşiv yok, gün İstanbul saatiyle biter); Satış, Gelen kutusu, Takvim ve taslaklar bunu okur.
+- Satış 1.2: taslak paketi `analysis_sent_at` ve `research_unsure` taşır; analiz gönderilmiş adaya kimlik sorulmaz, araştırma emin değilse not bununla başlar (`resources/prompts/sales-reply.md`).
+- Satış 1.6: tabloda numara bir kez ve `PhoneNumber::pretty` biçiminde; "E-posta" ve "Kimden" sütunu yerine "Ne istiyor" (`draft_summary`) ve "Teklif"; kartta tek "Durum" (aşama bölümü "Görüşme aşaması").
+- Satış 1.1 eki: eski kuralla "Teklif verildi" olmuş sohbet kartları saatlik turda gerçek aşamasına döner (`SalesLeads::stageWithoutOurOwnPrice`).
+- Satış 2.3: bizim mesajımızdan sonra otomatik takip adımı yazılmaz (`FollowUpSequence::afterOurMessage` boş döner, eski `AUTO_STEPS` saatlik turda silinir). Kart "Cevap bekleniyor" gösterir, 21 gün sessiz kalırsa `SalesTidy::closeSilent` "Sessiz kaldı" diye kapatır; aday yazarsa kendiliğinden açılır. Müşteri, "Sonra" ve elle adım yazılmış kart kapanmaz.
+- Ajansın kendi marka sayfasında ticari şerit ("Anlaşma girilmedi", son temas) gösterilmez.
 
 yakup 2026-11-11: "tüm yol haritalarını şimdi yap". Beş yol haritasının (Marka, Satış, Günlük, Bağlantı, Pazarlama Düzeni)
 1. aşama düzeltmelerinden yapılanlar:

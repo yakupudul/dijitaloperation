@@ -709,7 +709,8 @@ final class SalesPage extends Component
             'acik' => fn (SalesLead $l): bool => true,
             'borclu' => fn (SalesLead $l): bool => $l->awaitsUs(),
             'bugun' => fn (SalesLead $l): bool => $l->isDue(),
-            'adimsiz' => fn (SalesLead $l): bool => $l->next_step_at === null,
+            // (A card waiting for their answer has no step on purpose: it is not "adımsız".)
+            'adimsiz' => fn (SalesLead $l): bool => $l->next_step_at === null && ! $l->awaitsThem(),
             'soguyan' => fn (SalesLead $l): bool => $l->stage !== 'later' && ($l->lastTouchAt() ?? $l->created_at)?->lt($cold) === true,
             'teklif' => fn (SalesLead $l): bool => $l->hasRealOffer(),
         ];
