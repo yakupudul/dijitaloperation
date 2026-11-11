@@ -198,7 +198,7 @@ final class WordPressConnectorPullTest extends TestCase
 
         $state = WordPressConnectorCommands::state($this->connection->fresh());
         $this->assertNull($state['seen_at']);
-        $this->assertStringContainsString('900 saniye geri', (string) $state['refusal']);
+        $this->assertMatchesRegularExpression('/90[0-2] saniye geri/u', (string) $state['refusal'], 'the clock may tick between signing and receiving');
     }
 
     public function test_an_answer_with_an_empty_body_is_still_accepted(): void
