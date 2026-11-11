@@ -30,16 +30,19 @@ final class ProviderWatch
             $config = is_array($integration->config) ? $integration->config : [];
             $expires = $config['refresh_token_expires_at'] ?? null;
             if ($expires === null) {
-                $expires = CoreIntegrationCredential::query()->where('integration_id', $integration->id)
-                    ->where('credential_type', CoreIntegrationCredential::TYPE_AUTHORIZATION)->value('expires_at');
+                // An access key that renews itself (it carries a refresh key) ends every hour and comes back: not a date to watch.
+                $credential = CoreIntegrationCredential::query()->where('integration_id', $integration->id)
+                    ->where('credential_type', CoreIntegrationCredential::TYPE_AUTHORIZATION)->orderByDesc('id')->first();
+                $expires = filled(((array) $credential?->encrypted_payload)['refresh_token'] ?? null) ? null : $credential?->expires_at;
             }
             $label = match ((string) $integration->provider) {
-                'google' => 'Google yetkisi', 'meta' => 'Meta yetkisi', default => ucfirst((string) $integration->provider).' yetkisi',
+                'google' => 'Google yetkisi', 'meta' => 'Meta yetkisi', 'openai' => 'OpenAI yetkisi', 'whatsapp' => 'WhatsApp yetkisi',
+                default => ucfirst(str_replace('_', ' ', (string) $integration->provider)).' yetkisi',
             };
             $url = match ((string) $integration->provider) {
                 'google' => route('operator.integrations.google'), 'meta' => route('operator.integrations.meta'), default => route('operator.integrations'),
             };
-            $rows[] = $this->row('auth:'.$integration->id, 'auth', $label.(filled($integration->name) ? ' · '.$integration->name : ''), $this->date($expires), self::AUTH_DAYS, $url,
+            $rows[] = $this->row('auth:'.$integration->id, 'auth', filled($integration->name) ? trim((string) $integration->name).' yetkisi' : $label, $this->date($expires), self::AUTH_DAYS, $url,
                 'Yetki süresiz ya da bitiş tarihi bildirilmemiş; koparsa Eksikler görünümüne düşer.', 'Yetki bitince veri çekimi durur. Yeniden bağlamak bir dakika sürer.', 'Yeniden bağla');
         }
         $sunsets = (array) config('provider-watch');

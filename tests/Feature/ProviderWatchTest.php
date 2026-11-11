@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Livewire\Operator\Integrations\ConnectionHealthPage;
 use App\Models\AgencySetting;
+use App\Models\CoreIntegration;
+use App\Models\CoreIntegrationCredential;
 use App\Models\User;
 use App\Services\DataStatus\ProviderWatch;
 use App\Support\Roles;
@@ -50,5 +52,19 @@ class ProviderWatchTest extends TestCase
         $this->assertSame('muted', $unknown['tone']);
         $this->assertStringContainsString('listede yok', $unknown['detail']);
         CarbonImmutable::setTestNow();
+    }
+
+    public function test_an_access_key_that_renews_itself_is_not_an_authorization_about_to_end(): void
+    {
+        $google = CoreIntegration::factory()->create(['provider' => 'google', 'name' => 'Google']);
+        CoreIntegrationCredential::factory()->create(['integration_id' => $google->id, 'credential_type' => 'authorization',
+            'encrypted_payload' => ['access_token' => 'a', 'refresh_token' => 'r'], 'expires_at' => now()->addHour()]);
+        $meta = CoreIntegration::factory()->create(['provider' => 'meta', 'name' => 'Meta']);
+        CoreIntegrationCredential::factory()->create(['integration_id' => $meta->id, 'credential_type' => 'authorization',
+            'encrypted_payload' => ['access_token' => 'a'], 'expires_at' => now()->addDays(3)]);
+
+        $rows = collect(app(ProviderWatch::class)->rows())->keyBy('name');
+        $this->assertSame('muted', $rows['Google yetkisi']['tone']);
+        $this->assertSame('warn', $rows['Meta yetkisi']['tone']);
     }
 }

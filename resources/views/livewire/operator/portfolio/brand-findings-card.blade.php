@@ -5,6 +5,10 @@
     $waiting = $live->where('status', 'waiting')->count();
     $inHand = $live->where('status', 'requested')->count();
     $short = \Illuminate\Support\Str::of($brand->name)->replaceMatches('/^(Özel|Dr\.?|Dt\.?|Op\.?|Uzm\.?)\s+/u', '')->explode(' ')->first();
+    // Turkish locative by the last vowel and last letter: Panorama'da, Demiderm'de, Dentocare'de, Moximu'da, Avrupadent'te.
+    preg_match_all('/[aıouAIOUeiöüEİÖÜ]/u', (string) $short, $vowels);
+    $lastVowel = (string) (end($vowels[0]) ?: 'e');
+    $in = (preg_match('/[çfhkpsştÇFHKPSŞT]$/u', (string) $short) === 1 ? 't' : 'd').(preg_match('/[aıouAIOU]/u', $lastVowel) === 1 ? 'a' : 'e');
     $day = fn ($at): string => $at ? $at->timezone('Europe/Istanbul')->locale('tr')->isoFormat('D MMMM') : '';
 @endphp
 {{-- Bulgular (Marka Düzeni 2.1 / 2.2): the approved brand page prototype. Nothing is drawn until the brand has had its first look. --}}
@@ -62,13 +66,13 @@ Senden: {{ $job['needs'] }}@endif</span>
                 <div class="min-w-0">
                     <h2 class="text-2xl font-semibold tracking-tight text-gray-900 sm:text-[28px] dark:text-white" data-brand-findings-head>
                         @if ($page['open'] > 0)
-                            {{ $short }}'de <span class="tabular-nums">{{ $page['open'] }}</span> bulgu çözülmeyi bekliyor
+                            {{ $short }}'{{ $in }} <span class="tabular-nums">{{ $page['open'] }}</span> bulgu çözülmeyi bekliyor
                         @elseif ($waiting > 0)
-                            {{ $short }}'de <span class="tabular-nums">{{ $waiting }}</span> iş onayını bekliyor
+                            {{ $short }}'{{ $in }} <span class="tabular-nums">{{ $waiting }}</span> iş onayını bekliyor
                         @elseif ($inHand > 0)
-                            {{ $short }}'de <span class="tabular-nums">{{ $inHand }}</span> bulgu Claude'da
+                            {{ $short }}'{{ $in }} <span class="tabular-nums">{{ $inHand }}</span> bulgu Claude'da
                         @else
-                            {{ $short }}'de açık bulgu yok
+                            {{ $short }}'{{ $in }} açık bulgu yok
                         @endif
                     </h2>
                     <p class="mt-1 text-sm text-gray-500">
