@@ -4,7 +4,10 @@ namespace App\Livewire\Demo;
 
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\CustomerContact;
 use App\Models\DigitalAsset;
+use App\Models\Reminder;
+use App\Models\SalesLead;
 use App\Models\Suggestion;
 use App\Services\Operator\KomutaReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
@@ -16,7 +19,8 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * Global search for the operator header (Ctrl / Cmd + K): panel pages, work waiting (a brand's decisions, a kind of
+ * Global search for the operator header (Ctrl / Cmd + K): panel pages, sales records (name, business, phone, site,
+ * note), contact people, open reminders and to-dos, work waiting (a brand's decisions, a kind of
  * work across brands, open desk rows by title), customers, brands and digital assets, and a last row that opens
  * Sorgular filtered by the same words. Turkish letters match either way ("implant" finds "İmplant"); arrow keys move.
  */
@@ -47,7 +51,7 @@ class GlobalSearch extends Component
                     $results[] = ['label' => $page['label'], 'meta' => __('operator.search.page'), 'url' => $page['url']];
                 }
             }
-            $results = [...$results, ...$this->work($needle)];
+            $results = [...$results, ...$this->people($needle), ...$this->work($needle)];
 
             Customer::query()
                 ->orderBy('name')
@@ -130,6 +134,53 @@ class GlobalSearch extends Component
     public static function fold(string $text): string
     {
         return Str::ascii(mb_strtolower(strtr($text, ['İ' => 'i', 'I' => 'ı'])));
+    }
+
+    /**
+     * Günlük Düzen 1.2: the people side of the panel. A sales record is found by its name, business, phone (digits
+     * only, so "0538 861" matches), site or a word in its note; a customer's contact person by name, phone or e-mail;
+     * an open reminder or to-do by its title or note.
+     *
+     * @return list<array{label: string, meta: string, url: string}>
+     */
+    private function people(string $needle): array
+    {
+        $out = [];
+        try {
+            $digits = preg_replace('/\D+/', '', $this->q) ?? '';
+            $digits = strlen($digits) >= 4 ? ltrim($digits, '0') : '';
+            $hit = fn (string ...$texts): bool => str_contains(self::fold(implode(' ', $texts)), $needle);
+            $phoneHit = fn (?string $phone): bool => $digits !== '' && str_contains(preg_replace('/\D+/', '', (string) $phone) ?? '', $digits);
+            $found = 0;
+            foreach (SalesLead::query()->latest('id')->limit(3000)->get(['id', 'name', 'company', 'city', 'phone', 'phone_key', 'website_host', 'stage', 'notes']) as $lead) {
+                $byNote = false;
+                if (! $hit((string) $lead->name, (string) $lead->company, (string) $lead->website_host) && ! $phoneHit($lead->phone) && ! $phoneHit($lead->phone_key)
+                    && ! ($byNote = mb_strlen($needle) >= 3 && $hit((string) $lead->notes))) {
+                    continue;
+                }
+                $label = trim((string) ($lead->company ?: $lead->name)) ?: (string) ($lead->website_host ?: $lead->phone ?: 'Adsız kayıt');
+                $meta = array_filter([$lead->company && $lead->name ? (string) $lead->name : null, $lead->city, SalesLead::STAGES[$lead->stage] ?? null, $byNote ? 'notunda geçiyor' : null]);
+                $out[] = ['label' => $label, 'meta' => 'Satış · '.implode(', ', $meta), 'url' => route('operator.sales.lead', ['lead' => $lead->id])];
+                if (++$found >= 5) {
+                    break;
+                }
+            }
+            CustomerContact::query()->with('customer:id,name')->orderBy('name')->limit(2000)->get()->filter(fn (CustomerContact $c): bool => $hit((string) $c->name, (string) $c->email) || $phoneHit($c->phone))
+                ->take(3)->each(function (CustomerContact $c) use (&$out): void {
+                    $out[] = ['label' => (string) $c->name, 'meta' => 'Kişi · '.($c->customer?->name ?? '—'), 'url' => route('operator.customer', ['customerId' => $c->customer_id])];
+                });
+            if (mb_strlen($needle) >= 3) {
+                Reminder::query()->whereNull('done_at')->latest('id')->limit(1000)->get(['id', 'title', 'notes', 'remind_at'])
+                    ->filter(fn (Reminder $r): bool => $hit((string) $r->title, (string) $r->notes))->take(3)->each(function (Reminder $r) use (&$out): void {
+                        $out[] = ['label' => Str::limit((string) $r->title, 70), 'meta' => 'Hatırlatma · '.($r->remind_at !== null ? $r->remind_at->timezone('Europe/Istanbul')->format('d.m.Y H:i') : 'tarihsiz'),
+                            'url' => route('operator.calendar')];
+                    });
+            }
+        } catch (Throwable $error) {
+            report($error);
+        }
+
+        return $out;
     }
 
     /**

@@ -11,7 +11,10 @@ use App\Models\BrandConversionSource;
 use App\Models\BrandTarget;
 use App\Models\DigitalAsset;
 use App\Models\Page;
+use App\Models\Reminder;
+use App\Models\SalesLead;
 use App\Models\Suggestion;
+use App\Models\User;
 use App\Models\WorkBatch;
 use App\Services\Goals\BrandTargets;
 use App\Services\Goals\TargetImpact;
@@ -224,6 +227,18 @@ final class KomutaTest extends SiteTestCase
         Livewire::test(GlobalSearch::class)->set('q', 'başlığı')->assertSee('İmplant sayfasının başlığı')->assertSee('Açık iş · Panorama Ankara');
         Livewire::test(GlobalSearch::class)->set('q', 'portf')->assertSee(route('operator.portfolio'));
         $this->assertSame('isik implant', GlobalSearch::fold('IŞIK İmplant'));
+    }
+
+    public function test_search_finds_sales_records_contact_people_and_open_reminders(): void
+    {
+        $lead = SalesLead::query()->create(['name' => 'Şaban Yıldız', 'company' => 'Işık Diş', 'phone' => '0538 861 02 88', 'phone_key' => '5388610288', 'stage' => 'talking', 'source' => 'whatsapp', 'notes' => 'Eşi muhasebeci, cumaları arar']);
+        Reminder::query()->create(['user_id' => auth()->id() ?? User::query()->value('id'), 'kind' => 'task', 'title' => 'Vergi levhasını gönder', 'remind_at' => null]);
+        Reminder::query()->create(['user_id' => auth()->id() ?? User::query()->value('id'), 'kind' => 'task', 'title' => 'Vergi dairesi bitti', 'done_at' => now()]);
+
+        Livewire::test(GlobalSearch::class)->set('q', 'isik dis')->assertSee('Işık Diş')->assertSee('Konuşuluyor')->assertSee(route('operator.sales.lead', ['lead' => $lead->id]));
+        Livewire::test(GlobalSearch::class)->set('q', '538 861')->assertSee('Işık Diş');
+        Livewire::test(GlobalSearch::class)->set('q', 'muhasebeci')->assertSee('notunda geçiyor');
+        Livewire::test(GlobalSearch::class)->set('q', 'vergi')->assertSee('Vergi levhasını gönder')->assertDontSee('Vergi dairesi bitti');
     }
 
     public function test_komuta_is_home_and_bugun_stays_one_click_away(): void
