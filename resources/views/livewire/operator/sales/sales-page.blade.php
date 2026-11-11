@@ -205,10 +205,10 @@
                     </div>
                 </div>
             @else
-            @php $grid = 'lg:grid-cols-[minmax(0,2fr)_9.5rem_minmax(0,1.3fr)_8rem_minmax(0,1.7fr)_7rem_minmax(0,1.2fr)_5.5rem]'; @endphp
+            @php $grid = 'lg:grid-cols-[minmax(0,2fr)_9.5rem_minmax(0,1.6fr)_8rem_minmax(0,1.6fr)_7rem_6rem_5.5rem]'; @endphp
             <div class="card mt-3 overflow-visible" data-sales-table>
                 <div class="hidden gap-3 border-b border-gray-200 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 lg:grid {{ $grid }} dark:border-gray-800">
-                    <span>Müşteri adı</span><span>WhatsApp</span><span>E-posta</span><span>Durum</span><span>Yapılacak</span><span>Kaynak</span><span>Kimden</span><span></span>
+                    <span>Müşteri adı</span><span>WhatsApp</span><span>Ne istiyor</span><span>Durum</span><span>Yapılacak</span><span>Kaynak</span><span>Teklif</span><span></span>
                 </div>
                 <div class="divide-y divide-gray-200 dark:divide-gray-800">
                     @forelse ($list as $lead)
@@ -226,12 +226,16 @@
                             $st = $lead->status();
                             $stChip = ['devam' => 'chip-flat', 'guclu' => 'chip-accent', 'kararsiz' => 'chip-flat', 'olumsuz' => 'chip-down', 'aday_degil' => 'chip-flat', 'musteri' => 'chip-up'][$st];
                             $via = $lead->cameViaLabel();
+                            // Satış Düzeni 1.6: the number is written once (never as the name too), in one shape.
+                            $named = filled($lead->name) || filled($lead->company) || filled($lead->website_host);
+                            $phoneText = \App\Support\Sales\PhoneNumber::pretty($lead->phone) ?? $lead->phone;
+                            $wants = filled($lead->draft_summary) ? (string) $lead->draft_summary : trim((string) data_get($lead->origin, 'service'));
                         @endphp
                         <div wire:key="lead-{{ $lead->id }}" class="grid grid-cols-1 gap-x-3 gap-y-1.5 px-4 py-3 {{ $grid }} lg:items-center lg:py-2.5" data-sales-lead="{{ $lead->id }}">
                             {{-- Müşteri adı: the name (WhatsApp profile, or found by Claude in the messages); empty stays empty. --}}
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate @class(['truncate text-sm font-semibold hover:underline', 'text-gray-900 dark:text-white' => filled($lead->name) || filled($lead->company), 'text-gray-400' => ! filled($lead->name) && ! filled($lead->company)])>{{ $lead->title() }}</a>
+                                    <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate @class(['truncate text-sm font-semibold hover:underline', 'text-gray-900 dark:text-white' => filled($lead->name) || filled($lead->company), 'text-gray-400' => ! filled($lead->name) && ! filled($lead->company)])>{{ $named ? $lead->title() : 'İsimsiz' }}</a>
                                     @if ($ours)<span class="chip chip-down shrink-0" title="Son mesaj onlardan" data-sales-ball>Sende{{ $waitDays ? ' · '.$waitDays.' g' : '' }}</span>@endif
                                     <span class="chip {{ $stChip }} lg:hidden">{{ $lead->statusLabel() }}</span>
                                 </div>
@@ -243,16 +247,16 @@
                             {{-- WhatsApp --}}
                             <div class="min-w-0 text-[13px] tabular-nums">
                                 @if ($wa !== null)
-                                    <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="text-gray-700 hover:underline dark:text-gray-300" data-sales-wa>{{ $lead->phone }}</a>
+                                    <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="text-gray-700 hover:underline dark:text-gray-300" data-sales-wa>{{ $phoneText }}</a>
                                 @elseif (filled($lead->phone))
                                     <span class="text-error-600" title="{{ $lead->phoneIssue() }}" data-sales-phone-issue>{{ $lead->phone }} · hatalı</span>
                                 @else
                                     <span class="text-gray-400">–</span>
                                 @endif
                             </div>
-                            {{-- E-posta --}}
-                            <div class="min-w-0 truncate text-[13px]">
-                                @if (filled($lead->email))<a href="mailto:{{ $lead->email }}" class="text-gray-700 hover:underline dark:text-gray-300">{{ $lead->email }}</a>@else<span class="text-gray-400">–</span>@endif
+                            {{-- Ne istiyor: the one-line state Claude read from the conversation, or what the form asked for. --}}
+                            <div class="min-w-0 text-[13px]" data-sales-wants>
+                                @if ($wants !== '')<p class="line-clamp-2 text-gray-700 dark:text-gray-300" title="{{ $wants }}">{{ $wants }}</p>@else<span class="hidden text-gray-400 lg:inline">–</span>@endif
                             </div>
                             {{-- Durum (+ Claude's suggestion to mark a strong prospect) --}}
                             <div class="hidden lg:block">
@@ -286,10 +290,11 @@
                             <div class="min-w-0 text-[12px] text-gray-500">
                                 <span class="block truncate">{{ $source }}</span>
                                 @if ($heard && $heard !== $source && $lead->heard_from !== 'referral')<span class="block truncate text-gray-400">{{ $heard }}</span>@endif
+                                @if ($via !== '')<button type="button" wire:click="openDialog('from', {{ $lead->id }})" class="block max-w-full truncate text-left text-gray-400 hover:underline" data-sales-from>{{ $via }}</button>@endif
                             </div>
-                            {{-- Kimden --}}
-                            <div class="min-w-0 text-[12px]" data-sales-from>
-                                <button type="button" wire:click="openDialog('from', {{ $lead->id }})" @class(['block max-w-full truncate text-left hover:underline', 'text-gray-700 dark:text-gray-300' => $via !== '', 'text-gray-400' => $via === ''])>{{ $via !== '' ? $via : 'Seç' }}</button>
+                            {{-- Teklif: the amount on the table (Kimden moved under Kaynak and stays in the ⋯ menu). --}}
+                            <div class="min-w-0 text-[13px] tabular-nums" data-sales-offer-cell>
+                                <button type="button" wire:click="openDialog('offer', {{ $lead->id }})" @class(['block max-w-full truncate text-left hover:underline', 'font-semibold text-gray-900 dark:text-white' => (int) $lead->offer_amount > 0, 'hidden text-gray-400 lg:block' => (int) $lead->offer_amount <= 0])>{{ (int) $lead->offer_amount > 0 ? $n($lead->offer_amount).' ₺' : '–' }}</button>
                             </div>
                             {{-- ⋯ --}}
                             <div class="flex items-center gap-1 lg:justify-end">
@@ -322,6 +327,7 @@
                                         <div class="my-1 border-t border-gray-100 dark:border-gray-800"></div>
                                         <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="block px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5">Kartı aç</a>
                                         @if ($wa !== null)<a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="block px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5">WhatsApp'ta aç</a>@endif
+                                        @if (filled($lead->email))<a href="mailto:{{ $lead->email }}" class="block truncate px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-white/5" data-sales-mail>{{ $lead->email }}</a>@endif
                                     </div>
                                 </div>
                             </div>

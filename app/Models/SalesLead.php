@@ -229,7 +229,7 @@ class SalesLead extends Model
     /** What the card is called in lists: the person, else the business, else the phone or site. */
     public function title(): string
     {
-        foreach ([$this->name, $this->company, $this->website_host, $this->phone] as $candidate) {
+        foreach ([$this->name, $this->company, $this->website_host, PhoneNumber::pretty($this->phone) ?? $this->phone] as $candidate) {
             if (filled($candidate)) {
                 return (string) $candidate;
             }

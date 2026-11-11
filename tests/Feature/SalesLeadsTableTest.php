@@ -163,4 +163,19 @@ class SalesLeadsTableTest extends TestCase
         $this->assertNull(SalesLeads::greetedName('Hocam merhaba, ben Moximu\'dan Yakup.'));
         $this->assertNull(SalesLeads::greetedName('Merhaba, mesajınız için teşekkürler.'));
     }
+
+    public function test_the_table_writes_the_number_once_and_shows_what_they_want_and_the_offer(): void
+    {
+        $leads = app(SalesLeads::class);
+        $nameless = $leads->quickAdd(['phone' => '0536 598 67 51'], $this->admin);
+        $nameless->forceFill(['phone' => '+90 +90 536 598 67 51', 'draft_summary' => 'Harita kaydı için fiyat sordu.', 'offer_amount' => 14000])->save();
+
+        $html = Livewire::test(SalesPage::class)->set('tab', 'adaylar')->html();
+        $this->assertStringContainsString('İsimsiz', $html);
+        $this->assertSame(1, substr_count($html, '>+90 536 598 67 51<'), 'the number is written once, in one shape');
+        $this->assertStringNotContainsString('+90 +90', $html);
+        $this->assertStringContainsString('Harita kaydı için fiyat sordu.', $html);
+        $this->assertStringContainsString('Ne istiyor', $html);
+        $this->assertStringNotContainsString('E-posta</span>', $html);
+    }
 }
