@@ -25,6 +25,16 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasRoles, Notifiable;
 
+    protected static function booted(): void
+    {
+        // A row saved without a language takes the installation's (the column's own default is a blind 'en').
+        static::creating(function (self $model): void {
+            if (! filled($model->locale)) {
+                $model->locale = \App\Support\Operator\AgencySettingCatalog::appDefaultLocale();
+            }
+        });
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
         if (! $this->is_active) {
