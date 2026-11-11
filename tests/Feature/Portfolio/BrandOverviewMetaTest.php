@@ -8,12 +8,14 @@ use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\DigitalAsset;
+use App\Services\Marketing\MarketingFunnel;
 use App\Services\Meta\MetaScreen;
 use App\Services\MetaAds\MetaAdsSpecialistBindingResolver;
 use App\Support\Integrations\Meta\MetaResourceType;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Support\SeedsMetaAccount;
@@ -34,6 +36,19 @@ final class BrandOverviewMetaTest extends TestCase
         $this->seed(RoleAndPermissionSeeder::class);
         $this->seedMetaAccount();
         $this->actingAs($this->admin);
+    }
+
+    public function test_the_agency_brand_page_shows_the_marketing_counter_not_a_second_one(): void
+    {
+        $this->brand->update(['name' => 'Başka Marka']);
+        \Illuminate\Support\Facades\Cache::forget('demo-menu.agency-brand');
+        Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->assertDontSeeHtml('data-own-goal');
+
+        $this->brand->update(['name' => 'Moximu']);
+        Cache::forget('demo-menu.agency-brand');
+        $own = Livewire::test(BrandPagePanel::class, ['brandId' => $this->brand->id])->assertSeeHtml('data-own-goal')->assertSeeHtml(route('operator.marketing'))->viewData('own');
+        $this->assertSame(array_sum(MarketingFunnel::DEFAULT_TARGETS), $own['target']);
+        $this->assertSame(0, $own['counted']);
     }
 
     public function test_meta_spend_and_results_are_ad_kpis_with_change(): void

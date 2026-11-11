@@ -4,9 +4,12 @@ namespace App\Livewire\Operator\Portfolio;
 
 use App\Jobs\ApproveKomutaGroupJob;
 use App\Models\Brand;
+use App\Services\Marketing\MarketingFunnel;
 use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\BrandPageReader;
+use App\Support\Demo\DemoMenu;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Locked;
@@ -68,8 +71,22 @@ final class BrandPagePanel extends Component
         } catch (Throwable $error) {
             report($error);
         }
+        // Pazarlama Düzeni 1.1: the agency's own brand has one target counter, the one on Pazarlama (applications from the
+        // sales records); what the site and profiles measured (clicks, calls) is shown under it as measured touches.
+        $own = null;
+        try {
+            if ((int) (DemoMenu::agencyBrand()['id'] ?? 0) === (int) $brand->id) {
+                $funnel = app(MarketingFunnel::class);
+                $month = CarbonImmutable::now(MarketingFunnel::TZ)->startOfMonth();
+                $totals = $funnel->funnel($month)['totals'];
+                $own = ['counted' => (int) $totals['counted'], 'target' => (int) $totals['target'], 'expected' => $funnel->pace($month, (int) $totals['target'])['expected'],
+                    'measured' => (int) round((float) ($goal['goal']['mtd'] ?? 0))];
+            }
+        } catch (Throwable $error) {
+            report($error);
+        }
 
-        return view('livewire.operator.portfolio.brand-page-panel', ['brand' => $brand, 'goal' => $goal, 'kpis' => $kpis, 'cards' => $cards,
+        return view('livewire.operator.portfolio.brand-page-panel', ['brand' => $brand, 'goal' => $goal, 'kpis' => $kpis, 'cards' => $cards, 'own' => $own,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN)]);
     }
 }

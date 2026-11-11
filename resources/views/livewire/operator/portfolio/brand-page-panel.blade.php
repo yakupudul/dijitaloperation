@@ -10,7 +10,18 @@
 @endphp
 {{-- Marka sayfası (Aşama 6, prototype approved 2026-10-22): the goal on top, one card per channel under it. --}}
 <div class="space-y-6" data-brand-page>
-    @if ($goal !== null)
+    @if (($own ?? null) !== null)
+        <section class="hero-panel" data-brand-goal data-own-goal>
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <p class="hero-label">{{ $monthName }} hedefi, ayda {{ $n($own['target']) }} başvuru (satış kayıtlarından)</p>
+                    <p class="mt-2 flex items-baseline gap-2 text-white"><span class="text-4xl font-semibold tabular-nums" data-goal-mtd>{{ $n($own['counted']) }}</span><span class="text-white/60">/ {{ $n($own['target']) }} başvuru</span></p>
+                    <p class="mt-1 text-sm text-white/60">@if ($own['expected'] !== null)Bugüne kadar beklenen {{ $n($own['expected']) }}. @endif Sitede ve profillerde ölçülen dokunuş (tıklama, arama) {{ $n($own['measured']) }}; bunlar başvuru sayılmaz.</p>
+                </div>
+                <a href="{{ route('operator.marketing') }}" wire:navigate class="text-sm text-white/80 underline decoration-white/30 underline-offset-4 hover:text-white">Pazarlama'da aç</a>
+            </div>
+        </section>
+    @elseif ($goal !== null)
         <section class="hero-panel" data-brand-goal>
             @if ($p['state'] === 'no_goal')
                 <p class="hero-label">{{ $monthName }} amacı</p>
