@@ -3,6 +3,7 @@
 namespace App\Services\WhatsApp\Backup;
 
 use App\Jobs\WhatsApp\ExtractWhatsAppBackup;
+use App\Jobs\WhatsApp\FillLiveFromBackup;
 use App\Models\CoreIntegration;
 use App\Models\SalesLead;
 use App\Models\User;
@@ -524,6 +525,9 @@ final class WhatsAppBackupImporter
         }
         $stats['skipped_groups'] = (int) ($skipped['groups'] ?? 0);
         $stats['snapshot_at'] = $latest > 0 ? CarbonImmutable::createFromTimestampMsUTC($latest)->toIso8601String() : null;
+        if (self::fillsLive($line)) {
+            $stats['live_filled'] = $this->copyToLive($line)['messages'];
+        }
         if (! $line->active) {
             return $stats;
         }
@@ -615,6 +619,124 @@ final class WhatsAppBackupImporter
 
             return [$created, count($rows)];
         });
+    }
+
+    /** message_id prefix of a backup message copied into a live chat; the copy is found (and removed) by it. */
+    public const LIVE_COPY = 'bk';
+
+    /**
+     * "Canlı sohbetlere ekle" (yakup 2026-11-11): Meta's one-time history sync came in while MoxDOP still dropped the
+     * business's own history messages, and Meta does not send it again. A phone backup holds both sides, so its messages
+     * are copied into the live chat of the same number, skipping what the live chat already has (same side, same text,
+     * within two minutes). Copies are marked (message_id "bk{line}:…"), so a second run adds only new ones and
+     * clearLive() takes them out again. The row is remembered: a newer backup of it fills the live chats by itself.
+     * The copy runs on the heavy queue (FillLiveFromBackup); its counts land in config.live_fill_result.
+     */
+    public function fillLive(User $user, int $lineId): void
+    {
+        $this->connection->authorize($user);
+        $line = WhatsAppBackupLine::query()->findOrFail($lineId);
+        $this->updateConfig(function (array $config) use ($line): array {
+            $config['live_fill_lines'] = array_values(array_unique([...array_map('intval', (array) ($config['live_fill_lines'] ?? [])), $line->id]));
+
+            return $config;
+        });
+
+        FillLiveFromBackup::dispatch($line->id);
+    }
+
+    /** "Canlı sohbetlerden çıkar": the copies of this row leave the live chats; the backup itself stays. */
+    public function clearLive(User $user, int $lineId): int
+    {
+        $this->connection->authorize($user);
+        $line = WhatsAppBackupLine::query()->findOrFail($lineId);
+        $this->updateConfig(function (array $config) use ($line): array {
+            $config['live_fill_lines'] = array_values(array_diff(array_map('intval', (array) ($config['live_fill_lines'] ?? [])), [$line->id]));
+
+            return $config;
+        });
+
+        $this->updateConfig(function (array $config) use ($line): array {
+            unset($config['live_fill_result'][(string) $line->id]);
+
+            return $config;
+        });
+
+        return WhatsAppMessage::query()->where('message_id', 'like', self::LIVE_COPY.$line->id.':%')->delete();
+    }
+
+    public static function fillsLive(WhatsAppBackupLine $line): bool
+    {
+        $config = (array) (CoreIntegration::query()->where('provider', WhatsAppConnection::PROVIDER)->first()?->config ?? []);
+
+        return in_array($line->id, array_map('intval', (array) ($config['live_fill_lines'] ?? [])), true);
+    }
+
+    /** @return array{chats: int, messages: int} */
+    public function copyToLive(WhatsAppBackupLine $line): array
+    {
+        $stats = ['chats' => 0, 'messages' => 0];
+        $inbox = CoreIntegration::query()->where('provider', WhatsAppConnection::PROVIDER)->first();
+        if ($inbox === null) {
+            return $stats;
+        }
+        $live = WhatsAppConversation::query()->where('integration_id', $inbox->id)
+            ->where('phone_number_id', '!=', self::LINE)->where('phone_number_id', 'not like', 'backup%')->get()
+            ->filter(fn (WhatsAppConversation $c): bool => ctype_digit((string) $c->contact_id) && strlen((string) $c->contact_id) >= 10)
+            ->keyBy(fn (WhatsAppConversation $c): string => substr((string) $c->contact_id, -10));
+        if ($live->isEmpty()) {
+            return $stats;
+        }
+        $prefix = self::LIVE_COPY.$line->id.':';
+        foreach ($line->conversations()->get() as $source) {
+            $digits = preg_replace('/\D+/', '', (string) $source->contact_id) ?? '';
+            $target = strlen($digits) >= 10 ? $live->get(substr($digits, -10)) : null;
+            if ($target === null) {
+                continue;
+            }
+            $added = DB::transaction(function () use ($source, $target, $prefix): int {
+                $target = WhatsAppConversation::query()->lockForUpdate()->findOrFail($target->id);
+                $have = [];
+                foreach (WhatsAppMessage::query()->where('conversation_id', $target->id)->get(['message_id', 'direction', 'body', 'sent_at']) as $m) {
+                    $have['id:'.$m->message_id] = true;
+                    $have[$m->direction.'|'.$this->fingerprint((string) $m->body)][] = $m->sent_at?->getTimestamp() ?? 0;
+                }
+                $rows = [];
+                $now = now();
+                foreach (WhatsAppMessage::query()->where('conversation_id', $source->id)->orderBy('sent_at')->get() as $m) {
+                    $id = $prefix.$m->message_id;
+                    $key = $m->direction.'|'.$this->fingerprint((string) $m->body);
+                    $at = $m->sent_at?->getTimestamp() ?? 0;
+                    if (isset($have['id:'.$id]) || collect($have[$key] ?? [])->contains(fn (int $t): bool => abs($t - $at) <= 120)) {
+                        continue;
+                    }
+                    $have['id:'.$id] = true;
+                    $have[$key][] = $at;
+                    $rows[] = [
+                        'conversation_id' => $target->id, 'message_id' => $id, 'direction' => $m->direction, 'message_type' => $m->message_type,
+                        'body' => Crypt::encryptString((string) $m->body), 'is_history' => true, 'sent_at' => $m->sent_at,
+                        'created_at' => $now, 'updated_at' => $now,
+                    ];
+                }
+                foreach (array_chunk($rows, self::BATCH) as $batch) {
+                    WhatsAppMessage::query()->insert($batch);
+                }
+                if ($rows !== []) {
+                    $target->update(['revision' => $target->revision + 1]);
+                }
+
+                return count($rows);
+            });
+            $stats['chats'] += $added > 0 ? 1 : 0;
+            $stats['messages'] += $added;
+        }
+
+        return $stats;
+    }
+
+    private function fingerprint(string $body): string
+    {
+        return md5(mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $body))));
     }
 
     /** Removes an upload that will not be extracted. */

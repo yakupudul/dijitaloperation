@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Ai\Agents\WhatsAppBrainAgent;
 use App\Ai\Agents\WhatsAppReplyAgent;
 use App\Jobs\WhatsApp\ExtractWhatsAppBackup;
+use App\Jobs\WhatsApp\FillLiveFromBackup;
 use App\Jobs\WhatsApp\GenerateWhatsAppSuggestion;
 use App\Jobs\WhatsApp\LearnWhatsAppBrain;
 use App\Livewire\Operator\WhatsApp\Inbox;
@@ -787,5 +788,37 @@ final class WhatsAppBackupImportTest extends TestCase
         $this->assertFalse($line->fresh()->active);
         Livewire::test(Inbox::class)->set('tab', 'inbox')->assertSee('+905449998877')->assertSee('Canlı Ayşe');
         $this->assertSame($liveChat->id, $lead->fresh()->conversation_id);
+    }
+
+    public function test_a_backup_fills_the_live_chats_with_the_own_messages_meta_did_not_give(): void
+    {
+        $this->actingAs($this->admin);
+        $inbox = CoreIntegration::factory()->create(['provider' => 'whatsapp', 'status' => CoreIntegration::STATUS_ACTIVE, 'config' => ['phone_number_id' => 'PN1', 'waba_id' => 'W1', 'business_phone' => '905388610288', 'enabled' => true]]);
+        $line = WhatsAppBackupLine::query()->create(['name' => 'Moximu telefon', 'active' => false]);
+        $archive = WhatsAppBackupLine::archive();
+        $source = WhatsAppConversation::query()->create(['integration_id' => $archive->id, 'phone_number_id' => $line->conversationLine(), 'contact_id' => '905321112233', 'last_message_at' => now()->subDays(20)]);
+        $live = WhatsAppConversation::query()->create(['integration_id' => $inbox->id, 'phone_number_id' => 'PN1', 'contact_id' => '905321112233', 'last_message_at' => now()]);
+        $at = Carbon::parse('2026-10-01 10:00:00');
+        WhatsAppMessage::query()->create(['conversation_id' => $live->id, 'message_id' => 'wamid.1', 'direction' => 'incoming', 'message_type' => 'text', 'body' => 'Merhaba, fiyat alabilir miyim?', 'is_history' => true, 'sent_at' => $at]);
+        WhatsAppMessage::query()->create(['conversation_id' => $source->id, 'message_id' => 'b1', 'direction' => 'incoming', 'message_type' => 'text', 'body' => 'Merhaba,  fiyat alabilir miyim?', 'is_history' => true, 'sent_at' => $at->copy()->addSeconds(40)]);
+        WhatsAppMessage::query()->create(['conversation_id' => $source->id, 'message_id' => 'b2', 'direction' => 'outgoing', 'message_type' => 'text', 'body' => 'Merhaba, aylık 14.000 TL + KDV.', 'is_history' => true, 'sent_at' => $at->copy()->addMinutes(5)]);
+
+        Queue::fake();
+        Livewire::test(Inbox::class)->set('tab', 'setup')->call('fillLiveFromBackup', $line->id)->assertHasNoErrors();
+        Queue::assertPushed(FillLiveFromBackup::class);
+        (new FillLiveFromBackup($line->id))->handle(app(WhatsAppBackupImporter::class));
+
+        $bodies = WhatsAppMessage::query()->where('conversation_id', $live->id)->orderBy('sent_at')->get()->map(fn (WhatsAppMessage $m): string => $m->direction.':'.$m->body)->all();
+        $this->assertSame(['incoming:Merhaba, fiyat alabilir miyim?', 'outgoing:Merhaba, aylık 14.000 TL + KDV.'], $bodies, 'the own reply comes in, the same customer message is not doubled');
+        $this->assertTrue(WhatsAppBackupImporter::fillsLive($line));
+        $this->assertSame(1, data_get($inbox->fresh()->config, 'live_fill_result.'.$line->id.'.messages'));
+
+        // Again: nothing doubles. Then it can be taken out; the backup stays.
+        app(WhatsAppBackupImporter::class)->copyToLive($line);
+        $this->assertSame(2, WhatsAppMessage::query()->where('conversation_id', $live->id)->count());
+        Livewire::test(Inbox::class)->set('tab', 'setup')->call('clearLiveFromBackup', $line->id);
+        $this->assertSame(1, WhatsAppMessage::query()->where('conversation_id', $live->id)->count());
+        $this->assertSame(2, WhatsAppMessage::query()->where('conversation_id', $source->id)->count());
+        $this->assertFalse(WhatsAppBackupImporter::fillsLive($line));
     }
 }

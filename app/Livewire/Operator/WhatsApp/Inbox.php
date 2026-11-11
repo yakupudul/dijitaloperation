@@ -297,6 +297,22 @@ class Inbox extends Component
         $this->notice = $line === null ? 'Gelen kutusunda artık canlı numaranın görüşmeleri var; yedekler, anahtarları ve Excel\'leri silinmedi.' : 'Gelen kutusunda artık bu yedeğin görüşmeleri var. Beyin bu görüşmelerden yeniden öğreniyor.';
     }
 
+    /** "Canlı sohbetlere ekle": the backup's messages (both sides) fill the live chats of the same numbers. */
+    public function fillLiveFromBackup(int $line, WhatsAppBackupImporter $importer): void
+    {
+        $this->resetValidation();
+        $importer->fillLive(auth()->user(), $line);
+        $this->notice = 'Yedekteki mesajlar canlı sohbetlere ekleniyor; birkaç dakika sürer. Bu yedeğe sonra yüklenen dosyalar da kendiliğinden eklenir.';
+    }
+
+    /** "Canlı sohbetlerden çıkar": the copies leave the live chats; the backup stays. */
+    public function clearLiveFromBackup(int $line, WhatsAppBackupImporter $importer): void
+    {
+        $this->resetValidation();
+        $count = $importer->clearLive(auth()->user(), $line);
+        $this->notice = $count.' kopya mesaj canlı sohbetlerden çıkarıldı; yedek duruyor.';
+    }
+
     /** "Yedek ekle": a named row; its file and key are added on the row. */
     public function createBackupLine(string $name, WhatsAppBackupImporter $importer): bool
     {
@@ -787,6 +803,8 @@ class Inbox extends Component
             'current' => $importer->current($line->id),
             'key_hint' => self::keyHint($importer->savedKey($line->id)),
             'conversations' => $line->conversations()->count(),
+            'fills_live' => WhatsAppBackupImporter::fillsLive($line),
+            'live_result' => data_get(CoreIntegration::query()->where('provider', WhatsAppConnection::PROVIDER)->first()?->config, 'live_fill_result.'.$line->id),
         ])->all();
     }
 

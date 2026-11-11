@@ -38,7 +38,7 @@
                 </div>
             </div>
         @endif
-        @foreach($backupLines as ['line' => $line, 'import' => $lineImport, 'current' => $lineCurrent, 'key_hint' => $lineKeyHint, 'conversations' => $lineChats])
+        @foreach($backupLines as ['line' => $line, 'import' => $lineImport, 'current' => $lineCurrent, 'key_hint' => $lineKeyHint, 'conversations' => $lineChats, 'fills_live' => $lineFillsLive, 'live_result' => $lineLiveResult])
             @php
                 $lineBusy = $lineImport?->isBusy() ?? false;
                 $lineStats = $lineImport?->stats ?? [];
@@ -51,6 +51,7 @@
                             @if($line->active)<span class="ml-1.5 inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/15 dark:text-success-300"><span class="h-1.5 w-1.5 rounded-full bg-success-500" aria-hidden="true"></span>Görüşmelerde gösteriliyor</span>@endif
                         </p>
                         <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ $lineHas || $lineChats > 0 ? $lineChats.' görüşme' : 'Henüz yedek yüklenmedi: dosyayı seçin, sonra bu yedeğin 64 haneli anahtarını girin.' }}</p>
+                        @if($lineFillsLive)<p class="mt-0.5 text-[13px] text-success-700 dark:text-success-300" data-wa-backup-live>Canlı sohbetleri tamamlıyor{{ is_array($lineLiveResult) ? ': '.($lineLiveResult['messages'] ?? 0).' mesaj, '.($lineLiveResult['chats'] ?? 0).' sohbete eklendi' : ' (ekleniyor…)' }}</p>@endif
                     </div>
                     <div class="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
                         @if($line->active)
@@ -66,6 +67,11 @@
                         @endif
                         @if($lineChats > 0)
                             <a href="{{ route('operator.whatsapp.export', ['line' => $line->id]) }}" class="btn" data-wa-backup-excel>Excel indir</a>
+                            @if($lineFillsLive)
+                                <button type="button" wire:click="clearLiveFromBackup({{ $line->id }})" wire:confirm="Bu yedekten canlı sohbetlere eklenen mesajlar çıkarılsın mı? Yedeğin kendisi silinmez." class="btn-quiet" data-wa-backup-unfill>Canlı sohbetlerden çıkar</button>
+                            @elseif(! $lineBusy)
+                                <button type="button" wire:click="fillLiveFromBackup({{ $line->id }})" wire:confirm="Bu yedekteki mesajlar (sizin gönderdikleriniz dahil) aynı numaranın canlı sohbetine eklensin mi? Canlı sohbette zaten olan mesaj tekrar eklenmez. Bu yedek bu WhatsApp numarasına ait olmalı." class="btn" data-wa-backup-fill>Canlı sohbetlere ekle</button>
+                            @endif
                         @endif
                         @unless($lineBusy)
                             <button type="button" wire:click="deleteBackupLine({{ $line->id }})" wire:confirm="&quot;{{ $line->name }}&quot; yedeği, görüşmeleri, dosyası ve anahtarıyla silinsin mi? Bu geri alınamaz." class="btn-quiet">Sil</button>
