@@ -63,7 +63,7 @@ final class UptimeAndPushTest extends TestCase
 
     public function test_site_goes_down_after_two_failures_and_comes_back(): void
     {
-        self::$statuses = [200, null, 503, 503, 200];
+        self::$statuses = [200, null, null, 503, 503, 503, 503, 200];
 
         UptimeCheckJob::dispatchSync($this->site->id);
         UptimeCheckJob::dispatchSync($this->site->id);
@@ -85,5 +85,24 @@ final class UptimeAndPushTest extends TestCase
         $this->assertFalse(AssetAlert::query()->open()->where('kind', 'site_down')->exists());
         $this->assertSame(2, DB::table('push_notifications')->where('title', 'like', 'Site yeniden açık%')->count());
         $this->assertSame(5, DB::table('uptime_checks')->count());
+    }
+
+    public function test_a_redirect_only_host_or_a_site_that_just_asked_for_work_is_not_an_outage(): void
+    {
+        self::$statuses = [null, 200, null, null, null, null];
+
+        UptimeCheckJob::dispatchSync($this->site->id);
+        $this->assertSame('up', DB::table('uptime_states')->value('state'), 'www.atlasdis.com answered');
+        $this->assertSame(0, (int) DB::table('uptime_states')->value('consecutive_failures'));
+
+        $connection = \App\Models\CoreConnection::query()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
+            'name' => 'Atlas connector', 'config' => ['rest_transport' => 'pull']]);
+        DB::table('website_connector_delivery')->insert(['connection_id' => $connection->id, 'pull_seen_at' => now()->subMinutes(2)]);
+        UptimeCheckJob::dispatchSync($this->site->id);
+        UptimeCheckJob::dispatchSync($this->site->id);
+
+        $this->assertSame('up', DB::table('uptime_states')->value('state'), 'the site fetched work two minutes ago');
+        $this->assertFalse(AssetAlert::query()->open()->where('kind', 'site_down')->exists());
+        $this->assertSame(0, DB::table('push_notifications')->where('title', 'like', 'Site erişilemiyor%')->count());
     }
 }

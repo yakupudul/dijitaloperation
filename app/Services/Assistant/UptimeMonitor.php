@@ -3,7 +3,9 @@
 namespace App\Services\Assistant;
 
 use App\Models\AssetAlert;
+use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
+use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use App\Services\Website\PageFetcher;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -11,10 +13,14 @@ use Throwable;
 /**
  * Uptime of client websites: the primary URL is fetched through the safe public fetcher every 5 minutes
  * (one queued job per site). A site is "down" after N consecutive failures (default 2 → ~10 minutes); going
- * down and coming back each send one phone push and open / resolve the website's `site_down` alert.
+ * down and coming back each send one phone push and open / resolve the website's `site_down` alert. A failure counts
+ * only when the other spelling of the host (www / bare) fails too and the site's connector has not asked for work lately.
  */
 final class UptimeMonitor
 {
+    /** A connector that fetched work this recently proves the site is up even when our own request failed. */
+    private const ASKED_LATELY_MINUTES = 6;
+
     public function __construct(
         private readonly PageFetcher $fetcher,
         private readonly PushNotifier $push,
@@ -32,7 +38,25 @@ final class UptimeMonitor
         }
         $status = $result['status_code'] ?? null;
         $ok = $status !== null && $status >= 200 && $status < 400;
+        if (! $ok && ($other = self::otherHost($url)) !== null) {
+            // The stored address may be the host that only redirects (moximu.com → www.moximu.com): one slow answer there
+            // is not an outage, so the other spelling is asked before the failure counts.
+            try {
+                $second = $this->fetcher->fetch($other);
+            } catch (Throwable) {
+                $second = ['status_code' => null];
+            }
+            $secondStatus = $second['status_code'] ?? null;
+            if ($secondStatus !== null && $secondStatus >= 200 && $secondStatus < 400) {
+                [$result, $status, $ok] = [$second, $secondStatus, true];
+            }
+        }
         $error = $ok ? null : mb_substr((string) ($result['error'] ?? ('HTTP '.$status)), 0, 500);
+        if (! $ok && $this->siteAskedLately($site)) {
+            // The site's own connector fetched work from MoxDOP minutes ago: the site is up, only our request to it failed
+            // (firewall, rate limit). Counted as reachable; the check row keeps the error for the record.
+            $ok = true;
+        }
         DB::table('uptime_checks')->insert([
             'digital_asset_id' => $site->id, 'url' => mb_substr($url, 0, 1000), 'ok' => $ok, 'status_code' => $status,
             'response_ms' => (int) round((microtime(true) - $started) * 1000), 'error' => $error, 'checked_at' => now(),
@@ -62,6 +86,30 @@ final class UptimeMonitor
         }
 
         return ['ok' => $ok, 'state' => $new, 'changed' => $changed];
+    }
+
+    /** The same address with or without "www.", or null when the address has no host to toggle. */
+    private static function otherHost(string $url): ?string
+    {
+        $host = (string) parse_url($url, PHP_URL_HOST);
+        if ($host === '' || filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            return null;
+        }
+        $other = str_starts_with($host, 'www.') ? substr($host, 4) : 'www.'.$host;
+        $at = strpos($url, $host);
+
+        return $at === false || ! str_contains($other, '.') ? null : substr_replace($url, $other, $at, strlen($host));
+    }
+
+    private function siteAskedLately(DigitalAsset $site): bool
+    {
+        $connection = CoreConnection::query()->where('digital_asset_id', $site->id)->where('type', 'wordpress_connector')->where('enabled', true)->first();
+        if ($connection === null) {
+            return false;
+        }
+        $seen = WordPressConnectorCommands::seenAt($connection);
+
+        return $seen !== null && $seen->gte(now()->subMinutes(self::ASKED_LATELY_MINUTES));
     }
 
     private function openAlert(DigitalAsset $site, ?string $error): void
