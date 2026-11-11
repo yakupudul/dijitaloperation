@@ -31,7 +31,8 @@ final class ConnectionHealthPage extends Component
 
         return view('livewire.operator.integrations.connection-health', [
             'summary' => $health->summary($issues),
-            'groups' => collect($issues)->groupBy('brand')->sortKeys()->all(),
+            'groups' => collect($issues)->filter(ConnectionHealth::isGap(...))->groupBy('brand')->sortKeys()->all(),
+            'passive' => collect($issues)->reject(ConnectionHealth::isGap(...))->sortBy('brand')->values()->all(),
         ]);
     }
 }

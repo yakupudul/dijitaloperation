@@ -97,15 +97,23 @@ final class ConnectionHealth
         return $rows;
     }
 
-    /** @return array{system: int, operator: int, brands: int} */
+    /** A row that is a real gap: an ads account without spend ("pasif") is known and watched, not a missing connection. */
+    public static function isGap(array $issue): bool
+    {
+        return ($issue['kind'] ?? '') !== 'dormant';
+    }
+
+    /** @return array{system: int, operator: int, brands: int, passive: int} */
     public function summary(?array $issues = null): array
     {
         $issues ??= $this->issues();
+        $gaps = array_values(array_filter($issues, self::isGap(...)));
 
         return [
-            'system' => count(array_filter($issues, fn (array $i): bool => $i['who'] === self::SYSTEM)),
-            'operator' => count(array_filter($issues, fn (array $i): bool => $i['who'] === self::OPERATOR)),
-            'brands' => count(array_unique(array_column($issues, 'brand_id'))),
+            'system' => count(array_filter($gaps, fn (array $i): bool => $i['who'] === self::SYSTEM)),
+            'operator' => count(array_filter($gaps, fn (array $i): bool => $i['who'] === self::OPERATOR)),
+            'brands' => count(array_unique(array_column($gaps, 'brand_id'))),
+            'passive' => count($issues) - count($gaps),
         ];
     }
 

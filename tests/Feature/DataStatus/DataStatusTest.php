@@ -328,7 +328,8 @@ final class DataStatusTest extends TestCase
         $this->assertSame('Site hiç taranmamış', $issues['Örnek Klinik|crawl']['title']);
         $this->assertSame(ConnectionHealth::OPERATOR, $issues['Sitesiz Marka|no_site']['who']);
         $this->assertFalse($issues->has('Örnek Klinik|access'), 'GA4 is current');
-        $this->assertSame(['system' => 2, 'operator' => 1, 'brands' => 2], $health->summary());
+        $this->assertSame(['system' => 2, 'operator' => 1, 'brands' => 2, 'passive' => 0], $health->summary());
+        $this->assertSame(['system' => 0, 'operator' => 0, 'brands' => 0, 'passive' => 1], $health->summary([['kind' => 'dormant', 'who' => ConnectionHealth::SYSTEM, 'brand_id' => 9]]), 'an ads account without spend is not a missing connection');
 
         Livewire::test(ConnectionHealthPage::class)->assertSee('Bağlantı sağlığı')->assertSee('Sitesiz Marka')->assertSee('Site hiç taranmamış')
             ->call('repairNow')->assertSee('1 hesabın veri çekimi ve 1 site taraması başlatıldı');

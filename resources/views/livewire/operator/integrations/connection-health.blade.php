@@ -7,7 +7,7 @@
 <div class="space-y-10" data-connection-health>
     <header class="min-w-0">
         <h1 class="page-title">Bağlantı sağlığı</h1>
-        <p class="page-sub" title="&quot;Senin işin&quot; satırları erişim ya da hesap seçimi ister; gerisini sistem onarır.">{{ $summary['brands'] > 0 ? $summary['brands'].' markada '.($summary['operator'] + $summary['system']).' eksik bağlantı.' : 'Her markanın bütün bağlantıları çalışıyor.' }}</p>
+        <p class="page-sub" title="&quot;Senin işin&quot; satırları erişim ya da hesap seçimi ister; gerisini sistem onarır.">{{ $summary['brands'] > 0 ? $summary['brands'].' markada '.($summary['operator'] + $summary['system']).' eksik bağlantı.' : 'Her markanın bütün bağlantıları çalışıyor.' }}@if ($summary['passive'] > 0) {{ $summary['passive'] }} pasif reklam hesabı ayrı listede.@endif</p>
     </header>
 
     @if ($message !== '')
@@ -74,4 +74,27 @@
             <x-ta.empty-state size="sm" title="Sorun yok" message="Her markanın bütün bağlantıları çalışıyor." />
         </div>
     @endforelse
+
+    {{-- Bağlantı Düzeni 1.2: an ads account without spend is not a missing connection; it is listed apart and not counted. --}}
+    @if (count($passive) > 0)
+        <section data-passive-accounts>
+            <div class="section-head items-center">
+                <h2 class="section-title">Pasif reklam hesapları <span class="section-count">{{ count($passive) }}</span></h2>
+            </div>
+            <p class="-mt-2 mb-3 text-[13px] text-gray-500 dark:text-gray-400">Harcama yapmayan hesaplar eksik bağlantı sayılmaz. Harcama başlayınca kendiliğinden aktif olur.</p>
+            <ul class="card">
+                @foreach ($passive as $row)
+                    <li class="card-row flex-wrap items-start sm:flex-nowrap sm:items-center">
+                        <div class="min-w-0 flex-1">
+                            <p class="flex min-w-0 items-baseline gap-2.5">
+                                <span class="shrink-0 text-sm font-medium text-gray-900 dark:text-white">{{ $row['brand'] }}</span>
+                                <span class="min-w-0 truncate text-[13px] text-gray-500">{{ str_replace(' · ', ', ', (string) $row['asset']) }}</span>
+                            </p>
+                            <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">{{ \Illuminate\Support\Str::before($row['detail'], ' · pasif:') }}</p>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
 </div>
