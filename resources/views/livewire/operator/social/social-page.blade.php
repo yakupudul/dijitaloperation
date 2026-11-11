@@ -44,7 +44,7 @@
                     <h2 class="section-title">Paylaşım düzeni</h2>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Onayladığınız gönderiler sıraya girer ve seçtiğiniz günlerde, günde bir tane olarak Instagram ve Facebook’ta yayınlanır. Sırada {{ count($line) }} gönderi var.</p>
                 </div>
-                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                <div class="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-7">
                     @foreach ($dayNames as $day => $name)
                         <div @class(['rounded-lg border p-3', 'border-gray-200 dark:border-gray-800' => ! ($planDays[$day] ?? false), 'border-brand-500' => $planDays[$day] ?? false]) data-schedule-day="{{ $day }}">
                             <label class="flex items-center gap-2 text-sm font-medium">
