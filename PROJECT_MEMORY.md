@@ -2259,6 +2259,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   Panel şifre tutmaz.
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
+
+- Bağlantı Düzeni 2.1: Bağlantı sağlığı sayfasında "Harita" görünümü (`ConnectionMap`): marka × kanal (Site, Search Console, Analytics, Google Ads, İşletme Profili, Meta); hücre tek kelime + renk, tıklayınca eksik olan, kimin çözeceği ve "Aç". Yalnız okur; `?gorunum=harita&sorunlu=1`.
 - **Marka 2.1 / 2.2 marka sayfası bulguları** (onaylı prototip): tablo `brand_findings` (`BrandFinding`: kind finding / untouched / unseen / task; approval none / redirect / publish / file; status open → requested → waiting → done, closed), servis `App\Services\Brand\Findings`, kart `BrandFindingsCard` markanın Genel sekmesinin en üstünde (ilk bakış yazılana kadar görünmez). Bulguları Claude MCP `brand-findings` ile yazar (kanıtsız bulgu reddedilir); "Çöz" / "Hepsini çöz" satırı `requested` yapar, `list-tasks` → `findings_requested`; Claude işi yapıp `action=result` ile aynı satıra sonucu yazar (waiting=true → "Onayını bekliyor"), bir ay sonra `action=effect`. Kart dışarıya hiçbir şey yazmaz.
 - **Satış 2.5 tek çalışma yeri**: Gelen kutusu › Kayıt panelinde Durum (altı durum; Olumsuz neden sorar), Teklif ve "Not ya da adım" kutusu (`SayIt`) var (`InboxPage::setLeadStatus / closeLead / saveLeadOffer / tellLead`). `SalesLead::workUrl()`: sohbeti olan kayıt /satis tablosundan ve desteden Gelen kutusu'nda o sohbette açılır, sohbeti olmayan kartında. /satis'te hızlı süzgeç düğme sırası arama yanındaki tek seçime indi. Kart sayfası uzun alanlar için duruyor ("Tüm alanlar").
 - **Ayarlar › Kullanıcılar**: admin bir kullanıcının giriş e-postasını değiştirebilir (şifre ve 2FA aynı kalır).

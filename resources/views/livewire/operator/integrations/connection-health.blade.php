@@ -10,10 +10,78 @@
         <p class="page-sub" title="&quot;Senin işin&quot; satırları erişim ya da hesap seçimi ister; gerisini sistem onarır.">{{ $summary['brands'] > 0 ? $summary['brands'].' markada '.($summary['operator'] + $summary['system']).' eksik bağlantı.' : 'Her markanın bütün bağlantıları çalışıyor.' }}@if ($summary['passive'] > 0) {{ $summary['passive'] }} pasif reklam hesabı ayrı listede.@endif</p>
     </header>
 
+    <nav class="-mt-4 flex flex-wrap items-center gap-2" aria-label="Görünüm" data-connection-views>
+        <button type="button" wire:click="$set('view', 'eksikler')" @class(['seg', 'seg-active' => $view !== 'harita'])>Eksikler <span class="tabular-nums {{ $view !== 'harita' ? 'text-accent' : 'text-gray-400' }}">{{ $summary['operator'] + $summary['system'] }}</span></button>
+        <button type="button" wire:click="$set('view', 'harita')" @class(['seg', 'seg-active' => $view === 'harita'])>Harita</button>
+    </nav>
+
     @if ($message !== '')
         <p class="card -mt-4 px-4 py-3 text-sm text-gray-700 dark:text-gray-300" role="status">{{ $message }}</p>
     @endif
 
+    @if ($view === 'harita')
+        @php
+            $channels = \App\Services\DataStatus\ConnectionMap::CHANNELS;
+            $dot = ['ok' => 'bg-success-500', 'warn' => 'bg-warning-500', 'bad' => 'bg-error-500', 'muted' => 'bg-gray-300 dark:bg-gray-600'];
+        @endphp
+        <section data-connection-map x-data="{ open: null }">
+            <div class="section-head items-center">
+                <h2 class="section-title">{{ $mapBrands }} marka, {{ count($channels) }} kanal</h2>
+                <label class="ml-auto flex cursor-pointer items-center gap-2 text-[13px] text-gray-600 dark:text-gray-300">
+                    <input type="checkbox" wire:model.live="onlyGaps" class="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 dark:border-gray-600 dark:bg-gray-900">
+                    Yalnız sorunlu markalar
+                </label>
+            </div>
+            <p class="-mt-2 mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-gray-500 dark:text-gray-400">
+                <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full {{ $dot['ok'] }}"></span>{{ $mapTotals['ok'] }} çalışıyor</span>
+                <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full {{ $dot['warn'] }}"></span>{{ $mapTotals['warn'] }} eksik ya da gecikmiş</span>
+                <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full {{ $dot['bad'] }}"></span>{{ $mapTotals['bad'] }} kopuk</span>
+                <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full {{ $dot['muted'] }}"></span>gri: o kanal bu markada yok ya da pasif</span>
+            </p>
+            <div class="card">
+                <div class="hidden grid-cols-[minmax(0,1.5fr)_repeat(6,minmax(0,1fr))] gap-2 border-b border-gray-100 px-4 py-2.5 text-[12px] font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400 lg:grid">
+                    <span>Marka</span>
+                    @foreach ($channels as $heading)<span>{{ $heading }}</span>@endforeach
+                </div>
+                @forelse ($map as $row)
+                    <div wire:key="map-{{ $row['brand_id'] }}" class="border-b border-gray-100 px-4 py-3 last:border-b-0 dark:border-gray-800" data-map-row>
+                        <div class="grid gap-x-2 gap-y-2.5 lg:grid-cols-[minmax(0,1.5fr)_repeat(6,minmax(0,1fr))] lg:items-center">
+                            <a href="{{ route('operator.brand', ['brand' => $row['brand_id']]) }}" wire:navigate class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-900 hover:underline dark:text-white">
+                                <x-ta.brand-avatar :name="$row['brand']" :logo="$row['logo']" size="sm" />
+                                <span class="truncate">{{ $row['brand'] }}</span>
+                            </a>
+                            <div class="col-span-full grid grid-cols-3 gap-x-2 gap-y-2.5 lg:col-span-6 lg:grid-cols-6">
+                                @foreach ($row['cells'] as $key => $cell)
+                                    @php $id = $row['brand_id'].'-'.$key; @endphp
+                                    <button type="button" @click="open = open === '{{ $id }}' ? null : '{{ $id }}'" :aria-expanded="open === '{{ $id }}'"
+                                        class="min-w-0 rounded-lg px-2 py-1.5 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.04]" :class="open === '{{ $id }}' && 'bg-gray-50 dark:bg-white/[0.04]'" data-map-cell="{{ $key }}" data-tone="{{ $cell['tone'] }}">
+                                        <span class="block truncate text-[11px] text-gray-500 dark:text-gray-400 lg:hidden">{{ $channels[$key] }}</span>
+                                        <span class="flex min-w-0 items-center gap-1.5 text-[13px] {{ $cell['tone'] === 'muted' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200' }}">
+                                            <span class="h-2 w-2 shrink-0 rounded-full {{ $dot[$cell['tone']] }}" aria-hidden="true"></span>
+                                            <span class="truncate">{{ $cell['label'] }}@if ($cell['count'] > 1) <span class="text-gray-400">({{ $cell['count'] }})</span>@endif</span>
+                                        </span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                        @foreach ($row['cells'] as $key => $cell)
+                            <div x-show="open === '{{ $row['brand_id'].'-'.$key }}'" x-cloak class="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-gray-50 px-3 py-2.5 dark:bg-white/[0.04]">
+                                <p class="min-w-0 flex-1 basis-60 text-[13px] text-gray-700 dark:text-gray-300"><span class="font-medium text-gray-900 dark:text-white">{{ $channels[$key] }}.</span> {{ $cell['detail'] }}</p>
+                                @if ($cell['who'] !== null)
+                                    <x-ta.pill :tone="$cell['who'] === 'Sen' ? 'look' : 'info'">{{ $cell['who'] === 'Sen' ? 'Senin işin' : 'Sistem onarır' }}</x-ta.pill>
+                                @endif
+                                @if ($cell['url'] !== null)
+                                    <a href="{{ $cell['url'] }}" wire:navigate class="{{ $cell['who'] === 'Sen' ? 'btn' : 'btn-quiet' }}">Aç</a>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @empty
+                    <x-ta.empty-state size="sm" title="Sorunlu marka yok" message="Her markanın bütün kanalları çalışıyor." />
+                @endforelse
+            </div>
+        </section>
+    @else
     {{-- Living panel language: who fixes what, as two tinted cards; the repair button sits with the system's number. --}}
     <div class="grid gap-3 sm:grid-cols-2">
         <div @class(['soft-card', 'soft-amber' => $summary['operator'] > 0])>
@@ -96,5 +164,6 @@
                 @endforeach
             </ul>
         </section>
+    @endif
     @endif
 </div>

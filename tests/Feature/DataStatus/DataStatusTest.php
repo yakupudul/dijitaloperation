@@ -12,6 +12,7 @@ use App\Models\Brand;
 use App\Models\Collection\CollectionResourceRun;
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreAssetBinding;
+use App\Models\CoreConnection;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
@@ -21,6 +22,7 @@ use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
 use App\Models\User;
 use App\Services\DataStatus\ConnectionHealth;
+use App\Services\DataStatus\ConnectionMap;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
 use App\Services\Operator\PortfolioSignalsReader;
@@ -344,6 +346,31 @@ final class DataStatusTest extends TestCase
         $access = collect($health->issues())->firstWhere('kind', 'access');
         $this->assertSame(ConnectionHealth::OPERATOR, $access['who']);
         $this->artisan('moxdop:health:repair')->expectsOutputToContain('Senin işin')->assertSuccessful();
+    }
+
+    public function test_connection_map_shows_every_brand_and_channel_in_one_grid(): void
+    {
+        $site = $this->website();
+        [$gsc] = $this->bindWebsite($site);
+        $this->collected($gsc);
+        $this->gscFacts($gsc, '2026-09-01', '2026-09-26');
+        Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Sitesiz Marka']);
+
+        $rows = collect(app(ConnectionMap::class)->rows())->keyBy('brand');
+        $cells = $rows['Örnek Klinik']['cells'];
+        $this->assertSame(['site', 'search_console', 'ga4', 'google_ads', 'google_business_profile', 'meta_ads'], array_keys($cells));
+        $this->assertSame(['ok', 'Çalışıyor'], [$cells['search_console']['tone'], $cells['search_console']['label']]);
+        $this->assertSame(['warn', 'Yazma yok', 'Sen'], [$cells['site']['tone'], $cells['site']['label'], $cells['site']['who']], 'no site connector: reads but cannot write');
+        $this->assertSame('muted', $cells['google_ads']['tone'], 'a channel the brand does not have is grey, not a warning');
+        $this->assertSame('muted', $rows['Sitesiz Marka']['cells']['site']['tone']);
+        $this->assertSame('muted', $rows['Sitesiz Marka']['worst']);
+
+        CoreConnection::query()->create(['digital_asset_id' => $site->id, 'type' => 'wordpress_connector', 'name' => 'ornek', 'enabled' => true, 'last_success_at' => now(), 'config' => []]);
+        $this->assertSame('ok', collect(app(ConnectionMap::class)->rows())->keyBy('brand')['Örnek Klinik']['cells']['site']['tone']);
+
+        Livewire::test(ConnectionHealthPage::class)->assertDontSee('data-connection-map', false)
+            ->set('view', 'harita')->assertSee('data-connection-map', false)->assertSee('Sitesiz Marka')->assertSee('İşletme Profili')
+            ->set('onlyGaps', true)->assertDontSee('Sitesiz Marka')->assertSee('Örnek Klinik');
     }
 
     /** @return array<string, array{0: string}> */
