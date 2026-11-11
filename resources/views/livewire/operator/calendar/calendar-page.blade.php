@@ -205,12 +205,33 @@
                                     <button type="button" wire:click="remove({{ $t['id'] }})" wire:confirm="Bu iş silinsin mi?" class="text-xs text-gray-300 opacity-0 hover:text-error-600 group-hover:opacity-100" aria-label="Sil">Sil</button>
                                 </li>
                             @endforeach
+                            {{-- Günlük Düzen 1.3: more than three sales steps are one line (who to write to opens under it), so own work stays visible. --}}
+                            @if (count($open['sales']) > 3)
+                                @php $lateSales = count(array_filter($open['sales'], fn (array $s): bool => (bool) $s['late'])); @endphp
+                                <li class="text-[13px]" data-calendar-sales-group>
+                                    <details>
+                                        <summary class="flex cursor-pointer list-none items-center justify-between gap-2 text-gray-800 dark:text-gray-200">
+                                            <span>Satış: {{ count($open['sales']) }} kişiye yazılacak{!! $lateSales > 0 ? '<span class="text-xs text-error-600">, '.$lateSales.' gecikti</span>' : '' !!}</span>
+                                            <span class="text-xs text-gray-500">Göster</span>
+                                        </summary>
+                                        <ul class="mt-2 space-y-2">
+                                            @foreach ($open['sales'] as $s)
+                                                <li class="flex items-start gap-2 text-[13px]" data-calendar-sales>
+                                                <span class="mt-0.5 h-4 w-4 shrink-0 rounded-full border border-gray-300 dark:border-gray-600"></span>
+                                                <a href="{{ $s['url'] }}" wire:navigate class="min-w-0 flex-1 text-gray-800 hover:underline dark:text-gray-200">{{ $s['step'] }}: {{ $s['title'] }}@if ($s['late'])<span class="text-xs text-error-600"> · gecikti</span>@endif</a>
+                                            </li>
+                                            @endforeach
+                                        </ul>
+                                    </details>
+                                </li>
+                            @else
                             @foreach ($open['sales'] as $s)
                                 <li class="flex items-start gap-2 text-[13px]" data-calendar-sales>
                                     <span class="mt-0.5 h-4 w-4 shrink-0 rounded-full border border-gray-300 dark:border-gray-600"></span>
                                     <a href="{{ $s['url'] }}" wire:navigate class="min-w-0 flex-1 text-gray-800 hover:underline dark:text-gray-200">{{ $s['step'] }}: {{ $s['title'] }}@if ($s['late'])<span class="text-xs text-error-600"> · gecikti</span>@endif</a>
                                 </li>
                             @endforeach
+                            @endif
                             @if ($open['tasks'] === [] && $open['sales'] === [] && ! $komuta)
                                 <li class="text-[13px] text-gray-400">Bu gün için iş yok.</li>
                             @endif
