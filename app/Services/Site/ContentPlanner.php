@@ -267,10 +267,21 @@ final class ContentPlanner
         if (! SiteScope::aiAllowed($brand)) {
             return ['status' => 'not_operational', 'added' => 0];
         }
+        // İçerik kuralı (Marka Düzeni 2.7): the automatic run opens at most four ideas a month and none while five
+        // written articles wait unpublished; what the operator asks for by hand ($wants, $only) is always made.
+        $automatic = $only === null && $wants === null;
+        if ($automatic && ($hold = ContentRule::hold($brand)) !== null) {
+            $this->logRun($site, ['status' => 'held', 'candidates' => 0, 'asked' => 0, 'added' => 0, 'dropped' => [], 'message' => $hold]);
+
+            return ['status' => 'ready', 'added' => 0];
+        }
         $main = self::siteLanguages($site)[0];
         $requested = collect($wants ?? [])->filter(fn ($n, $l): bool => $l === $main && (int) $n > 0)->map(fn ($n): int => min(20, (int) $n))->all();
         $explicit = $requested !== [] && $only === null;
         $capacity = $only !== null ? 1 : ($requested[$main] ?? max(1, min(20, (int) ($brand->weekly_content_capacity ?? 4))));
+        if ($automatic) {
+            $capacity = min($capacity, max(1, ContentRule::room($brand)));
+        }
         $sitePages = $this->sitePages($site);
         $previous = $this->previousIdeas($brand);
         if ($cycle !== null && $only === null) {
@@ -279,6 +290,9 @@ final class ContentPlanner
                 $this->logRun($site, ['status' => 'queued', 'candidates' => 0, 'asked' => 0, 'added' => 0, 'dropped' => [], 'message' => 'Konu haritası Claude kuyruğunda çiziliyor.']);
 
                 return ['status' => 'queued', 'added' => 0];
+            }
+            if ($automatic) {
+                $candidates = array_slice($candidates, 0, ContentRule::room($brand));
             }
             [$capacity, $explicit] = [count($candidates), true];
         } else {

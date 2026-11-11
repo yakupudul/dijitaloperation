@@ -2260,6 +2260,9 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
 
+- **Marka 2.3 başlangıç sayıları** (`App\Services\Brand\Baseline`, tablo `brand_baselines`, marka başına tek satır): son 30 tam gün (3 gün gecikmeli pencere), kanal kanal talep (dönüşüm sözlüğü), organik tık, ana hizmet tıkları. Marka sayfası › Hizmet karnesi sekmesinin üstünde başlangıç / şimdi / değişim. Kurulumda MCP `brand-findings action=baseline` alır.
+- **Marka 2.7 içerik kuralı** (`App\Services\Site\ContentRule`): otomatik haftalık fikir turu ayda en çok 4 fikir açar, 5 yazılmış yazı yayımlanmadan beklerken ve yeni düzendeki markada hiç açmaz (nedeni İçerik kapsama satırında). Elle istenen fikir (`$wants`, `$only`) kurala takılmaz.
+
 - **Marka 2.5 marka başına "yeni düzen"** (`App\Services\Brand\NewOrder`, `brands.new_order_at`; anahtar marka sayfası Bulgular kartının altında): açılınca markanın açık / recheck öneri satırları `action.new_order` işaretiyle ertelenir (silinmez), sonradan açılan satır `Suggestion::saving` kancasında kenara alınır, toplu güncellemeyle açılanları gece `moxdop:ads:quiet-dormant` süpürür (yeni iş yok). Kapatınca satırlar eski durumuna döner. Veri toplama, sorgular, kümeler sürer.
 
 - **Bağlantı 2.3 Ayarlar üç grupta**: `DemoMenu` alt öğeleri `group` taşır (Ajans / Kurallar / Makine); `OperatorMenu::sectionTabs` grubu döndürür, layout önce grup haplarını, altında açık grubun sekmelerini gösterir.
