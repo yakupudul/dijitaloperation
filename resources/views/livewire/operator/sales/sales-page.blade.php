@@ -129,7 +129,7 @@
                                 @endphp
                                 <article wire:key="five-{{ $fl->id }}" class="card flex w-[86vw] max-w-[22rem] shrink-0 snap-start flex-col p-4 sm:w-[21rem]" data-sales-five-card="{{ $fl->id }}">
                                     <p class="text-[12px] text-gray-500"><span class="font-semibold tabular-nums text-gray-900 dark:text-white">{{ $i + 1 }}</span> · {{ $row['reason'] }}@if ((int) $fl->offer_amount > 0) · {{ $n($fl->offer_amount) }} ₺@endif</p>
-                                    <a href="{{ route('operator.sales.lead', ['lead' => $fl->id]) }}" wire:navigate class="mt-1 truncate text-[15px] font-semibold text-gray-900 hover:underline dark:text-white">{{ $fl->title() }}</a>
+                                    <a href="{{ $fl->workUrl() }}" wire:navigate class="mt-1 truncate text-[15px] font-semibold text-gray-900 hover:underline dark:text-white">{{ $fl->title() }}</a>
                                     @if ($fsub !== '')<p class="truncate text-[13px] text-gray-500">{{ $fsub }}</p>@endif
                                     @if ($ft && $ft['text'] !== '')
                                         <p class="mt-2 line-clamp-2 text-[13px] text-gray-700 dark:text-gray-300" title="{{ $ft['text'] }}"><span class="text-gray-400">{{ $ft['at']->timezone('Europe/Istanbul')->format('d.m') }} · {{ $ft['label'] }}:</span> {{ $ft['text'] }}</p>
@@ -156,17 +156,7 @@
                     @endif
                 </div>
             @endif
-            @if (in_array($status, ['devam', 'guclu', 'kararsiz'], true))
-                <div class="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Hızlı süzgeç" data-sales-views>
-                    @foreach (SalesPage::VIEWS as $key => $label)
-                        @continue(in_array($key, ['musteriler', 'kaybedilen', 'bugun'], true))
-                        @php $c = (int) ($viewCounts[$key] ?? 0); $alert = in_array($key, ['borclu', 'adimsiz'], true) && $c > 0; @endphp
-                        <button type="button" wire:click="$set('view', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $view === $key && trim($q) === '']) data-sales-view="{{ $key }}">
-                            {{ $key === 'acik' ? 'Hepsi' : $label }} <span @class(['tabular-nums', 'text-error-600' => $alert && $view !== $key, 'text-gray-400' => ! $alert && $view !== $key])>{{ $n($c) }}</span>
-                        </button>
-                    @endforeach
-                </div>
-            @elseif ($status === 'musteri')
+            @if ($status === 'musteri')
                 <div class="flex flex-wrap items-center gap-1.5" data-sales-views>
                     <button type="button" wire:click="$set('view', 'acik')" @class(['seg h-8 text-[13px]', 'seg-active' => $view !== 'musteriler']) data-sales-view="acik">Dönüşen kayıtlar</button>
                     <button type="button" wire:click="$set('view', 'musteriler')" @class(['seg h-8 text-[13px]', 'seg-active' => $view === 'musteriler']) data-sales-view="musteriler">Ödeme, rapor ve risk tablosu</button>
@@ -181,6 +171,15 @@
             @endif
             <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input wire:model.live.debounce.400ms="q" type="search" placeholder="Ara: isim, işletme, şehir, telefon, not…" class="{{ str_replace('w-full', 'w-full sm:w-80', $input) }}" aria-label="Aday ara" />
+                @if (in_array($status, ['devam', 'guclu', 'kararsiz'], true))
+                    {{-- Satış Düzeni 2.5: the quick filters are one select beside the search, not a second row of buttons. --}}
+                    <select wire:model.live="view" class="{{ str_replace('w-full', 'w-full sm:w-56', $input) }}" aria-label="Süz" data-sales-views>
+                        @foreach (SalesPage::VIEWS as $key => $label)
+                            @continue(in_array($key, ['musteriler', 'kaybedilen', 'bugun'], true))
+                            <option value="{{ $key }}">{{ $key === 'acik' ? 'Hepsi' : $label }} ({{ $n((int) ($viewCounts[$key] ?? 0)) }})</option>
+                        @endforeach
+                    </select>
+                @endif
                 <select wire:model.live="sort" class="{{ str_replace('w-full', 'w-full sm:w-56', $input) }}" aria-label="Sırala">
                     @foreach (SalesPage::SORTS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
                 </select>
@@ -303,7 +302,7 @@
                             {{-- Müşteri adı: the name (WhatsApp profile, or found by Claude in the messages); empty stays empty. --}}
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate @class(['truncate text-sm font-semibold hover:underline', 'text-gray-900 dark:text-white' => filled($lead->name) || filled($lead->company), 'text-gray-400' => ! filled($lead->name) && ! filled($lead->company)])>{{ $named ? $lead->title() : 'İsimsiz' }}</a>
+                                    <a href="{{ $lead->workUrl() }}" wire:navigate @class(['truncate text-sm font-semibold hover:underline', 'text-gray-900 dark:text-white' => filled($lead->name) || filled($lead->company), 'text-gray-400' => ! filled($lead->name) && ! filled($lead->company)])>{{ $named ? $lead->title() : 'İsimsiz' }}</a>
                                     @if ($ours)<span class="chip chip-down shrink-0" title="Son mesaj onlardan" data-sales-ball>Sende{{ $waitDays ? ' · '.$waitDays.' g' : '' }}</span>@endif
                                     <span class="chip {{ $stChip }} lg:hidden">{{ $lead->statusLabel() }}</span>
                                     @if ($doorKind = \App\Services\Sales\DoorScreen::verdict($lead))

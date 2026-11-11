@@ -2259,6 +2259,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   Panel şifre tutmaz.
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
+- **Satış 2.5 tek çalışma yeri**: Gelen kutusu › Kayıt panelinde Durum (altı durum; Olumsuz neden sorar), Teklif ve "Not ya da adım" kutusu (`SayIt`) var (`InboxPage::setLeadStatus / closeLead / saveLeadOffer / tellLead`). `SalesLead::workUrl()`: sohbeti olan kayıt /satis tablosundan ve desteden Gelen kutusu'nda o sohbette açılır, sohbeti olmayan kartında. /satis'te hızlı süzgeç düğme sırası arama yanındaki tek seçime indi. Kart sayfası uzun alanlar için duruyor ("Tüm alanlar").
+- **Ayarlar › Kullanıcılar**: admin bir kullanıcının giriş e-postasını değiştirebilir (şifre ve 2FA aynı kalır).
 - **Moxi `anlasma_yaz` kartı** (yakup 11.11: "bota söyleyeyim, markalara işlesin"): "Dentocare aylık 14.000, ödeme günü 5" → kart → Yap → `Agreements::start` (action `brand_agreement`). Söylenmeyen ücret tahmin edilmez; yürüyen aylık anlaşmanın yerine geçer.
 - **Tek fiyat kaynağı (Satış 1.5, yakup 11.11 onayı)**: `StandingRules::prices()` (WhatsApp entegrasyonu config `price_list`, başlangıç `resources/prompts/moximu-price-list.md`), Satış › Ayarlar › Fiyat listesi'nden elle düzenlenir. AI adımları `StandingRules::forAi()` okur (kurallar + FİYAT LİSTESİ); sales-reply / sales-analysis / social-reply istemlerindeki gömülü fiyatlar çıktı. Sabit kararlar metninde fiyat yazılmaz.
 - **Kaydı sil**: /satis satır menüsünde yalnız admin, yalnız elle/formdan girilmiş ve müşteri olmayan kayıt (`SalesLeads::remove`); sohbetten açılan kayıt silinmez ("Aday olmayan").

@@ -15,6 +15,7 @@ use App\Services\Sales\CustomerSignals;
 use App\Services\Sales\PersonMemory;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
+use App\Services\Sales\SayIt;
 use App\Services\Social\SocialInbox;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Services\WhatsApp\WhatsAppConnection;
@@ -83,6 +84,16 @@ final class InboxPage extends Component
     public string $laterDate = '';
 
     /**
+     * Tek çalışma yeri (Satış Düzeni 2.5): what the lead card did is done here, on the record panel. The sentence box
+     * ("perşembe arayacak"), the offer and the reason asked when a record is closed as Olumsuz.
+     */
+    public string $told = '';
+
+    public string $offer = '';
+
+    public string $closing = '';
+
+    /**
      * Canlı güncelleme (yakup 2026-11-09: "sayfayı yenilemek zorunda kalmayayım"): what the screen was drawn from. The
      * 5-second pulse redraws only when it changed (a message, a draft, a record), or once a minute for the ages.
      */
@@ -130,6 +141,9 @@ final class InboxPage extends Component
     public function select(string $key): void
     {
         $this->item = InboxItem::parse($key) !== null ? $key : '';
+        $this->closing = '';
+        $this->told = '';
+        $this->offer = '';
         $this->laterOpen = false;
         $this->resetErrorBag();
     }
@@ -231,6 +245,67 @@ final class InboxPage extends Component
             $item->thread->forceFill(['status' => SocialThread::IGNORED, 'draft_status' => null, 'snoozed_until' => null])->save();
         }
         $this->after('İlgisiz olarak işlendi; yeniden yazarsa kutuya döner.', $queue);
+    }
+
+    /** The record of the open line (opened from the chat when it has none yet). */
+    private function record(InboxQueue $queue, SalesLeads $leads): SalesLead
+    {
+        $item = $this->current($queue);
+        $lead = $item->lead ?? ($item->conversation !== null ? $leads->fromConversation($item->conversation) : null)
+            ?? ($item->thread !== null ? app(SocialInbox::class)->toLead($item->thread) : null);
+
+        return $lead ?? throw ValidationException::withMessages(['item' => 'Bu satırın kaydı yok.']);
+    }
+
+    /** Kayıt › Durum: one of the six statuses, from the chat. Olumsuz asks the reason first. */
+    public function setLeadStatus(string $status, InboxQueue $queue, SalesLeads $leads): void
+    {
+        $lead = $this->record($queue, $leads);
+        if ($status === 'olumsuz') {
+            $this->closing = 'silent';
+
+            return;
+        }
+        $this->closing = '';
+        try {
+            $leads->setStatus($lead, $status, auth()->user());
+        } catch (ValidationException $exception) {
+            $this->message = (string) collect($exception->errors())->flatten()->first();
+
+            return;
+        }
+        $this->message = $lead->fresh()->title().': '.$lead->fresh()->statusLabel().'.';
+    }
+
+    public function closeLead(InboxQueue $queue, SalesLeads $leads): void
+    {
+        $lead = $this->record($queue, $leads);
+        if (! isset(SalesLead::LOST_REASONS[$this->closing])) {
+            return;
+        }
+        $leads->setStatus($lead, 'olumsuz', auth()->user(), $this->closing);
+        $this->closing = '';
+        $this->message = $lead->title().': olumsuz olarak kapandı.';
+    }
+
+    public function saveLeadOffer(InboxQueue $queue, SalesLeads $leads): void
+    {
+        $lead = $this->record($queue, $leads);
+        $digits = preg_replace('/\D+/', '', $this->offer) ?? '';
+        $leads->setOffer($lead, $digits !== '' ? (int) $digits : null, $lead->offer_service, auth()->user());
+        $this->offer = '';
+        $this->message = $lead->title().': teklif '.($digits !== '' ? number_format((int) $digits, 0, ',', '.').' ₺/ay olarak yazıldı.' : 'silindi.');
+    }
+
+    /** Kayıt › "Yaz ya da söyle": the sentence is this person's note; a day in it sets the next step. */
+    public function tellLead(InboxQueue $queue, SalesLeads $leads): void
+    {
+        $text = trim($this->told);
+        if (mb_strlen($text) < 3) {
+            return;
+        }
+        $this->message = app(SayIt::class)->apply($this->record($queue, $leads), $text, $leads, auth()->user());
+        $this->told = '';
     }
 
     /**

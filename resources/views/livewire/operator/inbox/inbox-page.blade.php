@@ -322,7 +322,7 @@
                     <div class="flex items-start justify-between gap-2">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Kayıt</h3>
                         @if ($lead !== null)
-                            <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="link-primary text-xs" data-inbox-card-link>Kart →</a>
+                            <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate class="link-primary text-xs" data-inbox-card-link>Tüm alanlar</a>
                         @endif
                     </div>
                     @if ($lead === null)
@@ -345,6 +345,35 @@
                             @if ($detail['opportunity'] !== null)<div class="flex justify-between gap-3"><dt class="text-gray-500">Açık fırsat</dt><dd class="text-right text-gray-900 dark:text-white">{{ $detail['opportunity']->title() }} · {{ $detail['opportunity']->amountLabel() }}</dd></div>@endif
                             @if ($lead->lastTouchAt())<div class="flex justify-between gap-3"><dt class="text-gray-500">Son temas</dt><dd class="text-right text-gray-900 dark:text-white">{{ $lead->lastTouchAt()->timezone($tz)->format('d.m.Y') }}</dd></div>@endif
                         </dl>
+                        {{-- Tek çalışma yeri (Satış Düzeni 2.5): status, offer and the note / next step are set here; the card page is only for the long fields. --}}
+                        <div class="mt-3 space-y-2 border-t border-gray-200 pt-3 dark:border-gray-800" data-inbox-record-actions>
+                            <label class="flex items-center justify-between gap-3 text-[13px]"><span class="text-gray-500">Durum</span>
+                                <select wire:change="setLeadStatus($event.target.value)" class="h-8 rounded-lg border border-gray-200 bg-white px-2 text-[13px] dark:border-gray-700 dark:bg-transparent dark:text-white" aria-label="Durum" data-inbox-status>
+                                    @foreach (\App\Models\SalesLead::STATUSES as $key => $label)
+                                        @continue($lead->isCustomer() && in_array($key, ['olumsuz', 'aday_degil'], true))
+                                        <option value="{{ $key }}" @selected($lead->status() === $key)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            @if ($closing !== '')
+                                <div class="flex items-center gap-2" data-inbox-closing>
+                                    <select wire:model="closing" class="h-8 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 text-[13px] dark:border-gray-700 dark:bg-transparent dark:text-white" aria-label="Kapanış nedeni">
+                                        @foreach (\App\Models\SalesLead::LOST_REASONS as $key => $label)@continue($key === 'irrelevant')<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                                    </select>
+                                    <button type="button" wire:click="closeLead" class="btn-dark h-8 shrink-0 px-3 text-[13px]">Kapat</button>
+                                    <button type="button" wire:click="$set('closing', '')" class="btn-quiet h-8 shrink-0 px-2 text-[13px]">Vazgeç</button>
+                                </div>
+                            @endif
+                            <form wire:submit="saveLeadOffer" class="flex items-center gap-2 text-[13px]" data-inbox-offer>
+                                <span class="shrink-0 text-gray-500">Teklif</span>
+                                <input wire:model="offer" type="text" inputmode="numeric" placeholder="{{ $lead->offer_amount ? $n((int) $lead->offer_amount) : 'aylık ₺' }}" class="h-8 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 text-right text-[13px] tabular-nums placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white" aria-label="Aylık teklif" />
+                                <button type="submit" class="btn h-8 shrink-0 px-2.5 text-[13px]">Yaz</button>
+                            </form>
+                            <form wire:submit="tellLead" class="flex items-center gap-2" data-inbox-tell>
+                                <input wire:model="told" type="text" enterkeyhint="done" autocomplete="off" placeholder="Not ya da adım: perşembe arayacak" class="h-8 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] placeholder:text-gray-400 focus:border-gray-400 focus:outline-none dark:border-gray-700 dark:bg-transparent dark:text-white" aria-label="Not ya da sonraki adım" />
+                                <button type="submit" class="btn h-8 shrink-0 px-2.5 text-[13px]">İşle</button>
+                            </form>
+                        </div>
                         @if ($detail['findings'] !== [])
                             <p class="mt-3 text-xs font-medium text-gray-700 dark:text-gray-300">Bulgular</p>
                             <ul class="mt-1 space-y-1 text-[13px] text-gray-700 dark:text-gray-300">

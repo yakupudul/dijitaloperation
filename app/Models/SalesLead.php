@@ -356,6 +356,17 @@ class SalesLead extends Model
         return ! $this->history_only && $this->last_incoming_at !== null && ($this->last_contact_at === null || $this->last_incoming_at->gt($this->last_contact_at));
     }
 
+    /**
+     * Where this record is worked (Satış Düzeni 2.5: one workplace): a record with a chat opens in the Gelen kutusu on
+     * that chat, where the record panel carries the card's actions; one without a chat opens its card.
+     */
+    public function workUrl(): string
+    {
+        return $this->conversation_id !== null && ! $this->history_only && ! $this->isArchived()
+            ? route('operator.inbox', ['kayit' => 'wa-'.$this->conversation_id])
+            : route('operator.sales.lead', ['lead' => $this->id]);
+    }
+
     /** The last time either side spoke (a message either way, a call, a meeting), or null when nothing yet. */
     public function lastTouchAt(): ?CarbonInterface
     {

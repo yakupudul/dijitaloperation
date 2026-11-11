@@ -331,4 +331,23 @@ final class InboxQueueTest extends TestCase
         $this->assertNull(app(InboxQueue::class)->find('sosyal-'.$foreign->id));
         $this->assertSame(0, app(SocialInbox::class)->sendAllReady()['sent'] + app(SocialInbox::class)->sendAllReady()['failed']);
     }
+
+    public function test_the_record_panel_does_what_the_card_did_status_offer_note_and_next_step(): void
+    {
+        $chat = $this->chat('905321112233', 'Serap Hanım');
+        $lead = app(SalesLeads::class)->fromConversation($chat);
+        $this->assertStringContainsString('kayit=wa-'.$chat->id, $lead->fresh()->workUrl(), 'a record with a chat is worked in the inbox');
+
+        $page = Livewire::test(InboxPage::class)->call('select', 'wa-'.$chat->id)->assertSeeHtml('data-inbox-record-actions');
+        $page->set('offer', '14.000')->call('saveLeadOffer');
+        $this->assertSame(14000, $lead->fresh()->offer_amount);
+        // 2026-11-09 is a Monday: "perşembe" is the 12th.
+        $page->set('told', 'perşembe arayacak')->call('tellLead')->assertSet('told', '');
+        $this->assertSame('2026-11-12', $lead->fresh()->next_step_at->timezone('Europe/Istanbul')->toDateString());
+        $page->call('setLeadStatus', 'guclu');
+        $this->assertTrue((bool) $lead->fresh()->is_strong);
+        $page->call('setLeadStatus', 'olumsuz')->assertSeeHtml('data-inbox-closing')->set('closing', 'price')->call('closeLead');
+        $this->assertSame('lost', $lead->fresh()->stage);
+        $this->assertSame('price', $lead->fresh()->lost_reason);
+    }
 }
