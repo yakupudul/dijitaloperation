@@ -325,8 +325,8 @@
 
             {{-- Aşama --}}
             <section class="card p-4" data-lead-stage>
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Durum</h2>
-                <p class="mt-1 text-xs text-gray-500">Mesaj, yanıt, toplantı ve fiyat görüldükçe kendiliğinden ilerler; burada seçtiğin kazanır.</p>
+                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Görüşme aşaması</h2>
+                <p class="mt-1 text-xs text-gray-500">Mesaj, yanıt, toplantı ve fiyat görüldükçe kendiliğinden ilerler; burada seçtiğin kazanır. Durum yukarıdaki tek yerden değişir.</p>
                 <div class="mt-3 flex flex-wrap gap-1.5">
                     @foreach (SalesLead::FLOW as $stage)
                         <button type="button" wire:click="setStage('{{ $stage }}')" @class(['seg h-8', 'seg-active' => $lead->stage === $stage]) data-lead-stage-option="{{ $stage }}">{{ SalesLead::STAGES[$stage] }}</button>
@@ -557,7 +557,7 @@
                     <dt class="text-gray-500">Son gelen</dt><dd>{{ $lead->last_incoming_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i') ?? 'yok' }}</dd>
                     @if ($lead->email)<dt class="text-gray-500">E-posta</dt><dd class="break-all"><a href="mailto:{{ $lead->email }}" class="link-neutral">{{ $lead->email }}</a></dd>@endif
                     <dt class="text-gray-500">Kaynak</dt><dd>{{ SalesLead::HEARD_FROM[$lead->heard_from] ?? 'bilinmiyor' }}</dd>
-                    <dt class="text-gray-500">Durum</dt><dd>{{ $lead->lifecycleLabel() }}</dd>
+                    <dt class="text-gray-500">Kayıt</dt><dd>{{ $lead->lifecycleLabel() }}</dd>
                     <dt class="text-gray-500">Tür</dt><dd>{{ $lead->kindLabel() ?? 'seçilmedi' }}@if ($lead->sectorCategory) · {{ $lead->sectorCategory->name }}@endif</dd>
                     @php $cls = (array) ($lead->classification ?? []); @endphp
                     @if (! empty($cls['why']))<dt class="text-gray-500">Claude</dt><dd class="text-gray-500" data-lead-classification>{{ implode(' · ', array_slice((array) $cls['why'], 0, 3)) }}</dd>@endif
