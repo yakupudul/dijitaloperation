@@ -201,6 +201,21 @@ final class WhatsAppSignupFlowTest extends TestCase
         $this->assertSame('failed', app(WhatsAppConnection::class)->integration()->config['history_sync']);
     }
 
+    public function test_history_refused_as_already_given_explains_offboarding_instead_of_retry(): void
+    {
+        $attempt = $this->queuedAttempt(['access_token' => 'business-token', 'waba_id' => '555555', 'phone_number_id' => null, 'event' => 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING']);
+        Http::fake(fn (Request $request) => str_contains($request->url(), 'smb_app_data')
+            ? Http::response(['error' => ['message' => '(#135000) Generic user error', 'code' => 135000]], 400)
+            : $this->graphResponse($request));
+        app(WhatsAppSignup::class)->complete($attempt->id);
+        $this->actingAs($this->admin);
+
+        Livewire::test(Inbox::class)
+            ->call('requestHistory')
+            ->assertSee('İşletme Platformu')
+            ->assertDontSee('Tekrar dene');
+    }
+
     public function test_history_cannot_be_asked_after_the_24_hour_window(): void
     {
         $attempt = $this->queuedAttempt(['access_token' => 'business-token', 'waba_id' => '555555', 'phone_number_id' => null, 'event' => 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING']);

@@ -90,11 +90,16 @@
                 <div class="min-w-0 flex-1">
                     <h2 class="text-sm font-medium text-gray-900 dark:text-white">Telefondaki geçmiş mesajları alın</h2>
                     <p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Meta bu aktarımı yalnız bağlantıdan sonraki 24 saat içinde yapar (son: {{ $when($historyDeadline) }}). Son 6 aya kadar olan sohbetler MoxDOP'a gelir; KVKK saklama süresi bunlar için de geçerlidir.</p>
+                    @php $historyRefused = (int) data_get($config, 'history_sync_error.code') === 135000; @endphp
                     @if(!empty($config['history_sync_error']))
                         <div class="mt-2 text-error-700 dark:text-error-300">@include('livewire.operator.whatsapp.error-detail', ['error' => $config['history_sync_error'], 'label' => 'Son deneme'])</div>
                     @endif
+                    @if($historyRefused)
+                        {{-- Meta (Onboarding WhatsApp Business app users): history is synced once per onboarding; to repeat it the business must offboard first, then sign up again. --}}
+                        <p class="mt-2 text-[13px] text-gray-700 dark:text-gray-300" data-wa-history-refused>Meta geçmişi bir bağlantıda yalnız bir kez verir; bu numara için daha önce verdiği için tekrar denemek işe yaramaz. Yeniden almak için önce telefondaki WhatsApp Business'ta bağlantıyı kesin (Ayarlar › Hesap › İşletme Platformu), sonra burada yeniden bağlayın ve hemen "Geçmiş mesajları al"a basın.</p>
+                    @endif
                 </div>
-                <button type="button" wire:click="requestHistory" wire:loading.attr="disabled" wire:target="requestHistory" class="btn-primary w-full sm:w-auto">{{ ($config['history_sync'] ?? '') === 'failed' ? 'Tekrar dene' : 'Geçmiş mesajları al' }}</button>
+                @unless($historyRefused)<button type="button" wire:click="requestHistory" wire:loading.attr="disabled" wire:target="requestHistory" class="btn-primary w-full sm:w-auto">{{ ($config['history_sync'] ?? '') === 'failed' ? 'Tekrar dene' : 'Geçmiş mesajları al' }}</button>@endunless
             </div>
         </section>
     @endif
