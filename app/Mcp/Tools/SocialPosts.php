@@ -14,7 +14,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Throwable;
 
-#[Description('Moximu\'s own social media plan (Instagram, Facebook, LinkedIn; ADR-083). action=list: accounts, upcoming and recent posts with channel results. action=draft: adds a post as a DRAFT (never published before the operator approves it on /sosyal): kind image | carousel (2-10 files, in order) | reels (mp4) | story; media = files as https URLs or base64; caption = Instagram+Facebook text; linkedin_text (optional; LinkedIn gets it only when given); publish_at in Istanbul time "Y-m-d H:i". action=update: change caption / linkedin_text / publish_at of a draft or approved post. action=delete: remove a draft. Rules: corporate plain Turkish, no MoxDOP name, no guarantees, numbers only from recorded results, no AI images.')]
+#[Description('Moximu\'s own social media plan (Instagram, Facebook, LinkedIn; ADR-083). action=list: accounts, upcoming and recent posts with channel results. action=draft: adds a post as a DRAFT (never published before the operator approves it on /sosyal): kind image | carousel (2-10 files, in order) | reels (mp4) | story; media = files as https URLs or base64; caption = Instagram+Facebook text; linkedin_text (optional; LinkedIn gets it only when given); publish_at in Istanbul time "Y-m-d H:i". action=update: change caption / linkedin_text / publish_at of a draft or approved post (a changed publish_at fixes the date; otherwise an approved post takes the next free day of the operator\'s posting plan, one a day, in line order, so the draft\'s publish_at is only a proposal). action=delete: remove a draft. Rules: corporate plain Turkish, no MoxDOP name, no guarantees, numbers only from recorded results, no AI images.')]
 class SocialPosts extends Tool
 {
     public function handle(Request $request): Response
@@ -106,7 +106,7 @@ class SocialPosts extends Tool
     {
         $tz = SocialPlanner::TIMEZONE;
         $row = fn (SocialPost $p): array => [
-            'id' => $p->id, 'kind' => $p->kind, 'pillar' => $p->pillar, 'title' => $p->title, 'status' => $p->status,
+            'id' => $p->id, 'kind' => $p->kind, 'pillar' => $p->pillar, 'title' => $p->title, 'status' => $p->status, 'fixed_date' => (bool) $p->pinned,
             'publish_at' => $p->publish_at->timezone($tz)->format('Y-m-d H:i'), 'caption' => $p->caption, 'linkedin_text' => $p->linkedin_text,
             'media' => array_map(fn (array $m): string => $m['url'], $p->mediaItems()), 'created_by' => $p->created_by,
             'channels' => $p->targets->map(fn (SocialPostTarget $t): array => [

@@ -21,6 +21,9 @@
             <span class="rounded-full px-2 py-0.5 {{ $tone }}">{{ $post->statusLabel() }}</span>
             <span class="text-gray-500">{{ $post->publish_at->timezone($tz)->translatedFormat('j F D, H:i') }}</span>
             <span class="text-gray-500">· {{ $post->kindLabel() }}{{ $post->pillarLabel() ? ' · '.$post->pillarLabel() : '' }}</span>
+            @php $place = array_search($post->id, $line ?? [], true); @endphp
+            @if ($place !== false)<span class="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800" data-line-place>Sırada {{ $place + 1 }}.</span>@endif
+            @if ($post->pinned && $post->isEditable())<span class="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800" data-pinned>Sabit tarih</span>@endif
         </div>
         @if ($post->title)<p class="text-sm font-semibold">{{ $post->title }}</p>@endif
 
@@ -55,7 +58,13 @@
                 @if ($post->status === 'draft' || $post->status === 'expired')<button type="button" wire:click="approve({{ $post->id }})" class="btn-primary">Onayla</button>@endif
                 @if ($post->status === 'approved')<button type="button" wire:click="unapprove({{ $post->id }})" class="btn">Onayı geri al</button>@endif
                 @if (in_array($post->status, ['failed', 'partial'], true))<button type="button" wire:click="retry({{ $post->id }})" class="btn-primary">Tekrar dene</button>@endif
+                @if ($place !== false)
+                    <button type="button" wire:click="move({{ $post->id }}, -1)" class="btn" @disabled($place === 0) aria-label="Sırada öne al">↑ Öne al</button>
+                    <button type="button" wire:click="move({{ $post->id }}, 1)" class="btn" @disabled($place === count($line) - 1) aria-label="Sırada arkaya al">↓ Arkaya al</button>
+                @endif
                 @if ($post->isEditable())
+                    @if ($post->pinned)<button type="button" wire:click="pin({{ $post->id }}, false)" class="btn">Sıraya al</button>
+                    @else<button type="button" wire:click="pin({{ $post->id }}, true)" class="btn">Tarihi sabitle</button>@endif
                     <button type="button" wire:click="edit({{ $post->id }})" class="btn">Düzenle</button>
                     <button type="button" wire:click="skip({{ $post->id }})" class="btn-quiet">Atla</button>
                 @endif

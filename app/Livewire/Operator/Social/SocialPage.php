@@ -12,6 +12,7 @@ use App\Services\Social\InstagramFeed;
 use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
+use App\Services\Social\SocialSchedule;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -76,6 +77,13 @@ final class SocialPage extends Component
     /** @var array<int, TemporaryUploadedFile> */
     public array $newFiles = [];
 
+    // Paylaşım düzeni: chosen weekdays (1 = Pazartesi … 7 = Pazar) and the hour of each.
+    /** @var array<int, bool> */
+    public array $planDays = [];
+
+    /** @var array<int, string> */
+    public array $planTimes = [];
+
     // Hesaplar
     public string $configId = '';
 
@@ -105,6 +113,11 @@ final class SocialPage extends Component
             $this->message = (string) $flash['message'];
             $this->messageTone = in_array($flash['tone'] ?? '', ['success', 'error'], true) ? $flash['tone'] : 'info';
         }
+        $chosen = app(SocialSchedule::class)->days();
+        foreach (range(1, 7) as $day) {
+            $this->planDays[$day] = isset($chosen[$day]);
+            $this->planTimes[$day] = $chosen[$day] ?? SocialSchedule::DEFAULT_TIME;
+        }
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
         $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
         $this->newTime = now(SocialPlanner::TIMEZONE)->addDay()->setTime(11, 30)->format('Y-m-d\TH:i');
@@ -132,7 +145,7 @@ final class SocialPage extends Component
         foreach ($posts as $post) {
             app(SocialPlanner::class)->approve($post, (int) auth()->id());
         }
-        $this->message = $posts->count().' gönderi onaylandı; her biri kendi saatinde yayınlanır.';
+        $this->message = $posts->count().' gönderi onaylandı; paylaşım düzenindeki günlere sırayla yerleşti.';
     }
 
     public function openPost(int $id): void
@@ -183,7 +196,44 @@ final class SocialPage extends Component
     {
         $this->authorizeAdmin();
         app(SocialPlanner::class)->approve($this->post($id), (int) auth()->id());
-        $this->message = 'Onaylandı.';
+        $at = $this->post($id)->publish_at->timezone(SocialPlanner::TIMEZONE)->translatedFormat('j F l, H:i');
+        $this->message = 'Onaylandı; '.$at.' için sıraya girdi.';
+    }
+
+    /** Paylaşım düzeni: the chosen days and hours are kept and the waiting approved posts take their new days. */
+    public function saveSchedule(): void
+    {
+        $this->authorizeAdmin();
+        $days = [];
+        foreach (range(1, 7) as $day) {
+            if ($this->planDays[$day] ?? false) {
+                $days[$day] = (string) ($this->planTimes[$day] ?? '');
+            }
+        }
+        try {
+            $changed = app(SocialSchedule::class)->save($days);
+            $this->message = 'Paylaşım düzeni kaydedildi'.($changed > 0 ? '; sıradaki '.$changed.' gönderinin günü yeniden belirlendi.' : '.');
+            $this->messageTone = 'success';
+        } catch (Throwable $e) {
+            $this->message = $e->getMessage();
+            $this->messageTone = 'error';
+        }
+    }
+
+    /** Sırada öne (-1) ya da arkaya (+1). */
+    public function move(int $id, int $direction): void
+    {
+        $this->authorizeAdmin();
+        app(SocialSchedule::class)->move($this->post($id), $direction);
+        $this->message = '';
+    }
+
+    /** Tarihi sabitle (kendi gününde kalır) ya da sıraya al. */
+    public function pin(int $id, bool $pinned): void
+    {
+        $this->authorizeAdmin();
+        app(SocialPlanner::class)->pin($this->post($id), $pinned);
+        $this->message = $pinned ? 'Tarih sabitlendi; bu gönderi sıradan bağımsız kendi gününde yayınlanır.' : 'Gönderi sıraya alındı.';
     }
 
     public function unapprove(int $id): void
@@ -384,6 +434,8 @@ final class SocialPage extends Component
             'openedIg' => $openedIg ?? null,
             'waitingCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
             'weeks' => $weeks,
+            'line' => app(SocialSchedule::class)->line()->modelKeys(),
+            'dayNames' => [1 => 'Pazartesi', 2 => 'Salı', 3 => 'Çarşamba', 4 => 'Perşembe', 5 => 'Cuma', 6 => 'Cumartesi', 7 => 'Pazar'],
             'manual' => $manual,
             'history' => $history,
             'accounts' => SocialAccount::query()->orderBy('platform')->get(),

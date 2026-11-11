@@ -15,7 +15,7 @@
             <div class="min-w-0 flex-1">
                 <p class="mb-1 text-xs text-gray-500"><a href="{{ route('operator.marketing', ['kanal' => 'social']) }}" wire:navigate class="link-neutral" data-social-marketing-link>Pazarlama</a> › Sosyal medya</p>
                 <h1 class="page-title">Sosyal medya</h1>
-                <p class="page-sub">Instagram, Facebook ve LinkedIn. Onayladığınız gönderiler kendi saatinde yayınlanır{{ $drafts > 0 ? '; '.$drafts.' gönderi onayınızı bekliyor.' : '.' }}</p>
+                <p class="page-sub">Instagram, Facebook ve LinkedIn. Onayladığınız gönderiler paylaşım düzenindeki gün ve saatte, sırayla yayınlanır{{ $drafts > 0 ? '; '.$drafts.' gönderi onayınızı bekliyor.' : '.' }}</p>
             </div>
         </header>
 
@@ -38,6 +38,31 @@
         @if ($tab === 'instagram')
             @include('livewire.operator.social.partials.instagram')
         @elseif ($tab === 'plan')
+            {{-- Paylaşım düzeni (yakup 2026-11-12): the days and the hour; approved posts take these days in line order. --}}
+            <section class="card space-y-4 p-5" data-social-schedule>
+                <div>
+                    <h2 class="section-title">Paylaşım düzeni</h2>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Onayladığınız gönderiler sıraya girer ve seçtiğiniz günlerde, günde bir tane olarak Instagram ve Facebook’ta yayınlanır. Sırada {{ count($line) }} gönderi var.</p>
+                </div>
+                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                    @foreach ($dayNames as $day => $name)
+                        <div @class(['rounded-lg border p-3', 'border-gray-200 dark:border-gray-800' => ! ($planDays[$day] ?? false), 'border-brand-500' => $planDays[$day] ?? false]) data-schedule-day="{{ $day }}">
+                            <label class="flex items-center gap-2 text-sm font-medium">
+                                <input type="checkbox" wire:model.live="planDays.{{ $day }}" class="rounded border-gray-300 dark:border-gray-700" @disabled(! $canWrite)>
+                                {{ $name }}
+                            </label>
+                            <input type="time" wire:model="planTimes.{{ $day }}" aria-label="{{ $name }} paylaşım saati" class="mt-2 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900" @disabled(! $canWrite || ! ($planDays[$day] ?? false))>
+                        </div>
+                    @endforeach
+                </div>
+                @if ($canWrite)
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" wire:click="saveSchedule" class="btn-primary" wire:loading.attr="disabled">Düzeni kaydet</button>
+                        <p class="text-xs text-gray-500">Belirli bir güne ait gönderide “Tarihi sabitle”ye basın; o gönderi sıradan bağımsız kendi gününde yayınlanır.</p>
+                    </div>
+                @endif
+            </section>
+
             @if ($manual->isNotEmpty())
                 <section class="space-y-3" data-manual>
                     <h2 class="section-title">LinkedIn’de paylaşmanız bekleniyor</h2>
@@ -69,7 +94,7 @@
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <h2 class="section-title">{{ $start->translatedFormat('j F') }} – {{ $start->copy()->addDays(6)->translatedFormat('j F') }} haftası · {{ $posts->count() }} gönderi</h2>
                         @if ($canWrite && $weekDrafts > 0)
-                            <button type="button" class="btn-primary" x-on:click="if (confirm('Bu haftanın onay bekleyen {{ $weekDrafts }} gönderisi onaylansın mı? Her biri kendi saatinde yayınlanır.')) $wire.approveWeek('{{ $weekStart }}')">Haftayı onayla ({{ $weekDrafts }})</button>
+                            <button type="button" class="btn-primary" x-on:click="if (confirm('Bu haftanın onay bekleyen {{ $weekDrafts }} gönderisi onaylansın mı? Paylaşım düzenindeki günlere sırayla yerleşir.')) $wire.approveWeek('{{ $weekStart }}')">Haftayı onayla ({{ $weekDrafts }})</button>
                         @endif
                     </div>
                     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

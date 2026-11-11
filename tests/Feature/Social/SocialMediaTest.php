@@ -70,10 +70,14 @@ final class SocialMediaTest extends TestCase
             $media[] = ['bytes' => $kind === 'reels' ? "\0\0\0\x18ftypmp42video" : $this->png(), 'name' => $kind === 'reels' ? 'v.mp4' : 'g'.$i.'.png'];
         }
 
-        return app(SocialPlanner::class)->create([
+        $post = app(SocialPlanner::class)->create([
             'kind' => $kind, 'caption' => 'Sağlık reklamında yazılamayan beş ifade.', 'linkedin_text' => $linkedin,
             'publish_at' => '2026-11-09 11:30', 'platforms' => $platforms,
         ], $media);
+        // These tests are about a post going out at its own time: a fixed date, outside the daily line.
+        $post->update(['pinned' => true]);
+
+        return $post;
     }
 
     public function test_drafts_are_never_published_and_images_become_jpeg(): void

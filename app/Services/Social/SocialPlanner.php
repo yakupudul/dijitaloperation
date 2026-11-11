@@ -136,6 +136,22 @@ class SocialPlanner
             $publishAt = now()->addMinutes(10);
         }
         $post->update(['status' => SocialPost::APPROVED, 'approved_by' => $userId, 'approved_at' => now(), 'publish_at' => $publishAt]);
+        // Paylaşım düzeni: an approved post joins the end of the line unless its date is fixed.
+        if (! $post->pinned) {
+            app(SocialSchedule::class)->enqueue($post);
+        }
+    }
+
+    /** Tarihi sabitle / sıraya al: a fixed post keeps its own day and hour; a freed one joins the end of the line. */
+    public function pin(SocialPost $post, bool $pinned): void
+    {
+        if (! $post->isEditable()) {
+            return;
+        }
+        $post->update(['pinned' => $pinned]);
+        if ($post->status === SocialPost::APPROVED) {
+            $pinned ? app(SocialSchedule::class)->reflow() : app(SocialSchedule::class)->enqueue($post);
+        }
     }
 
     /** Instagram görünümü › "Onayla ve şimdi yayınla": the publisher takes it in its next run (a few minutes). */
@@ -145,7 +161,9 @@ class SocialPlanner
             $this->approve($post, $userId);
         }
         if ($post->status === SocialPost::APPROVED) {
-            $post->update(['publish_at' => now()]);
+            // Out of the line: it goes now and the others close the gap.
+            $post->update(['publish_at' => now(), 'pinned' => true]);
+            app(SocialSchedule::class)->reflow();
         } elseif (in_array($post->status, [SocialPost::FAILED, SocialPost::PARTIAL], true)) {
             $this->retry($post);
         }
@@ -185,6 +203,7 @@ class SocialPlanner
     {
         if ($post->status === SocialPost::APPROVED && ! $post->targets()->whereIn('status', [SocialPostTarget::PUBLISHED, SocialPostTarget::PROCESSING, SocialPostTarget::DONE])->exists()) {
             $post->update(['status' => SocialPost::DRAFT, 'approved_by' => null, 'approved_at' => null]);
+            app(SocialSchedule::class)->reflow();
         }
     }
 
@@ -193,6 +212,7 @@ class SocialPlanner
         if ($post->isEditable()) {
             $post->update(['status' => SocialPost::SKIPPED]);
             $post->targets()->whereIn('status', [SocialPostTarget::PENDING, SocialPostTarget::FAILED])->update(['status' => SocialPostTarget::SKIPPED]);
+            app(SocialSchedule::class)->reflow();
         }
     }
 
@@ -220,10 +240,20 @@ class SocialPlanner
         if (array_key_exists('title', $data)) {
             $update['title'] = $data['title'] !== null ? Str::limit(trim($data['title']), 190, '') : null;
         }
+        $moved = false;
         if (filled($data['publish_at'] ?? null)) {
-            $update['publish_at'] = Carbon::parse((string) $data['publish_at'], self::TIMEZONE)->utc();
+            $at = Carbon::parse((string) $data['publish_at'], self::TIMEZONE)->utc();
+            // A time typed by hand is a fixed date: the line no longer moves this post.
+            if ($at->format('Y-m-d H:i') !== $post->publish_at->utc()->format('Y-m-d H:i')) {
+                $update['publish_at'] = $at;
+                $update['pinned'] = true;
+                $moved = true;
+            }
         }
         $post->update($update);
+        if ($moved && $post->status === SocialPost::APPROVED) {
+            app(SocialSchedule::class)->reflow();
+        }
         $this->syncTargets($post->fresh());
     }
 

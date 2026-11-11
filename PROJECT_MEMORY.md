@@ -2260,6 +2260,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
 
+- **Sosyal paylaşım düzeni (yakup 2026-11-12)**: `/sosyal` › Plan üstünde gün ve saat seçimi (`agency_settings.social_schedule`, standart her gün 12:30, günde 1). Onaylanan gönderi sıranın sonuna girer; `SocialSchedule::reflow()` sıradakilere düzenin boş günlerini sırayla verir (sıra = `publish_at` sırası, "Öne al / Arkaya al" iki saati değiştirir, ayrı sıra sütunu yok). `social_posts.pinned` = sabit tarih: sıraya girmez, gününü kendine ayırır; elle saat değiştirmek ve "şimdi yayınla" sabitler. Taslağın `publish_at` değeri yalnız öneridir. Yeni zamanlanmış iş yok; yayıncı aynı.
+
 - **Satış 4.4 olaylı takip:** `WarmPoolWatch` haftada bir (hafta içi 09:00 sonrası ilk `sales-lead-research` turunda, haftalık kilit) sessiz adayların ana sayfasını açar, haftada en çok 25 aday, en uzun süredir bakılmayan önce. Yalnız olay olunca (site açılmıyor, sertifika bozuk, yeniden açıldı, başlık değişti) aday `Yaz: …` adımıyla Bugün'e döner ve karta `Yazmak için iyi an` olayı düşer. AI yok, ücretli API yok, yeni zamanlanmış iş yok. Rakip reklamı ve kötü yorum olayları veri kaynağı olmadığı için yok.
 
 
