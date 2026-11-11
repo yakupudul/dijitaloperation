@@ -539,7 +539,7 @@ final class QueryAutopilot
         $term = trim(preg_replace('/\s+/u', ' ', QueryNormalizer::lower($term)) ?? '');
         $folded = SeoText::fold($term);
         if (mb_strlen($folded) < 3 || mb_strlen($term) > 60 || count(explode(' ', $folded)) > 4 || ! SeoText::matchesPhrase($text, $term)
-            || QueryNormalizer::isQuestionTerm($term) || ServiceKeywordService::isGeneric($term)) {
+            || QueryNormalizer::isQuestionTerm($term) || QueryNormalizer::isJunkTerm($term) || ServiceKeywordService::isGeneric($term)) {
             return null;
         }
         foreach ($guards as $guard) {

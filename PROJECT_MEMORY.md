@@ -2269,6 +2269,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 - Satış 2.3: bizim mesajımızdan sonra otomatik takip adımı yazılmaz (`FollowUpSequence::afterOurMessage` boş döner, eski `AUTO_STEPS` saatlik turda silinir). Kart "Cevap bekleniyor" gösterir, 21 gün sessiz kalırsa `SalesTidy::closeSilent` "Sessiz kaldı" diye kapatır; aday yazarsa kendiliğinden açılır. Müşteri, "Sonra" ve elle adım yazılmış kart kapanmaz.
 - Ajansın kendi marka sayfasında ticari şerit ("Anlaşma girilmedi", son temas) gösterilmez.
 - Bağlantı 3.1 kırmızı çizgiler: `ExternalWriteService::execute` gönderimden hemen önce `RedLines::crossed` ile yorum yanıtı, İşletme Profili gönderisi, profil açıklaması ve site alanlarını markanın yasak ifadelerine ("engelle" düzeyi, `ForbiddenTerms::forBrand`: sektör paketi + sektör + markaya özel kurallar; liste Sorgular › Yasaklı ifadeler) karşı bir kez daha okur. Çizgiyi geçen yazma gönderilmez, "Gönderilmedi (kırmızı çizgi): …" nedeniyle biter.
+- Bağlantı 1.6 (kural kısmı): AI, filtre sepetine telefon numarası, tek sayı ya da tek harf ekleyemez (`QueryNormalizer::isJunkTerm`; öneri onayı, sihirbaz ve otomatik triyaj aynı kontrolden geçer). Var olan çöp terimlerin silinmesi yakup'un onayını bekler.
 
 yakup 2026-11-11: "tüm yol haritalarını şimdi yap". Beş yol haritasının (Marka, Satış, Günlük, Bağlantı, Pazarlama Düzeni)
 1. aşama düzeltmelerinden yapılanlar:

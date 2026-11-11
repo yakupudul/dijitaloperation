@@ -153,6 +153,18 @@ final class QueryNormalizer
         return array_intersect(QueryServiceMatcher::tokens($term), self::QUESTION_WORDS) !== [];
     }
 
+    /**
+     * A term that must never enter the filter basket by itself (Bağlantı Düzeni 1.6): a phone number, a lone number, a
+     * single letter. Such a "word" deletes every query that happens to carry the number, for no reason anyone chose.
+     */
+    public static function isJunkTerm(string $term): bool
+    {
+        $term = trim($term);
+        $digits = preg_replace('/\D+/', '', $term) ?? '';
+
+        return preg_match('/\p{L}{2,}/u', $term) !== 1 || strlen($digits) >= 7;
+    }
+
     /** Whether a filter term (whole words, suffix tolerant) occurs in the text. */
     public static function containsTerm(string $text, string $term): bool
     {
