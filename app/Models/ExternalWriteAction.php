@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Services\Work\WorkBatches;
+use App\Support\SchemaState;
+use App\Support\WriteLevels;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -73,6 +75,10 @@ class ExternalWriteAction extends Model
         static::creating(function (self $action): void {
             if ($action->work_batch_id === null && ($batch = WorkBatches::current()) !== null) {
                 $action->work_batch_id = $batch;
+            }
+            // Yetki kademeleri: who started this write (the "Öner" level lets only the operator's own writes leave).
+            if ($action->origin === null && SchemaState::hasColumn('external_write_actions', 'origin')) {
+                $action->origin = WriteLevels::origin();
             }
         });
     }

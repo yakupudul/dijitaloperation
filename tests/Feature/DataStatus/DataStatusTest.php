@@ -18,6 +18,7 @@ use App\Models\CoreIntegration;
 use App\Models\CoreIntegrationCredential;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\ExternalWriteAction;
 use App\Models\ResourceActivity;
 use App\Models\ResourceAutomation;
 use App\Models\User;
@@ -25,11 +26,13 @@ use App\Services\DataStatus\ConnectionHealth;
 use App\Services\DataStatus\ConnectionMap;
 use App\Services\DataStatus\DataStatus;
 use App\Services\DataStatus\DataStatusReader;
+use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Operator\PortfolioSignalsReader;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Integrations\Meta\MetaResourceType;
 use App\Support\Roles;
+use App\Support\WriteLevels;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -371,6 +374,33 @@ final class DataStatusTest extends TestCase
         Livewire::test(ConnectionHealthPage::class)->assertDontSee('data-connection-map', false)
             ->set('view', 'harita')->assertSee('data-connection-map', false)->assertSee('Sitesiz Marka')->assertSee('İşletme Profili')
             ->set('onlyGaps', true)->assertDontSee('Sitesiz Marka')->assertSee('Örnek Klinik');
+    }
+
+    public function test_write_levels_lock_a_channel_per_brand(): void
+    {
+        $levels = WriteLevels::class;
+        $this->brand->forceFill(['created_at' => '2026-10-01 10:00:00'])->save();
+        $this->assertSame('yaz', $levels::level($this->brand, 'wordpress'), 'a brand that was already running keeps working as it did');
+        $this->assertSame('oku', $levels::level($this->brand, 'google_ads'), 'advertising channels are locked');
+        $new = Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Yeni Marka', 'created_at' => '2026-11-20 10:00:00']);
+        $this->assertSame('oner', $levels::level($new, 'gbp'), 'a new brand starts at "Öner"');
+
+        $profile = $this->asset('google_business_profile', 'Örnek Profil');
+        $write = fn (Brand $brand, string $origin): ExternalWriteAction => ExternalWriteAction::query()->create([
+            'channel' => 'gbp', 'action' => 'review_reply', 'brand_id' => $brand->id, 'digital_asset_id' => $profile->id, 'requested_by' => auth()->id(), 'status' => 'queued', 'request_payload' => [], 'origin' => $origin]);
+        $this->assertNull($levels::refusal($write($new, 'hand')), 'the operator\'s own write goes at "Öner"');
+        $this->assertStringContainsString('"Öner" kademesinde', (string) $levels::refusal($write($new, 'auto')));
+        $this->assertNull($levels::refusal($write($this->brand, 'auto')));
+        $this->assertSame('hand', ExternalWriteAction::query()->create(['channel' => 'gbp', 'action' => 'review_reply', 'brand_id' => $new->id, 'digital_asset_id' => $profile->id, 'requested_by' => auth()->id(), 'status' => 'queued', 'request_payload' => []])->origin, 'a signed-in click is the operator\'s write');
+
+        Livewire::test(ConnectionHealthPage::class)->set('view', 'yetkiler')->assertSee('data-write-levels', false)->assertSee('Yeni Marka')
+            ->call('setLevel', $this->brand->id, 'gbp', 'oku')->assertSee('Örnek Klinik, İşletme Profili: Yalnız oku.');
+        $blocked = $write($this->brand->fresh(), 'hand');
+        app(ExternalWriteService::class)->execute($blocked);
+        $this->assertSame('failed', $blocked->fresh()->status);
+        $this->assertStringContainsString('yetki kademesi', (string) $blocked->fresh()->error);
+        $this->expectException(\InvalidArgumentException::class);
+        $levels::set($this->brand, 'google_ads', 'yaz');
     }
 
     /** @return array<string, array{0: string}> */

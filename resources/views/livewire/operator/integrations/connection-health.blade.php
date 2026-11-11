@@ -11,15 +11,59 @@
     </header>
 
     <nav class="-mt-4 flex flex-wrap items-center gap-2" aria-label="Görünüm" data-connection-views>
-        <button type="button" wire:click="$set('view', 'eksikler')" @class(['seg', 'seg-active' => $view !== 'harita'])>Eksikler <span class="tabular-nums {{ $view !== 'harita' ? 'text-accent' : 'text-gray-400' }}">{{ $summary['operator'] + $summary['system'] }}</span></button>
+        <button type="button" wire:click="$set('view', 'eksikler')" @class(['seg', 'seg-active' => ! in_array($view, ['harita', 'yetkiler'], true)])>Eksikler <span class="tabular-nums {{ ! in_array($view, ['harita', 'yetkiler'], true) ? 'text-accent' : 'text-gray-400' }}">{{ $summary['operator'] + $summary['system'] }}</span></button>
         <button type="button" wire:click="$set('view', 'harita')" @class(['seg', 'seg-active' => $view === 'harita'])>Harita</button>
+        <button type="button" wire:click="$set('view', 'yetkiler')" @class(['seg', 'seg-active' => $view === 'yetkiler'])>Yetkiler</button>
     </nav>
 
     @if ($message !== '')
         <p class="card -mt-4 px-4 py-3 text-sm text-gray-700 dark:text-gray-300" role="status">{{ $message }}</p>
     @endif
 
-    @if ($view === 'harita')
+    @if ($view === 'yetkiler')
+        @php $levelChannels = \App\Support\WriteLevels::CHANNELS; $levelLabels = \App\Support\WriteLevels::LABELS; @endphp
+        <section data-write-levels>
+            <div class="section-head items-center">
+                <h2 class="section-title">Sistem hangi markada neye izinli</h2>
+            </div>
+            <p class="-mt-2 mb-3 max-w-[70ch] text-[13px] text-gray-500 dark:text-gray-400">Yalnız oku: oraya hiçbir şey yazılmaz. Öner: sistem hazırlar, senin onayınla gider. Yaz: sistemin kendi otomatik işleri de gider. Reklam kanalları her markada kilitli. Yeni marka "Öner" ile başlar.</p>
+            <div class="card">
+                <div class="hidden grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,1fr))] gap-3 border-b border-gray-100 px-4 py-2.5 text-[12px] font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400 sm:grid">
+                    <span>Marka</span>
+                    @foreach ($levelChannels as $heading)<span>{{ $heading }}</span>@endforeach
+                </div>
+                @foreach ($levelBrands as $brand)
+                    <div wire:key="level-{{ $brand->id }}" class="grid gap-x-3 gap-y-2.5 border-b border-gray-100 px-4 py-3 last:border-b-0 dark:border-gray-800 sm:grid-cols-[minmax(0,1.5fr)_repeat(4,minmax(0,1fr))] sm:items-center" data-level-row>
+                        <a href="{{ route('operator.brand', ['brand' => $brand->id]) }}" wire:navigate class="flex min-w-0 items-center gap-2 text-sm font-medium text-gray-900 hover:underline dark:text-white">
+                            <x-ta.brand-avatar :name="$brand->name" :logo="$brand->logo_url" size="sm" />
+                            <span class="truncate">{{ $brand->name }}</span>
+                        </a>
+                        <div class="col-span-full grid grid-cols-2 gap-x-3 gap-y-2.5 sm:col-span-4 sm:grid-cols-4">
+                            @foreach ($levelChannels as $channel => $heading)
+                                @php $level = \App\Support\WriteLevels::level($brand, $channel); $locked = in_array($channel, \App\Support\WriteLevels::LOCKED, true); @endphp
+                                <label class="min-w-0">
+                                    <span class="mb-1 block truncate text-[11px] text-gray-500 dark:text-gray-400 sm:hidden">{{ $heading }}</span>
+                                    @if ($locked)
+                                        <span class="inline-flex h-9 items-center gap-1.5 text-[13px] text-gray-400 dark:text-gray-500" title="Reklam hesaplarına yazma kapalı; panelden açılmaz.">
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                                            Yalnız oku
+                                        </span>
+                                    @else
+                                        <select wire:change="setLevel({{ $brand->id }}, '{{ $channel }}', $event.target.value)" aria-label="{{ $brand->name }}, {{ $heading }}" data-level="{{ $channel }}"
+                                            class="h-9 w-full rounded-lg border border-gray-200 bg-white px-2.5 text-[13px] text-gray-800 focus:border-gray-900 focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                                            @foreach ($levelLabels as $value => $label)
+                                                <option value="{{ $value }}" @selected($level === $value)>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
+                                    @endif
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @elseif ($view === 'harita')
         @php
             $channels = \App\Services\DataStatus\ConnectionMap::CHANNELS;
             $dot = ['ok' => 'bg-success-500', 'warn' => 'bg-warning-500', 'bad' => 'bg-error-500', 'muted' => 'bg-gray-300 dark:bg-gray-600'];

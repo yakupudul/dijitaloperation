@@ -2,8 +2,11 @@
 
 namespace App\Livewire\Operator\Integrations;
 
+use App\Livewire\Concerns\AdminOnly;
+use App\Models\Brand;
 use App\Services\DataStatus\ConnectionHealth;
 use App\Services\DataStatus\ConnectionMap;
+use App\Support\WriteLevels;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -13,12 +16,15 @@ use Livewire\Component;
 /**
  * Bağlantı sağlığı: every brand's gaps in what the system can see, "Sistem onarır" first (it also runs nightly), then
  * "Senin işin" with the exact step and a link. "Şimdi onar" starts the system's repairs at once. The second view,
- * "Harita" (Bağlantı Düzeni 2.1), is the same truth as a grid: brands down, channels across.
+ * "Harita" (Bağlantı Düzeni 2.1), is the same truth as a grid: brands down, channels across. The third,
+ * "Yetkiler" (3.2), sets what the system may do per brand and channel: Yalnız oku / Öner / Yaz.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Bağlantı sağlığı')]
 final class ConnectionHealthPage extends Component
 {
+    use AdminOnly;
+
     public string $message = '';
 
     #[Url(as: 'gorunum')]
@@ -35,6 +41,15 @@ final class ConnectionHealthPage extends Component
             $done['collections'], $done['crawls'], $done['failed'] > 0 ? ', '.$done['failed'].' tanesi başlatılamadı' : '');
     }
 
+    /** Yetki kademesi of one brand's channel (advertising channels are locked at "Yalnız oku"). */
+    public function setLevel(int $brandId, string $channel, string $level): void
+    {
+        $this->adminOnly();
+        $brand = Brand::query()->operational()->findOrFail($brandId);
+        WriteLevels::set($brand, $channel, $level);
+        $this->message = sprintf('%s, %s: %s.', $brand->name, WriteLevels::CHANNELS[$channel], WriteLevels::LABELS[$level]);
+    }
+
     public function render(ConnectionHealth $health): View
     {
         $issues = $health->issues();
@@ -44,6 +59,7 @@ final class ConnectionHealthPage extends Component
             'map' => $this->onlyGaps ? array_values(array_filter($map, fn (array $row): bool => in_array($row['worst'], ['warn', 'bad'], true))) : $map,
             'mapTotals' => ConnectionMap::totals($map),
             'mapBrands' => count($map),
+            'levelBrands' => $this->view === 'yetkiler' ? Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'logo_url', 'write_levels', 'created_at']) : collect(),
             'summary' => $health->summary($issues),
             'groups' => collect($issues)->filter(ConnectionHealth::isGap(...))->groupBy('brand')->sortKeys()->all(),
             'passive' => collect($issues)->reject(ConnectionHealth::isGap(...))->sortBy('brand')->values()->all(),

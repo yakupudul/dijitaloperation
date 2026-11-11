@@ -17,6 +17,7 @@ use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Epicrisis\Epicrisis;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\SeoTasks\SeoText;
+use App\Support\WriteLevels;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -488,8 +489,9 @@ final class GbpPostQueue
             if ($approver === null) {
                 throw new RuntimeException('Onaylayan kullanıcı yok.');
             }
-            $action = $this->writes->requestLocalPost($approver, $asset, ['summary' => (string) $post->summary, 'url' => $post->url,
-                'action_type' => $post->action_type, 'image_url' => $post->image_url, 'queue_id' => (int) $post->id]);
+            // The operator approved this text; the queue only delivers it on its day (WriteLevels: their write, not the system's).
+            $action = WriteLevels::byHand(fn (): ExternalWriteAction => $this->writes->requestLocalPost($approver, $asset, ['summary' => (string) $post->summary, 'url' => $post->url,
+                'action_type' => $post->action_type, 'image_url' => $post->image_url, 'queue_id' => (int) $post->id]));
             $post->forceFill(['external_write_action_id' => $action->id, 'note' => null])->save();
 
             return 'published';

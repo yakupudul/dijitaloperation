@@ -31,6 +31,7 @@ use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentUpdateGoLive;
 use App\Support\EmergencyStop;
 use App\Support\Roles;
+use App\Support\WriteLevels;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -828,6 +829,12 @@ final class ExternalWriteService
         // Kırmızı çizgiler (Bağlantı Düzeni 3.1): a text with one of the brand's forbidden phrases does not leave.
         if (($line = RedLines::crossed($action)) !== null) {
             $this->abandon($action, 'Gönderilmedi (kırmızı çizgi): '.$line);
+
+            return;
+        }
+        // Yetki kademeleri (Bağlantı Düzeni 3.2): "Yalnız oku" lets nothing out, "Öner" only what the operator started.
+        if (($refusal = WriteLevels::refusal($action)) !== null) {
+            $this->abandon($action, 'Gönderilmedi (yetki kademesi): '.$refusal);
 
             return;
         }

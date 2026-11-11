@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Site\BrandlessSites;
 use App\Support\Roles;
+use App\Support\WriteLevels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
@@ -104,6 +105,12 @@ final class WordPressSiteBuilder
         $serviced = $connection->digitalAsset !== null && BrandlessSites::serviced($connection->digitalAsset);
         if (! in_array($tool, self::READ_TOOLS, true) && ! $serviced && $this->state($connection) !== null) {
             throw new RuntimeException(BrandlessSites::REASON);
+        }
+
+        // Yetki kademeleri: a brand whose site is at "Yalnız oku" gets the reading tools only.
+        if (! in_array($tool, self::READ_TOOLS, true) && $connection->digitalAsset?->brand_id !== null
+            && WriteLevels::level($connection->digitalAsset->brand, ExternalWriteAction::CHANNEL_WORDPRESS) === WriteLevels::READ) {
+            throw new RuntimeException('Bu markanın sitesi "Yalnız oku" kademesinde: yalnız okuma araçları çalışır. Kademe Bağlantı sağlığı › Yetkiler\'den değişir.');
         }
 
         // Theme file tools came with connector 1.34.0 (yakup 2026-11-02): an older site gets the signed self-update
