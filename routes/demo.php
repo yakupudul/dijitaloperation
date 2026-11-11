@@ -78,6 +78,7 @@ use App\Livewire\Operator\Sales\LeadCardPage;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Livewire\Operator\Settings\AiOperationsPage;
 use App\Livewire\Operator\Settings\AiWorkersPage;
+use App\Livewire\Operator\Settings\BooksPage;
 use App\Livewire\Operator\Settings\ImprovementsPage;
 use App\Livewire\Operator\Settings\McpKeysPage;
 use App\Livewire\Operator\Settings\ReleasesPage;
@@ -214,6 +215,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/mcp', McpKeysPage::class)->name('operator.settings.mcp');
         Route::livewire('/settings/security', SecurityCardPage::class)->name('operator.settings.security');
         Route::livewire('/settings/jobs', ScheduledJobsPage::class)->name('operator.settings.jobs');
+        Route::livewire('/settings/books', BooksPage::class)->name('operator.settings.books');
         Route::livewire('/settings/changes', SettingChangesPage::class)->name('operator.settings.changes');
         Route::livewire('/settings/ai', AiWorkersPage::class)->name('operator.settings.ai-workers');
         Route::livewire('/settings/query-rules', QueriesPage::class)->name('operator.settings.query-rules');

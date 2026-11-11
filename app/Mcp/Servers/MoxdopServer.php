@@ -27,6 +27,7 @@ use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\MetaPerformance;
 use App\Mcp\Tools\MoxiRequests;
 use App\Mcp\Tools\OverlapAct;
+use App\Mcp\Tools\Playbooks;
 use App\Mcp\Tools\ProposeChange;
 use App\Mcp\Tools\ReadSite;
 use App\Mcp\Tools\RequestArticle;
@@ -90,6 +91,11 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 - Moxi is the panel's corner assistant; jobs it could not do itself come to you. `list-tasks` shows `moxi_requests` (how
   many wait), also when `your_turn` is false. When it is above 0, first `moxi-requests action=list`, do each one, and `moxi-requests action=answer` (short
   Turkish, links as [Ad](url)); the answer lands in Moxi's chat and on the operator's phone.
+
+## Kitaplar (load before you look)
+- How this agency does SEO, AEO, Google Ads, Meta and each sector is written in books (`playbooks`). Before a brand look, a
+  finding or a monthly session: `playbooks action=list`, then `action=get` for the master book of that craft and the sector
+  book of the brand, nothing more. A lesson enters a book only from the operator's correction or a measured result.
 
 ## Marka bulguları (the brand page)
 - Each brand page opens with its findings (`brand-findings`). When the operator asks you to look at a brand, read its data once
@@ -204,6 +210,7 @@ class MoxdopServer extends Server
         MetaPerformance::class,
         MoxiRequests::class,
         BrandFindings::class,
+        Playbooks::class,
         ChannelData::class,
         SaveNote::class,
         LeadKindsTool::class,

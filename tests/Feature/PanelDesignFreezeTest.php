@@ -123,7 +123,7 @@ class PanelDesignFreezeTest extends TestCase
         $settingsTabs = collect(OperatorMenu::sectionTabs('operator.settings.users'));
         $this->assertSame([
             ['/settings', '/settings/users'],
-            ['/library/website-standards', '/library/services', '/settings/query-rules'],
+            ['/library/website-standards', '/library/services', '/settings/query-rules', '/settings/books'],
             ['/settings/ai', '/settings/ai-operations', '/settings/mcp', '/settings/security', '/settings/system-health', '/settings/jobs', '/settings/changes', '/settings/improvements', '/settings/releases'],
         ], $settingsTabs->groupBy('group')->map(fn ($tabs): array => $tabs->pluck('url')->all())->values()->all(), 'Bağlantı Düzeni 2.3 (2026-11-11): Ayarlar in three groups, Ajans / Kurallar / Makine');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));

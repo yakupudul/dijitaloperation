@@ -97,6 +97,7 @@ final class DemoMenu
                     $child($tr ? 'Standartlar' : 'Standards', 'operator.library.website-standards', $tr ? 'Kurallar' : 'Rules'),
                     $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services', $tr ? 'Kurallar' : 'Rules'),
                     $child($tr ? 'Sorgu kuralları' : 'Query rules', 'operator.settings.query-rules', $tr ? 'Kurallar' : 'Rules'),
+                    $child($tr ? 'Kitaplar' : 'Books', 'operator.settings.books', $tr ? 'Kurallar' : 'Rules'),
                     $child($tr ? 'AI sağlayıcıları' : 'AI providers', 'operator.settings.ai-workers', $tr ? 'Makine' : 'Machine'),
                     $child($tr ? 'AI işlemleri ve promptlar' : 'AI operations & prompts', 'operator.settings.ai-operations', $tr ? 'Makine' : 'Machine'),
                     $child($tr ? 'MCP anahtarları' : 'MCP keys', 'operator.settings.mcp', $tr ? 'Makine' : 'Machine'),

@@ -66,7 +66,7 @@ final class ScreenChecker
         'operator.integrations.bing' => 'Bing Webmaster', 'operator.integrations.website-duplicates' => 'Kopya web siteleri',
         'operator.ai-jobs' => 'AI işleri', 'operator.settings' => 'Ayarlar',
         'operator.settings.ai-operations' => 'AI işlemleri', 'operator.settings.ai-workers' => 'AI sağlayıcıları', 'operator.settings.system-health' => 'Sistem',
-        'operator.settings.users' => 'Kullanıcılar', 'operator.settings.query-rules' => 'Sorgu kuralları', 'operator.settings.mcp' => 'MCP anahtarları', 'operator.settings.security' => 'Güvenlik karnesi', 'operator.settings.jobs' => 'Zamanlanmış işler', 'operator.settings.changes' => 'Değişiklik kaydı', 'operator.settings.sector-packs' => 'Sektör paketleri',
+        'operator.settings.users' => 'Kullanıcılar', 'operator.settings.query-rules' => 'Sorgu kuralları', 'operator.settings.mcp' => 'MCP anahtarları', 'operator.settings.security' => 'Güvenlik karnesi', 'operator.settings.jobs' => 'Zamanlanmış işler', 'operator.settings.books' => 'Kitaplar', 'operator.settings.changes' => 'Değişiklik kaydı', 'operator.settings.sector-packs' => 'Sektör paketleri',
         'operator.settings.improvements' => 'Geliştirme havuzu', 'operator.settings.releases' => 'Sürümler', 'operator.files' => 'Dosyalar', 'operator.profile' => 'Profil',
         // Admin denetimi 2026-11-07: screens in the menu or one click away that the nightly pass never opened.
         'operator.calendar' => 'Takvim', 'operator.links' => 'Bağlantılar', 'operator.customers' => 'Müşteriler', 'operator.customer.create' => 'Müşteri ekle',
