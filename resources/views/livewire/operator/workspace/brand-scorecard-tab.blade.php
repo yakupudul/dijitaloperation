@@ -24,6 +24,43 @@
 @endphp
 
 <div class="space-y-10" data-testid="brand-scorecard">
+    {{-- Marka Düzeni 2.3: the start numbers beside the last 30 full days. Per channel; channels are never added up. --}}
+    <section data-brand-baseline>
+        <div class="section-head items-center">
+            <h2 class="section-title">Başlangıç sayıları</h2>
+            @if ($base === null)
+                <button type="button" wire:click="takeBaseline" wire:loading.attr="disabled" class="btn ml-auto" data-brand-baseline-take>Başlangıcı al</button>
+            @endif
+        </div>
+        @if ($base === null)
+            <p class="-mt-2 max-w-[70ch] text-[13px] text-gray-500 dark:text-gray-400">Bu markanın başlangıcı henüz alınmadı. Alınınca son 30 tam günün sayıları buraya sabitlenir, sonraki her ay bununla kıyaslanır.</p>
+        @else
+            <p class="-mt-2 mb-3 text-[13px] text-gray-500 dark:text-gray-400">Başlangıç {{ $base['baseline']->period_from->locale('tr')->isoFormat('D MMMM') }} - {{ $base['baseline']->period_to->locale('tr')->isoFormat('D MMMM YYYY') }}. Şimdi {{ $base['from']->locale('tr')->isoFormat('D MMMM') }} - {{ $base['to']->locale('tr')->isoFormat('D MMMM') }} (tam günler).@if (! $base['measured']) Bu markada talep sayılacak dönüşüm tanımlı değil; talep satırları ölçüm düzelince dolar.@endif</p>
+            <div class="card">
+                <div class="grid grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] gap-3 border-b border-gray-100 px-4 py-2.5 text-[12px] font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                    <span></span><span class="text-right">Başlangıç</span><span class="text-right">Şimdi</span><span class="text-right">Değişim</span>
+                </div>
+                @foreach ($base['lines'] as $line)
+                    <div class="grid grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] gap-3 border-b border-gray-100 px-4 py-2.5 text-sm last:border-b-0 dark:border-gray-800" data-baseline-line>
+                        <span class="truncate text-gray-900 dark:text-white">{{ $line['label'] }}</span>
+                        <span class="text-right tabular-nums text-gray-500">{{ $num($line['start']) }}</span>
+                        <span class="text-right tabular-nums text-gray-900 dark:text-white">{{ $num($line['now']) }}</span>
+                        <span @class(['text-right tabular-nums', 'text-success-700 dark:text-success-400' => ($line['change'] ?? 0) > 0, 'text-error-700 dark:text-error-400' => ($line['change'] ?? 0) < 0, 'text-gray-400' => ($line['change'] ?? 0) == 0])>{{ $line['change'] === null ? '—' : $pct($line['change']) }}</span>
+                    </div>
+                @endforeach
+                @foreach ($base['services'] as $service)
+                    <div class="grid grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))] gap-3 border-b border-gray-100 px-4 py-2.5 text-sm last:border-b-0 dark:border-gray-800" data-baseline-service>
+                        <span class="min-w-0 truncate text-gray-900 dark:text-white">{{ $service['name'] }} <span class="text-[13px] text-gray-400">{{ $service['pages'] > 0 ? $service['pages'].' sayfa, tık' : 'sayfası yok' }}</span></span>
+                        <span class="text-right tabular-nums text-gray-500">{{ $num($service['start']) }}</span>
+                        <span class="text-right tabular-nums text-gray-900 dark:text-white">{{ $num($service['now']) }}</span>
+                        @php $change = $service['start'] > 0 ? round(($service['now'] - $service['start']) / $service['start'] * 100) : null; @endphp
+                        <span @class(['text-right tabular-nums', 'text-success-700 dark:text-success-400' => ($change ?? 0) > 0, 'text-error-700 dark:text-error-400' => ($change ?? 0) < 0, 'text-gray-400' => ($change ?? 0) == 0])>{{ $change === null ? '—' : $pct($change) }}</span>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+    </section>
+
     @if (! $card['ready'])
         <div class="card"><div class="card-row"><span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span><div class="min-w-0 flex-1"><p class="text-sm font-medium text-gray-900 dark:text-white">Hizmet yok</p><p class="mt-0.5 text-[13px] text-gray-500 dark:text-gray-400">Markanın onaylı hizmeti yok. Hizmetler Ayarlar › Marka bilgileri’nden eklenir.</p></div><a href="{{ route('operator.brand', ['brand' => $brand->id, 'tab' => 'ayarlar']) }}" wire:navigate class="btn">Hizmet ekle</a></div></div>
     @else

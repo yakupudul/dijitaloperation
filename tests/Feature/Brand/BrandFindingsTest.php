@@ -3,9 +3,11 @@
 namespace Tests\Feature\Brand;
 
 use App\Livewire\Operator\Portfolio\BrandFindingsCard;
+use App\Livewire\Operator\Workspace\BrandScorecardTab;
 use App\Mcp\Tools\BrandFindings;
 use App\Models\AgencySetting;
 use App\Models\Brand;
+use App\Models\BrandBaseline;
 use App\Models\BrandFinding;
 use App\Models\Suggestion;
 use App\Models\User;
@@ -114,5 +116,24 @@ class BrandFindingsTest extends TestCase
         $this->assertSame('open', $old->fresh()->status);
         $this->assertNull(data_get($old->fresh()->action, 'new_order'));
         $this->assertNull($old->fresh()->snoozed_until);
+    }
+
+    public function test_start_numbers_are_taken_once_and_shown_beside_the_current_days(): void
+    {
+        $this->travelTo('2026-11-11 10:00:00');
+        $json = json_decode(MoxiTools::callMcp(BrandFindings::class, ['action' => 'baseline', 'brand_id' => $this->brand->id]), true);
+        $this->assertSame(['2026-10-10', '2026-11-08'], [$json['from'], $json['to']], '30 full days, ending three days back');
+        $this->assertSame(['web', 'google_ads', 'meta', 'gbp'], array_keys($json['numbers']['demand']));
+        $baseline = BrandBaseline::query()->where('brand_id', $this->brand->id)->sole();
+        $baseline->update(['numbers' => ['demand' => ['web' => 40, 'google_ads' => 0, 'meta' => 0, 'gbp' => 0], 'demand_total' => 40, 'organic_clicks' => 200,
+            'services' => [['name' => 'Lazer epilasyon', 'clicks' => 80, 'pages' => 2]]]]);
+
+        $this->travelTo('2026-12-11 10:00:00');
+        MoxiTools::callMcp(BrandFindings::class, ['action' => 'baseline', 'brand_id' => $this->brand->id]);
+        $this->assertSame('2026-11-08', $baseline->fresh()->period_to->toDateString(), 'the start is not taken twice');
+        Livewire::test(BrandScorecardTab::class, ['brandId' => $this->brand->id])
+            ->assertSee('Başlangıç sayıları')->assertSee('Web sitesi talebi')->assertSee('Organik tık')->assertSee('Lazer epilasyon')->assertSee('200')
+            ->assertDontSee('data-brand-baseline-take', false);
+        Livewire::test(BrandScorecardTab::class, ['brandId' => Brand::factory()->create()->id])->assertSee('data-brand-baseline-take', false);
     }
 }

@@ -5,6 +5,7 @@ namespace App\Mcp\Tools;
 use App\Models\Brand;
 use App\Models\BrandFinding;
 use App\Services\Assistant\PushNotifier;
+use App\Services\Brand\Baseline;
 use App\Services\Brand\Findings;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Validation\Rule;
@@ -14,13 +15,13 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Marka sayfası › Bulgular: the findings store of a brand page. action=list (brand_id optional; only_requested=true = the rows the operator pressed "Çöz" on, do these before the AI queue). action=save writes one row for a brand after you looked at its data: kind finding (needs evidence: the number or the address), untouched ("baktım, dokunmuyorum": looked, fine as it is), unseen ("göremedim": no access / no data, say what is missing) or task (only the operator can do it: an access to ask for, a decision); area (Web sitesi | Ölçüm | Google Ads | Meta reklamları | İşletme Profili | İçerik | Mevzuat | Erişim | Diğer); title one plain Turkish sentence; evidence one line with numbers; saw / plan / needs = Ne gördüm / Ne yapacağım / Senden; approval none (reversible, no approval) | redirect | publish | file (you prepare a file, the operator uploads; ads are never written). Pass id to update a row instead of adding a twin. action=result on a requested row after doing the work with the usual tools: result (what was done, plain Turkish), url (where to see it), waiting=true when the operator still has to approve something. action=effect a month later: the measured change ("mobil hız 30 → 55"). Never write a finding you did not see in the data; plain Turkish, no jargon.')]
+#[Description('Marka sayfası › Bulgular: the findings store of a brand page. action=baseline (brand_id) takes the start numbers of the brand once: demand per channel, organic clicks and the clicks of each main service over the last 30 full days (Marka sayfası › Hizmet karnesi shows them beside the current 30 days). action=list (brand_id optional; only_requested=true = the rows the operator pressed "Çöz" on, do these before the AI queue). action=save writes one row for a brand after you looked at its data: kind finding (needs evidence: the number or the address), untouched ("baktım, dokunmuyorum": looked, fine as it is), unseen ("göremedim": no access / no data, say what is missing) or task (only the operator can do it: an access to ask for, a decision); area (Web sitesi | Ölçüm | Google Ads | Meta reklamları | İşletme Profili | İçerik | Mevzuat | Erişim | Diğer); title one plain Turkish sentence; evidence one line with numbers; saw / plan / needs = Ne gördüm / Ne yapacağım / Senden; approval none (reversible, no approval) | redirect | publish | file (you prepare a file, the operator uploads; ads are never written). Pass id to update a row instead of adding a twin. action=result on a requested row after doing the work with the usual tools: result (what was done, plain Turkish), url (where to see it), waiting=true when the operator still has to approve something. action=effect a month later: the measured change ("mobil hız 30 → 55"). Never write a finding you did not see in the data; plain Turkish, no jargon.')]
 class BrandFindings extends Tool
 {
     public function handle(Request $request, Findings $findings, PushNotifier $push): Response
     {
         $validated = $request->validate([
-            'action' => ['required', Rule::in(['list', 'save', 'result', 'effect'])],
+            'action' => ['required', Rule::in(['list', 'save', 'result', 'effect', 'baseline'])],
             'brand_id' => ['required_if:action,save', 'nullable', 'integer'],
             'id' => ['required_if:action,result', 'required_if:action,effect', 'nullable', 'integer'],
             'only_requested' => ['nullable', 'boolean'],
@@ -42,6 +43,16 @@ class BrandFindings extends Tool
                 'result' => $row->result, 'url' => $row->result_url, 'effect' => $row->effect,
                 'requested_at' => $row->requested_at?->timezone('Europe/Istanbul')->format('d.m.Y H:i'),
             ])->all()]);
+        }
+        if ($validated['action'] === 'baseline') {
+            // Marka Düzeni 3.10: the brand's start numbers (30 full days), taken once at its setup.
+            $brand = Brand::query()->find((int) ($validated['brand_id'] ?? 0));
+            if ($brand === null) {
+                return Response::error('baseline için brand_id gerekli.');
+            }
+            $taken = app(Baseline::class)->take($brand);
+
+            return Response::json(['brand' => $brand->name, 'from' => $taken->period_from->toDateString(), 'to' => $taken->period_to->toDateString(), 'numbers' => $taken->numbers]);
         }
         if ($validated['action'] === 'save') {
             $brand = Brand::query()->find((int) $validated['brand_id']);
@@ -80,7 +91,7 @@ class BrandFindings extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'action' => $schema->string()->enum(['list', 'save', 'result', 'effect'])->description('list | save | result | effect')->required(),
+            'action' => $schema->string()->enum(['list', 'save', 'result', 'effect', 'baseline'])->description('list | save | result | effect | baseline')->required(),
             'brand_id' => $schema->integer()->description('Brand (save; optional filter for list).'),
             'id' => $schema->integer()->description('Row id (result, effect; save = update this row).'),
             'only_requested' => $schema->boolean()->description('list: only rows the operator pressed "Çöz" on.'),
