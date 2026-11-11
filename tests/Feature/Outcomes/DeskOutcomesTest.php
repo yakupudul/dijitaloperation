@@ -154,6 +154,8 @@ final class DeskOutcomesTest extends SiteTestCase
 
     public function test_the_learned_weight_is_small_bounded_and_needs_enough_results(): void
     {
+        $this->assertSame(1.0, OutcomeTracker::weight(5, 0, 5), 'by default the verdicts do not reorder the desk');
+        config(['moxdop-advisor.brain.weight_range' => 0.2]);
         $this->assertSame(1.0, OutcomeTracker::weight(4, 0, 4), 'fewer than brain.min_measured (5) results: no effect');
         $this->assertSame(1.2, OutcomeTracker::weight(5, 0, 5));
         $this->assertSame(0.8, OutcomeTracker::weight(0, 5, 5));
@@ -164,6 +166,7 @@ final class DeskOutcomesTest extends SiteTestCase
 
     public function test_work_types_that_keep_winning_rank_higher_on_the_desk(): void
     {
+        config(['moxdop-advisor.brain.weight_range' => 0.2]);
         $proposal = ['proposal' => ['kind' => 'fields', 'current' => [], 'new' => ['seo_title' => 'Yeni başlık']]];
         foreach (range(1, 2) as $n) {
             $this->suggestion('Başlık '.$n, 'title_description', $this->implantPage, ['action' => $proposal]);

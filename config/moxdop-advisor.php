@@ -16,7 +16,9 @@ return [
     // Faz 7 (Beyin): outcome-based weighting and done verification.
     'brain' => [
         'min_measured' => 5,          // measured outcomes of a rule before its weight changes
-        'weight_range' => 0.2,        // priority × (0.8 … 1.2) by the share of done items that improved
+        // Marka Düzeni 1.7 (2026-11-11): 0 = the 30 / 90 day verdicts are reading material only and no longer reorder the
+        // desk (a before / after click comparison does not prove the work caused it). 0.2 was priority × (0.8 … 1.2).
+        'weight_range' => 0.0,
         'verify_grace_days' => 7,     // a done item still detected after this many days is reopened
         'verify_on_done' => true,     // "Yapıldı" queues a rules-only plan for that asset to verify right away
     ],

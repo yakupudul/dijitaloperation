@@ -448,7 +448,7 @@ final class OutcomeTracker
     public static function weight(int $won, int $lost, int $measured): float
     {
         $min = max(1, (int) config('moxdop-advisor.brain.min_measured', 5));
-        $range = max(0.0, min(0.5, (float) config('moxdop-advisor.brain.weight_range', 0.2)));
+        $range = max(0.0, min(0.5, (float) config('moxdop-advisor.brain.weight_range', 0.0)));
         if ($measured < $min) {
             return 1.0;
         }
