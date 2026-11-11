@@ -8,10 +8,12 @@ use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
+use App\Services\Assistant\PushNotifier;
 use App\Support\Sales\LeadKinds;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -133,8 +135,29 @@ final class SalesReplyWriter
             $lead->next_step_at = $sendOn->setTime(10, 0);
         }
         $lead->save();
+        $this->pushFirstAnswer($lead, $text);
 
         return true;
+    }
+
+    /**
+     * İlk cevap hızı (Satış Düzeni 2.6): somebody new wrote and nobody has answered yet. The answer written for this
+     * person goes to the phone the moment it is ready; a tap opens WhatsApp with the text in the box, so sending it is
+     * one more tap. Once per record; at night it comes without sound. Nothing is sent to the person by the system.
+     */
+    private function pushFirstAnswer(SalesLead $lead, string $text): void
+    {
+        if (! $lead->isOpen() || $lead->isCustomer() || $lead->history_only || $lead->last_contact_at !== null || ! $lead->awaitsUs()
+            || $lead->waNumber() === null || $lead->last_incoming_at->lt(now()->subHours(24))) {
+            return;
+        }
+        try {
+            app(PushNotifier::class)->send('first-answer:'.$lead->id, 'İlk cevap hazır: '.$lead->title(),
+                Str::limit(trim((string) preg_replace('/\s+/u', ' ', $text)), 160).' · Dokun, WhatsApp\'ta açılır.',
+                LeadIntake::quiet() ? 'low' : 'high', route('operator.sales.first-answer', ['lead' => $lead->id]), 24 * 30, ! LeadIntake::quiet());
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**

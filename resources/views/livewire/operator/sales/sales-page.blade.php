@@ -93,6 +93,24 @@
         <section class="mt-5" data-sales-leads>
             {{-- Bugün 5 kişi (Satış Düzeni 2.4): the day's short deck, nearest to money first. It replaces the date list
                  "bugün / gecikmiş"; a card leaves when it is sent, put off or closed, and the deck is not refilled. --}}
+            {{-- Yaz ya da söyle (Satış Düzeni 2.7): one sentence finds the person, keeps the note and sets the day. --}}
+            <form wire:submit="tell" class="mb-5" data-sales-tell
+                x-data="{ hearing: false, can: 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window,
+                    listen() { const R = window.SpeechRecognition || window.webkitSpeechRecognition; if (! R) return; const r = new R(); r.lang = 'tr-TR'; r.interimResults = false;
+                        this.hearing = true; r.onresult = (e) => { $wire.set('told', e.results[0][0].transcript); }; r.onend = () => { this.hearing = false; }; r.onerror = () => { this.hearing = false; }; r.start(); } }">
+                <div class="flex items-center gap-2">
+                    <input wire:model="told" type="text" enterkeyhint="done" autocomplete="off" placeholder="Yaz ya da söyle: Serap Hanım perşembe arayacak" class="{{ $input }}" aria-label="Bir cümleyle not ve adım" />
+                    <button type="button" x-show="can" x-cloak @click="listen()" class="btn h-9 shrink-0 px-3" :class="hearing && 'border-gray-900 dark:border-white'" :aria-pressed="hearing" data-sales-tell-mic><span x-text="hearing ? 'Dinliyorum…' : 'Söyle'"></span></button>
+                    <button type="submit" class="btn-dark h-9 shrink-0 px-4" wire:loading.attr="disabled" wire:target="tell">İşle</button>
+                </div>
+                @if ($toldWho !== [])
+                    <div class="mt-2 flex flex-wrap items-center gap-1.5" data-sales-tell-who>
+                        @foreach ($toldWho as $who)
+                            <button type="button" wire:click="tell({{ $who['id'] }})" class="seg h-8 text-[13px]">{{ $who['title'] }}</button>
+                        @endforeach
+                    </div>
+                @endif
+            </form>
             @if ($status === 'devam' && trim($q) === '')
                 <div class="mb-6" data-sales-five>
                     <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">

@@ -90,6 +90,7 @@ use App\Livewire\Operator\Website\V2\WebsiteScreen;
 use App\Livewire\Operator\Website\WebsitesIndex;
 use App\Livewire\Operator\Winners\LibrariesPage;
 use App\Livewire\Operator\Work\WorkPage;
+use App\Models\SalesLead;
 use App\Support\Ai\AiProviderCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -225,6 +226,15 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/baglantilar', LinkDeskPage::class)->name('operator.links');
         Route::get('/baglantilar/rapor/{brand}/{month?}', LinkReportController::class)->where(['brand' => '[0-9]{1,18}', 'month' => '[0-9]{4}-[0-9]{2}'])->name('operator.links.report');
         Route::livewire('/satis/{lead}', LeadCardPage::class)->where('lead', '[0-9]{1,18}')->name('operator.sales.lead');
+        // İlk cevap hızı (Satış Düzeni 2.6): the push's tap lands here and goes on to WhatsApp with the ready text in the box.
+        Route::get('/satis/{lead}/ilk-cevap', function (SalesLead $lead) {
+            $number = $lead->waNumber();
+            if ($number === null || ! filled($lead->draft)) {
+                return redirect()->route('operator.sales.lead', ['lead' => $lead->id]);
+            }
+
+            return redirect()->away('https://wa.me/'.$number.'?text='.rawurlencode(trim((string) $lead->draft)));
+        })->where('lead', '[0-9]{1,18}')->name('operator.sales.first-answer');
         // Genel işler is the "Diğer işler" section of the Onarım masası since 2026-10-10 (one work list); old links keep their tab.
         Route::get('/work', fn (Request $request) => redirect()->route('operator.repair', array_filter([
             'bolum' => 'diger', 'marka' => $request->query('marka'), 'sekme' => $request->query('sekme'), 'durum' => $request->query('durum'), 'adim' => $request->query('adim'),

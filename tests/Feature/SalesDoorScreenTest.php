@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Ai\Agents\SalesReplyAgent;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Models\AgencySetting;
 use App\Models\AiTask;
+use App\Models\CoreIntegration;
+use App\Models\PushSubscription;
 use App\Models\SalesLead;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
@@ -15,6 +18,7 @@ use App\Services\WhatsApp\WhatsAppConnection;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -107,5 +111,34 @@ class SalesDoorScreenTest extends TestCase
         // Brought back by hand: the door never judges this record again.
         $leads->refreshFromConversation($patient->fresh());
         $this->assertSame('prospect', $out->fresh()->lifecycle);
+    }
+
+    public function test_a_new_persons_first_answer_is_pushed_once_and_the_tap_opens_whatsapp_with_the_text(): void
+    {
+        $this->travelTo('2026-11-09 09:00:00'); // 12:00 in Istanbul
+        config(['moxdop.anthropic.api_key' => 'sk-ant-test']);
+        CoreIntegration::factory()->anthropic()->create(['status' => CoreIntegration::STATUS_ACTIVE]);
+        PushSubscription::query()->create(['user_id' => $this->admin->id, 'endpoint' => 'https://fcm.googleapis.com/fcm/send/abc',
+            'endpoint_hash' => PushSubscription::hashEndpoint('https://fcm.googleapis.com/fcm/send/abc'), 'public_key' => null, 'auth_token' => null, 'failures' => 0]);
+        SalesReplyAgent::fake([[
+            'action' => 'reply', 'reply' => 'Merhaba, memnuniyetle. Hangi işletme için düşünüyorsunuz, sitenizi yazar mısınız?',
+            'send_on' => '2026-11-09', 'note' => 'İlk cevap.', 'summary' => 'SEO fiyatı sordu.',
+        ]]);
+        $chat = $this->chat('905004445566', 'Merhaba, sitemiz için SEO fiyatı alabilir miyim');
+        app(SalesLeads::class)->refreshFromConversation($chat);
+
+        $lead = SalesLead::query()->where('conversation_id', $chat->id)->firstOrFail();
+        $this->assertSame('ready', $lead->draft_status);
+        $push = DB::table('push_notifications')->where('dedupe_key', 'first-answer:'.$lead->id)->get();
+        $this->assertCount(1, $push);
+        $this->assertStringStartsWith('İlk cevap hazır', (string) $push[0]->title);
+        $this->assertStringContainsString('/satis/'.$lead->id.'/ilk-cevap', (string) $push[0]->url);
+
+        $this->get(route('operator.sales.first-answer', ['lead' => $lead->id]))
+            ->assertRedirect('https://wa.me/905004445566?text='.rawurlencode((string) $lead->draft));
+
+        // Once we have answered, a later draft is not a "first answer" any more.
+        $lead->forceFill(['draft' => null])->save();
+        $this->get(route('operator.sales.first-answer', ['lead' => $lead->id]))->assertRedirect(route('operator.sales.lead', ['lead' => $lead->id]));
     }
 }

@@ -221,4 +221,30 @@ class SalesLeadsTableTest extends TestCase
         $new = $make('Bugün Yazan', ['last_incoming_at' => now(), 'last_contact_at' => null]);
         $this->assertContains($new->id, app(TodayFive::class)->deck()->pluck('lead.id')->all());
     }
+
+    public function test_one_sentence_finds_the_person_keeps_the_note_and_sets_the_day(): void
+    {
+        $leads = app(SalesLeads::class);
+        $serap = $leads->quickAdd(['name' => 'Serap Hanım', 'company' => 'Gülüş Diş', 'phone' => '0532 111 22 33'], $this->admin);
+        $ali = $leads->quickAdd(['name' => 'Ali Akbulut', 'phone' => '0533 444 55 66'], $this->admin);
+        $ali2 = $leads->quickAdd(['name' => 'Ali Demir', 'phone' => '0534 777 88 99'], $this->admin);
+
+        // 2026-11-07 is a Saturday: "perşembe" is the 12th.
+        $page = Livewire::test(SalesPage::class)->set('told', 'Serap Hanım perşembe arayacak')->call('tell')->assertSet('told', '');
+        $serap = $serap->fresh();
+        $this->assertSame('2026-11-12', $serap->next_step_at->timezone('Europe/Istanbul')->toDateString());
+        $this->assertStringContainsString('arayacak', (string) $serap->next_step);
+        $this->assertSame('Serap Hanım perşembe arayacak', $serap->events()->where('kind', 'note')->latest('id')->value('body'));
+
+        // Two people fit: it asks which, then writes on the one picked.
+        $page->set('told', 'Ali ile konuştum, fiyatı düşünecek')->call('tell')->assertSee('hangisi')->assertSeeHtml('data-sales-tell-who')
+            ->call('tell', $ali2->id)->assertSet('told', '')->assertDontSeeHtml('data-sales-tell-who');
+        $this->assertSame(1, $ali2->events()->where('kind', 'call')->count());
+        $this->assertSame(0, $ali->events()->where('kind', 'call')->count());
+
+        // The last four digits are enough; nobody known gets a plain answer.
+        $page->set('told', '5566 yarın yazacak')->call('tell');
+        $this->assertSame('2026-11-08', $ali->fresh()->next_step_at->timezone('Europe/Istanbul')->toDateString());
+        $page->set('told', 'Mehmet yarın arayacak')->call('tell')->assertSee('tanıdığım bir kişi yok')->assertSet('told', 'Mehmet yarın arayacak');
+    }
 }

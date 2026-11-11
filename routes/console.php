@@ -4,6 +4,7 @@ use App\Ai\Agents\BrandDataReviewAgent;
 use App\Enums\Collection\CollectionRunStatus;
 use App\Jobs\Ai\DrainAiQueueWithApiJob;
 use App\Jobs\Assistant\UptimeCheckJob;
+use App\Jobs\Brand\ApplyBrandDirectionJob;
 use App\Jobs\Brand\RunBrandChiefJob;
 use App\Jobs\Brand\RunBrandEpicrisisJob;
 use App\Jobs\CheckAdBudgetJob;
@@ -29,6 +30,7 @@ use App\Jobs\Site\SyncSiteShowcaseJob;
 use App\Models\AiLiveOperation;
 use App\Models\AiTask;
 use App\Models\Brand;
+use App\Models\BrandDirectionChange;
 use App\Models\BrandEpicrisis;
 use App\Models\ClarityProject;
 use App\Models\Collection\CollectionDatasetRun;
@@ -55,6 +57,7 @@ use App\Services\Brand\BrandAudit;
 use App\Services\Brand\BrandCare;
 use App\Services\Brand\BrandDataAudit;
 use App\Services\Brand\BrandDataReview;
+use App\Services\Brand\BrandDirection;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandFollowUp;
 use App\Services\Brand\BrandGaps;
@@ -1698,8 +1701,8 @@ Schedule::command('moxdop:brands:dossier')->dailyAt('05:40')->timezone('Europe/I
 // A realignment that did not finish (a failed run) is queued again.
 Artisan::command('moxdop:brands:direction {brand? : brand id} {--force : the direction changed (major), realign now} {--reason= : why, shown on the brand page} {--pending : only queue realignments that have not finished}', function (): void {
     // A realignment queued while the old release's workers still ran (deploy) is lost; unfinished ones are queued again.
-    $pending = \App\Models\BrandDirectionChange::query()->whereNull('applied_at')->where('created_at', '<', now()->subMinutes(5))->where('created_at', '>', now()->subDays(7))->pluck('id');
-    $pending->each(fn ($id) => \App\Jobs\Brand\ApplyBrandDirectionJob::dispatch((int) $id));
+    $pending = BrandDirectionChange::query()->whereNull('applied_at')->where('created_at', '<', now()->subMinutes(5))->where('created_at', '>', now()->subDays(7))->pluck('id');
+    $pending->each(fn ($id) => ApplyBrandDirectionJob::dispatch((int) $id));
     if ($this->option('pending')) {
         $this->info('Marka rotası: '.$pending->count().' yarım hizalama kuyruğa alındı.');
 
@@ -1708,14 +1711,14 @@ Artisan::command('moxdop:brands:direction {brand? : brand id} {--force : the dir
     $brands = Brand::query()->operational()->when($this->argument('brand'), fn ($q, $id) => $q->whereKey((int) $id))->orderBy('id')->get();
     $changed = 0;
     foreach ($brands as $brand) {
-        $change = app(\App\Services\Brand\BrandDirection::class)->detect($brand, (bool) $this->option('force'), $this->option('force') ? 'operator' : 'auto', $this->option('reason') ?: null);
-        $changed += $change !== null && $change->magnitude !== \App\Models\BrandDirectionChange::BASELINE ? 1 : 0;
+        $change = app(BrandDirection::class)->detect($brand, (bool) $this->option('force'), $this->option('force') ? 'operator' : 'auto', $this->option('reason') ?: null);
+        $changed += $change !== null && $change->magnitude !== BrandDirectionChange::BASELINE ? 1 : 0;
     }
     $this->info('Marka rotası: '.$brands->count().' marka, '.$changed.' değişiklik.');
 })->purpose('Compare each brand\'s direction with the last one seen; a change realigns its clusters, content ideas, profile posts and demand.');
 Schedule::command('moxdop:brands:direction')->dailyAt('05:50')->timezone('Europe/Istanbul')->name('brands-direction')->withoutOverlapping(60);
 Schedule::command('moxdop:brands:direction --pending')->everyTenMinutes()->name('brands-direction-pending')->withoutOverlapping(10)
-    ->when(fn (): bool => Schema::hasTable('brand_direction_changes') && \App\Models\BrandDirectionChange::query()->whereNull('applied_at')->exists());
+    ->when(fn (): bool => Schema::hasTable('brand_direction_changes') && BrandDirectionChange::query()->whereNull('applied_at')->exists());
 
 // Marka epikrizi: after the brand file, one queued pass per operational brand (rules every night; the AI reading of the
 // key pages and the synthesis only when their basis changed or a month passed).
@@ -1871,16 +1874,8 @@ Schedule::call(function (): void {
 })
     ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('sales-night-forms')->withoutOverlapping(10);
 
-// Satış (2026-11-04): a 10:00 push with how many prospects to write to today (Bugün on the Satış screen); the phone shows it.
-Schedule::call(function (): void {
-    $count = app(SalesLeads::class)->due()->count();
-    if ($count > 0) {
-        app(PushNotifier::class)->send(
-            'sales-due:'.now('Europe/Istanbul')->toDateString(), 'Bugün '.$count.' kişiye yazacaksın',
-            'Metinler hazır: Gelen kutusu › Bugünün adımları. WhatsApp\'ta aç, gönder, "Yapıldı" de.', 'high', route('operator.inbox', ['gorunum' => 'adimlar']), 20, true,
-        );
-    }
-})->dailyAt('10:00')->timezone('Europe/Istanbul')->name('sales-morning-push')->withoutOverlapping(10);
+// (The 10:00 "bugün N kişiye yazacaksın" push is gone since Satış Düzeni 2.6: a new person's first answer is pushed the
+// moment it is ready, and the day's short list is the "Bugün 5 kişi" deck on Satış.)
 
 // Pazarlama (Aşama 4, 2026-11-07): on the 1st, "geçen ay ne çalıştı" in a few sentences; the screen holds the funnel.
 Schedule::call(function (): void {

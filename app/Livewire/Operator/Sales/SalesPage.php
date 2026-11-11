@@ -25,6 +25,7 @@ use App\Services\Sales\SalesMonthReport;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
 use App\Services\Sales\SalesTidy;
+use App\Services\Sales\SayIt;
 use App\Services\Sales\StandingRules;
 use App\Services\Sales\TodayFive;
 use App\Support\Roles;
@@ -136,6 +137,12 @@ final class SalesPage extends Component
 
     public string $message = '';
 
+    /** Yaz ya da söyle (Satış Düzeni 2.7): the one sentence, and who it could be about when more than one person fits. */
+    public string $told = '';
+
+    /** @var list<array{id: int, title: string}> */
+    public array $toldWho = [];
+
     public bool $pasting = false;
 
     public string $paste = '';
@@ -209,6 +216,36 @@ final class SalesPage extends Component
         $leads->setStatus($lead, $status, auth()->user());
         $fresh = $lead->fresh();
         $this->say($fresh->title().': '.$fresh->statusLabel().'.'.($status === 'musteri' && $fresh->brand_id ? ' Müşteri ve marka kaydı açıldı; anlaşmayı marka sayfasından gir.' : ''));
+    }
+
+    /** Yaz ya da söyle: "Serap Hanım perşembe arayacak" → the person's note and next step. $id = the person picked when several fit. */
+    public function tell(?int $id = null): void
+    {
+        $sayIt = app(SayIt::class);
+        $leads = app(SalesLeads::class);
+        $text = trim($this->told);
+        if (mb_strlen($text) < 3) {
+            return;
+        }
+        $this->toldWho = [];
+        $lead = $id !== null ? SalesLead::query()->find($id) : null;
+        if ($lead === null) {
+            $matches = $sayIt->understand($text)['matches'];
+            if ($matches->isEmpty()) {
+                $this->say('Bu cümlede tanıdığım bir kişi yok. Adını, işletmesini ya da numarasının son dört hanesini ekle.');
+
+                return;
+            }
+            if ($matches->count() > 1) {
+                $this->toldWho = $matches->map(fn (SalesLead $l): array => ['id' => (int) $l->id, 'title' => $l->title().($l->isOpen() ? '' : ' (kapalı)')])->all();
+                $this->say('Bu ada uyan birden çok kişi var; hangisi?');
+
+                return;
+            }
+            $lead = $matches->first();
+        }
+        $this->say($sayIt->apply($lead, $text, $leads, auth()->user()));
+        $this->told = '';
     }
 
     /** Bugün 5 kişi: the ready text went out (the operator sent it from his phone); the card leaves the deck. */
