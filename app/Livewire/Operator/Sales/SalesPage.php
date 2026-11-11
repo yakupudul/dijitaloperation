@@ -385,6 +385,14 @@ final class SalesPage extends Component
         $this->say('Cevap kaydedildi; mesajlar bundan sonra buna göre yazılır.');
     }
 
+    /** İtiraz kitabı (Satış Düzeni 4.1): lessons read from the chat history are put in front of the operator as proposals. */
+    public function proposeLessons(array $texts, SalesBrain $brain): int
+    {
+        abort_unless(auth()->user()?->hasRole(Roles::ADMIN), 403);
+
+        return count(array_filter(array_map(fn ($text): ?SalesLesson => is_string($text) ? $brain->propose('yontem', $text) : null, array_slice($texts, 0, 20))));
+    }
+
     public function addLesson(SalesBrain $brain): void
     {
         $lesson = $brain->add((string) ($this->newLesson['kind'] ?? 'yontem'), (string) ($this->newLesson['text'] ?? ''), auth()->user());

@@ -210,6 +210,17 @@ final class SalesBrain
             'status' => $kind === 'soru' ? 'proposed' : 'approved', 'decided_by' => $user?->id, 'decided_at' => $kind === 'soru' ? null : now()]);
     }
 
+    /** İtiraz kitabı (Satış Düzeni 4.1): a lesson read from the chat history; it waits for the operator's approval like any proposal. */
+    public function propose(string $kind, string $text): ?SalesLesson
+    {
+        $text = mb_substr(trim($text), 0, 1000);
+        if (! in_array($kind, ['karar', 'yontem'], true) || mb_strlen($text) < 5 || SalesLesson::query()->where('text', $text)->exists()) {
+            return null;
+        }
+
+        return SalesLesson::query()->create(['kind' => $kind, 'text' => $text, 'source' => 'kitap', 'status' => 'proposed']);
+    }
+
     public function approve(SalesLesson $lesson, ?string $text, ?User $user): void
     {
         $text = $text !== null ? trim($text) : $lesson->text;
