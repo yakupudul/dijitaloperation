@@ -32,7 +32,7 @@ final class PushPolicy
 
     /** Never urgent: told in the next summary. */
     private const array SUMMARY = ['repair-desk-digest:', 'lead-form-morning:', 'inbox-night:', 'discovery-new:', 'discovery-lost:',
-        'provider-watch:', 'gbp-review-approval:', 'uptime:up:', 'app-error:'];
+        'provider-watch:', 'gbp-review-approval:', 'app-error:'];
 
     public function decide(string $key, string $severity): string
     {
