@@ -2260,6 +2260,9 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
 
+- **Satış 4.4 olaylı takip:** `WarmPoolWatch` haftada bir (hafta içi 09:00 sonrası ilk `sales-lead-research` turunda, haftalık kilit) sessiz adayların ana sayfasını açar, haftada en çok 25 aday, en uzun süredir bakılmayan önce. Yalnız olay olunca (site açılmıyor, sertifika bozuk, yeniden açıldı, başlık değişti) aday `Yaz: …` adımıyla Bugün'e döner ve karta `Yazmak için iyi an` olayı düşer. AI yok, ücretli API yok, yeni zamanlanmış iş yok. Rakip reklamı ve kötü yorum olayları veri kaynağı olmadığı için yok.
+
+
 - **Google Takvim + Drive (Günlük 4.3, sunucu dışı yedek; yakup 2026-11-11):** `GoogleWorkspace` aynı Google bağlantısına iki ek izin ister (`calendar.events`, `drive.file`; `/integrations/google/{id}/authorize?workspace=1`, onay yeniden sorulur). `Reminder` kaydedilince/silinince `SyncReminderToGoogleJob` etkinliği yazar/siler (`google_event_id`), Takvim açılınca Google'ın ana takvimi okunur (5 dk önbellek, `google` satırları salt okunur; yeni zamanlanmış iş yok). `DriveBackupCopy` gece yedeğini "MoxDOP yedekleri" klasörüne yükler, son 3 kopya kalır; `remote_target` WebDAV → Drive → disk sırasıyla okunur. Google Cloud projesinde Calendar API ve Drive API açık olmalı.
 
 

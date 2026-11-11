@@ -122,7 +122,7 @@ class SalesLead extends Model
         return [
             'next_step_at' => 'datetime', 'last_contact_at' => 'datetime', 'last_incoming_at' => 'datetime',
             'won_at' => 'datetime', 'lesson_at' => 'datetime', 'lost_at' => 'datetime', 'findings_at' => 'datetime', 'findings' => 'array',
-            'followup_step' => 'integer', 'site_scan' => 'array', 'origin' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime', 'analysis_at' => 'datetime',
+            'followup_step' => 'integer', 'site_scan' => 'array', 'site_watch' => 'array', 'site_watched_at' => 'datetime', 'origin' => 'array', 'draft_send_on' => 'date', 'draft_at' => 'datetime', 'analysis_at' => 'datetime',
             'offer_amount' => 'integer', 'offer_confirmed' => 'boolean', 'stage_at' => 'datetime', 'classification' => 'array',
             'research' => 'array', 'research_at' => 'datetime', 'is_strong' => 'boolean', 'name_checked_at' => 'datetime',
             'history_only' => 'boolean', 'archived_at' => 'datetime',

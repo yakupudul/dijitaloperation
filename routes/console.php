@@ -98,6 +98,7 @@ use App\Services\Sales\LeadResearcher;
 use App\Services\Sales\SalesBrain;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesTidy;
+use App\Services\Sales\WarmPoolWatch;
 use App\Services\Site\Backlinks\BingBacklinkSync;
 use App\Services\Site\Backlinks\LinkDesk;
 use App\Services\Site\Backlinks\LinkMailer;
@@ -1860,6 +1861,8 @@ Schedule::call(function (): void {
     app(SalesTidy::class)->sweep();
     LeadResearcher::sweep();
     app(InboxAlerts::class)->remindUnanswered();
+    // Satış Düzeni 4.4: the weekly look at the silent prospects' sites rides here (runs once per week, 25 sites).
+    rescue(fn () => app(WarmPoolWatch::class)->sweep(), report: true);
 })
     ->everyTenMinutes()->name('sales-lead-research')->withoutOverlapping(10);
 // Satış beyni (yakup 2026-11-08): every deal closed in the last 30 days is read once for lessons and questions.
