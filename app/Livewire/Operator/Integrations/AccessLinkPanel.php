@@ -38,6 +38,19 @@ final class AccessLinkPanel extends Component
         ['google' => $this->google, 'meta' => $this->meta] = $links->identities();
     }
 
+    /** Only the two identities, without preparing a link. */
+    public function saveIdentities(AccessLinks $links): void
+    {
+        $this->adminOnly();
+        try {
+            $links->saveIdentities($this->google, $this->meta);
+            ['google' => $this->google, 'meta' => $this->meta] = $links->identities();
+            $this->message = 'Kaydedildi. Bütün markaların erişim bağlantısında bu iki adres görünür.';
+        } catch (InvalidArgumentException $error) {
+            $this->message = $error->getMessage();
+        }
+    }
+
     public function save(AccessLinks $links): void
     {
         $this->adminOnly();

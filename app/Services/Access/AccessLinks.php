@@ -40,7 +40,7 @@ final class AccessLinks
             'steps' => ['Meta Business ayarlarını açın.', 'Kullanıcılar altındaki İş ortakları bölümüne girin, Ekle deyip "Varlıklarınıza erişim verin" seçeneğini seçin.', 'Aşağıdaki işletme kimliğini yazın; reklam hesabını, sayfayı, Instagram hesabını ve pikseli seçip tam denetim verin.']],
     ];
 
-    public const array IDENTITIES = ['google' => 'Google hesabı e-postası', 'meta' => 'Meta işletme kimliği (Business ID)'];
+    public const array IDENTITIES = ['google' => 'Google hesabı e-postası', 'meta' => 'Meta e-postası ya da işletme kimliği (Business ID)'];
 
     public function __construct(private readonly ConnectionMap $map, private readonly PushNotifier $push) {}
 
@@ -55,7 +55,11 @@ final class AccessLinks
     public function saveIdentities(string $google, string $meta): void
     {
         $google = trim($google);
-        $meta = preg_replace('/\D+/', '', $meta) ?? '';
+        // Meta: either the agency's business id (the customer adds a partner) or a person's e-mail (the customer invites a person).
+        $meta = str_contains($meta, '@') ? trim($meta) : (preg_replace('/\D+/', '', $meta) ?? '');
+        if (str_contains($meta, '@') && filter_var($meta, FILTER_VALIDATE_EMAIL) === false) {
+            throw new InvalidArgumentException('Meta için e-posta adresi ya da işletme kimliği yazılmalı.');
+        }
         if ($google !== '' && filter_var($google, FILTER_VALIDATE_EMAIL) === false) {
             throw new InvalidArgumentException('Google hesabı bir e-posta adresi olmalı.');
         }
@@ -119,9 +123,14 @@ final class AccessLinks
                 continue;
             }
             $marked = $link->done[$channel]['at'] ?? null;
+            $byMail = $guide['identity'] === 'meta' && str_contains($identities['meta'], '@');
+            if ($byMail) {
+                $guide['steps'] = ['Meta Business ayarlarını açın.', 'Kullanıcılar altındaki Kişiler bölümüne girin ve Kişi davet et düğmesine basın.',
+                    'Aşağıdaki e-posta adresini yazın, tam denetim verin; reklam hesabını, sayfayı, Instagram hesabını ve pikseli seçip daveti gönderin.'];
+            }
             $items[] = [
                 'channel' => $channel, 'name' => $guide['name'], 'role' => $guide['role'], 'where' => $guide['where'], 'steps' => $guide['steps'],
-                'identity' => $identities[$guide['identity']], 'identity_label' => $guide['identity'] === 'google' ? 'E-posta adresi' : 'İşletme kimliği',
+                'identity' => $identities[$guide['identity']], 'identity_label' => $guide['identity'] === 'google' || $byMail ? 'E-posta adresi' : 'İşletme kimliği',
                 // connected = the system reads the channel now; marked = the customer says it is given, not seen yet.
                 'state' => ($row['cells'][$channel]['tone'] ?? 'muted') === 'ok' ? 'connected' : ($marked !== null ? 'marked' : 'open'),
                 'marked_at' => $marked,

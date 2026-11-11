@@ -13,8 +13,8 @@
         <label class="block text-[12px] text-gray-500">Müşterinin ekleyeceği Google hesabı
             <input type="email" wire:model="google" placeholder="ornek@gmail.com" class="mt-1 block h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-[13px] text-gray-900 focus:border-gray-900 focus:ring-0 dark:border-gray-700 dark:bg-white/[0.04] dark:text-white">
         </label>
-        <label class="block text-[12px] text-gray-500">Meta işletme kimliği (yalnız Meta istenirse)
-            <input type="text" inputmode="numeric" wire:model="meta" placeholder="15 ya da 16 haneli numara" class="mt-1 block h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-[13px] text-gray-900 focus:border-gray-900 focus:ring-0 dark:border-gray-700 dark:bg-white/[0.04] dark:text-white">
+        <label class="block text-[12px] text-gray-500">Meta için e-posta ya da işletme kimliği (yalnız Meta istenirse)
+            <input type="text" wire:model="meta" placeholder="ornek@gmail.com ya da 15 haneli numara" class="mt-1 block h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-[13px] text-gray-900 focus:border-gray-900 focus:ring-0 dark:border-gray-700 dark:bg-white/[0.04] dark:text-white">
         </label>
     </div>
     <div class="mt-3 flex flex-wrap items-center gap-2">

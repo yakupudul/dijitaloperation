@@ -41,7 +41,7 @@ class AccessLinkTest extends TestCase
     {
         $panel = Livewire::test(AccessLinkPanel::class, ['brandId' => $this->brand->id]);
         $this->assertContains('google_business_profile', $panel->get('channels'), 'what the map shows as missing is ticked');
-        $panel->set('channels', ['google_business_profile', 'meta_ads'])->set('google', 'ajans@example.com')->call('save')->assertSee('Meta işletme kimliği');
+        $panel->set('channels', ['google_business_profile', 'meta_ads'])->set('google', 'ajans@example.com')->call('save')->assertSee('işletme kimliği');
         $this->assertSame(0, AccessLink::query()->count());
 
         $panel->set('meta', '1234 5678 9012 345')->call('save')->assertSee('Bağlantı hazır')->assertSee('/erisim/');
@@ -75,5 +75,20 @@ class AccessLinkTest extends TestCase
         $this->get('/erisim/'.$link->token)->assertSee('Yetkiyi verdiniz, kontrol ediyoruz');
         $this->get('/erisim/'.str_repeat('b', 48))->assertNotFound();
         $this->assertSame('marked', collect($links->items($link->fresh()))->firstWhere('channel', 'search_console')['state']);
+    }
+
+    public function test_meta_can_be_given_to_a_person_by_e_mail_and_the_identities_save_without_a_link(): void
+    {
+        $panel = Livewire::test(AccessLinkPanel::class, ['brandId' => $this->brand->id]);
+        $panel->set('google', 'ajans@example.com')->set('meta', 'bozuk@')->call('saveIdentities')->assertSee('e-posta adresi ya da işletme kimliği');
+        $panel->set('meta', 'meta@example.com')->call('saveIdentities')->assertSee('Kaydedildi');
+        $this->assertSame(0, AccessLink::query()->count());
+        $this->assertSame(['google' => 'ajans@example.com', 'meta' => 'meta@example.com'], app(AccessLinks::class)->identities());
+
+        $link = app(AccessLinks::class)->ask($this->brand, ['meta_ads'], $this->admin ?? null);
+        $item = app(AccessLinks::class)->items($link)[0];
+        $this->assertSame('E-posta adresi', $item['identity_label']);
+        $this->assertSame('meta@example.com', $item['identity']);
+        $this->assertStringContainsString('Kişi davet et', $item['steps'][1]);
     }
 }
