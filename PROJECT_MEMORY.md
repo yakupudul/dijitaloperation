@@ -2260,6 +2260,8 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
 
+- **Bağlantı 3.5 güvenlik karnesi**: Ayarlar › Güvenlik karnesi (`/settings/security`, `SecurityCard`): iki adımlı doğrulama, şifre sıfırlama ulaşır mı (sahte adres / SMTP), açık hesaplar ve son girişler, açık anahtarlar (30 gün kullanılmayan sarı), eski sunucu anahtarı, günlük yedek, sunucu dışı yedek, geri yükleme provası, debug, acil durdurma. Kırmızı önce; yalnız okur, sır göstermez.
+
 - **Bağlantı 3.2 yetki kademeleri** (`App\Support\WriteLevels`): marka × kanal (wordpress, gbp; google_ads ve meta_ads kilitli "Yalnız oku") için oku / oner / yaz, `brands.write_levels` (null = varsayılan: 11 Kasım 2026'dan önce açılmış marka "yaz", sonrası "oner"). Her yazma `external_write_actions.origin` taşır (hand: panel tıkı, onay linki, WorkBatch, `WriteLevels::byHand`; auto: konsol / MCP). `ExternalWriteService::execute` kademeye uymayanı "Gönderilmedi (yetki kademesi)" diye bırakır; "Yalnız oku" sitede MCP site-tool yalnız okuma araçlarını çalıştırır. Ekran: Bağlantı sağlığı › Yetkiler (`?gorunum=yetkiler`).
 
 - Bağlantı Düzeni 2.1: Bağlantı sağlığı sayfasında "Harita" görünümü (`ConnectionMap`): marka × kanal (Site, Search Console, Analytics, Google Ads, İşletme Profili, Meta); hücre tek kelime + renk, tıklayınca eksik olan, kimin çözeceği ve "Aç". Yalnız okur; `?gorunum=harita&sorunlu=1`.
