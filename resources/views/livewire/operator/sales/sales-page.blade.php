@@ -64,7 +64,7 @@
     @endif
 
     {{-- İç menü (yakup 2026-11-08): the first six are filters on the same table; then Rapor and Ayarlar. --}}
-    <div class="mt-7 flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Satış menüsü" data-sales-menu>
+    <div class="-mx-4 mt-7 flex flex-nowrap items-center gap-1.5 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0 [&>*]:whitespace-nowrap" role="tablist" aria-label="Satış menüsü" data-sales-menu>
         @foreach (SalesLead::STATUSES as $key => $label)
             @php $c = (int) ($viewCounts['durum_'.$key] ?? 0); $on = $tab === 'adaylar' && $status === $key && trim($q) === ''; @endphp
             <button type="button" wire:click="showStatus('{{ $key }}')" @class(['seg', 'seg-active' => $on]) role="tab" aria-selected="{{ $on ? 'true' : 'false' }}" data-sales-status="{{ $key }}">
@@ -139,13 +139,13 @@
                                     @else
                                         <p class="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-[13px] text-gray-500 dark:bg-white/[0.04]">{{ $fl->next_step ?: 'Cevap yaz' }}. Hazır metin yok; kartı açınca yazılır.</p>
                                     @endif
-                                    <div class="mt-auto flex flex-wrap items-center gap-1.5 pt-3">
+                                    <div class="mt-auto flex flex-nowrap items-center gap-1.5 pt-3">
                                         @if ($fwa !== null)
-                                            <a href="https://wa.me/{{ $fwa }}{{ $fdraft !== '' ? '?text='.rawurlencode($fdraft) : '' }}" target="_blank" rel="noopener" class="btn-dark h-8 px-3 text-[13px]" data-sales-five-wa>WhatsApp'ta aç</a>
+                                            <a href="https://wa.me/{{ $fwa }}{{ $fdraft !== '' ? '?text='.rawurlencode($fdraft) : '' }}" target="_blank" rel="noopener" class="btn-dark h-8 px-3 text-[13px]" title="WhatsApp'ta aç, metin kutuda hazır gelir" data-sales-five-wa>WhatsApp</a>
                                         @endif
                                         <button type="button" wire:click="fiveSent({{ $fl->id }})" wire:loading.attr="disabled" class="btn h-8 px-3 text-[13px]" data-sales-five-sent>Gönderdim</button>
                                         <button type="button" wire:click="fiveLater({{ $fl->id }})" wire:loading.attr="disabled" class="btn-quiet h-8 px-2 text-[13px]" data-sales-five-later>Sonra</button>
-                                        <button type="button" wire:click="openDialog('close', {{ $fl->id }})" class="btn-quiet h-8 px-2 text-[13px] text-gray-400" data-sales-five-close>Kapat</button>
+                                        <button type="button" wire:click="openDialog('close', {{ $fl->id }})" class="btn-quiet ml-auto h-8 px-2 text-[13px] text-gray-400" data-sales-five-close>Kapat</button>
                                     </div>
                                 </article>
                             @endforeach
