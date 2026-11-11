@@ -212,7 +212,58 @@
             </section>
 
             {{-- Tam analiz (3. hafta): yakup için tam yazılı analiz; müşteriye yalnız tek bulgulu mesaj gider. --}}
-            <section class="card p-4" data-lead-analysis x-data="{ open: false }">
+            <section class="card p-4" data-lead-brief x-data="{ brief: false }">
+                {{-- Görüşme özeti (Satış Düzeni 3.5): one screen before a call, put together from the record; the long analysis stays below it. --}}
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div class="min-w-0">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Görüşme özeti</h2>
+                        <p class="text-[13px] text-gray-500">Aramadan önce tek sayfa: kim, ne bulduk, neye itiraz eder, fiyat.</p>
+                    </div>
+                    <button type="button" x-on:click="brief = ! brief" class="btn h-8" x-text="brief ? 'Kapat' : 'Aç'" data-lead-brief-open>Aç</button>
+                </div>
+                <div x-show="brief" x-cloak class="mt-3 space-y-4 border-t border-gray-100 pt-3 text-sm dark:border-gray-800" data-lead-brief-page>
+                    <div>
+                        <p class="text-[13px] font-medium text-gray-900 dark:text-white">Kim</p>
+                        <p class="mt-1 text-[15px] font-semibold text-gray-900 dark:text-white">{{ $lead->title() }}</p>
+                        @foreach ($brief['who'] as $line)<p class="text-gray-700 dark:text-gray-300">{{ $line }}</p>@endforeach
+                    </div>
+                    @if ($brief['said'] !== [])
+                        <div>
+                            <p class="text-[13px] font-medium text-gray-900 dark:text-white">Son söyledikleri</p>
+                            @foreach ($brief['said'] as $said)<p class="mt-1 text-gray-700 dark:text-gray-300"><span class="tabular-nums text-gray-400">{{ $said['at'] }}</span> {{ \Illuminate\Support\Str::limit($said['text'], 220) }}</p>@endforeach
+                        </div>
+                    @endif
+                    <div>
+                        <p class="text-[13px] font-medium text-gray-900 dark:text-white">Bulgular</p>
+                        @forelse ($brief['findings'] as $finding)
+                            <p class="mt-1 text-gray-700 dark:text-gray-300"><span class="font-medium text-gray-900 dark:text-white">{{ $finding['title'] }}</span>@if ($finding['detail'] !== '') <span class="text-gray-500">{{ \Illuminate\Support\Str::limit($finding['detail'], 180) }}</span>@endif</p>
+                        @empty
+                            <p class="mt-1 text-gray-500">Kayıtlı bulgu yok. Üstteki "Araştır" ile önce araştırma yapılabilir.</p>
+                        @endforelse
+                    </div>
+                    <div>
+                        <p class="text-[13px] font-medium text-gray-900 dark:text-white">Muhtemel itiraz</p>
+                        @forelse ($brief['objections'] as $objection)
+                            <p class="mt-1 text-gray-700 dark:text-gray-300">{{ $objection['note'] }} <span class="text-gray-500">Kendi sözü: "{{ $objection['quote'] }}"</span></p>
+                        @empty
+                            <p class="mt-1 text-gray-500">Yazdıklarında itiraz işareti yok.</p>
+                        @endforelse
+                        @foreach ($brief['rules'] as $rule)<p class="mt-1 text-gray-500">Kuralın: {{ \Illuminate\Support\Str::limit($rule, 200) }}</p>@endforeach
+                    </div>
+                    <div>
+                        <p class="text-[13px] font-medium text-gray-900 dark:text-white">Fiyat</p>
+                        <p class="mt-1 text-gray-700 dark:text-gray-300">{{ $brief['price']['line'] }}</p>
+                        @foreach ($brief['price']['list'] as $line)<p class="text-gray-500">{{ $line }}</p>@endforeach
+                    </div>
+                    <form wire:submit="afterCall" class="border-t border-gray-100 pt-3 dark:border-gray-800" data-lead-after-call>
+                        <label class="block text-[13px] font-medium text-gray-900 dark:text-white" for="after-call">Görüşmeden sonra</label>
+                        <textarea id="after-call" wire:model="afterCallNote" rows="2" placeholder="İki satır yaz: ne dedi, ne zaman dönülecek (ör. salı tekrar arayacağım)" class="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-transparent dark:text-gray-200"></textarea>
+                        @error('afterCallNote')<p class="text-xs text-error-600">{{ $message }}</p>@enderror
+                        <button type="submit" class="btn-dark mt-2 h-8" wire:loading.attr="disabled">Notu işle</button>
+                        <span class="ml-2 text-xs text-gray-400">Not karta yazılır, gün söylediysen adım kurulur, takip metni yeniden hazırlanır.</span>
+                    </form>
+                </div>
+                <div class="mt-4 border-t border-gray-100 pt-3 dark:border-gray-800" data-lead-analysis x-data="{ open: false }">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <div class="min-w-0">
                         <h2 class="text-base font-semibold text-gray-900 dark:text-white">Tam analiz</h2>
@@ -250,6 +301,7 @@
                         @endif
                     </div>
                 @endif
+            </div>
             </section>
 
             <section class="card p-4" data-lead-paste x-data="{ open: {{ $errors->has('paste') ? 'true' : 'false' }} }">

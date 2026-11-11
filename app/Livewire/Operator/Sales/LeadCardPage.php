@@ -8,6 +8,7 @@ use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\ServiceCategory;
 use App\Services\Sales\Agreements;
+use App\Services\Sales\CallBrief;
 use App\Services\Sales\ClosingSteps;
 use App\Services\Sales\FollowUpSequence;
 use App\Services\Sales\LeadResearcher;
@@ -16,6 +17,7 @@ use App\Services\Sales\SalesAnalysisWriter;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
+use App\Services\Sales\SayIt;
 use App\Support\Roles;
 use App\Support\Sales\LeadKinds;
 use Carbon\CarbonImmutable;
@@ -75,6 +77,8 @@ final class LeadCardPage extends Component
     public array $opp = ['service' => '', 'title' => '', 'amount' => '', 'billing' => 'monthly', 'note' => ''];
 
     public string $oppLostReason = '';
+
+    public string $afterCallNote = '';
 
     public function mount(string $lead): void
     {
@@ -490,6 +494,21 @@ final class LeadCardPage extends Component
         $this->say('Analiz yazılıyor; 1-2 dakikada bu kartta.');
     }
 
+    /** Görüşmeden sonra iki satır: kept as the call's note, a day in it becomes the next step, the follow-up text is written again. */
+    public function afterCall(SayIt $sayIt, SalesLeads $leads): void
+    {
+        $this->validate(['afterCallNote' => ['required', 'string', 'min:3', 'max:2000']], [], ['afterCallNote' => 'not']);
+        $lead = $this->lead();
+        $text = trim($this->afterCallNote);
+        $result = $sayIt->apply($lead, preg_match('/görüş|gorus|konuş|konus|arad/iu', $text) === 1 ? $text : 'Görüştük. '.$text, $leads, auth()->user());
+        $lead = $this->lead();
+        if ($lead->isOpen()) {
+            SalesReplyWriter::queue($lead);
+        }
+        $this->afterCallNote = '';
+        $this->say($result.($lead->isOpen() ? ' Takip metni yeniden hazırlanıyor.' : ''));
+    }
+
     /** The analysis's one-finding message goes into the text to send (the operator still edits and sends it). */
     public function useAnalysisMessage(): void
     {
@@ -543,6 +562,7 @@ final class LeadCardPage extends Component
             'today' => CarbonImmutable::now('Europe/Istanbul')->toDateString(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'closing' => app(ClosingSteps::class)->of($lead),
+            'brief' => app(CallBrief::class)->of($lead),
             'analysing' => in_array($lead->analysis_status, ['queued', 'running'], true),
             'researching' => in_array($lead->research_status, ['queued', 'running'], true),
             'meetings' => Reminder::query()->where('sales_lead_id', $lead->id)->whereNotNull('remind_at')->orderByDesc('remind_at')->limit(10)->get(),

@@ -11,12 +11,15 @@ use App\Models\User;
 use App\Services\Access\AccessLinks;
 use App\Services\Brand\Baseline;
 use App\Services\Operator\Agenda;
+use App\Services\Sales\CallBrief;
 use App\Services\Sales\ClosingSteps;
 use App\Services\Sales\SalesLeads;
 use App\Support\Roles;
+use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -82,6 +85,31 @@ class ClosingStepsTest extends TestCase
         $this->assertTrue($closing->of($lead)['finished']);
         $this->assertCount(0, $closing->open());
         Livewire::test(SalesPage::class)->assertDontSeeHtml('data-sales-closing');
+    }
+
+    public function test_the_call_brief_opens_from_the_record_and_the_note_after_the_call_becomes_a_step(): void
+    {
+        Queue::fake();
+        CarbonImmutable::setTestNow('2026-11-11 09:00:00');
+        $lead = SalesLead::query()->create(['name' => 'Serap Yıldız', 'company' => 'Yıldız Diş', 'city' => 'Manisa', 'stage' => 'talking', 'source' => 'whatsapp', 'heard_from' => 'google',
+            'website' => 'https://yildizdis.example', 'findings' => [['title' => 'Sitede implant sayfası yok', 'consequence' => 'İmplant aramalarında çıkmıyor.', 'severity' => 'high'], ['title' => 'Bilgi', 'severity' => 'info']]]);
+        app(SalesLeads::class)->event($lead, 'message_in', 'Fiyat ne kadar, şu an bir ajansla çalışıyorum.');
+
+        $brief = app(CallBrief::class)->of($lead);
+        $this->assertSame('Yıldız Diş · Manisa', $brief['who'][0]);
+        $this->assertSame(['Sitede implant sayfası yok'], array_column($brief['findings'], 'title'));
+        $this->assertCount(2, $brief['objections']);
+        $this->assertStringStartsWith('Henüz fiyat verilmedi', $brief['price']['line']);
+        $this->assertNotEmpty($brief['price']['list']);
+
+        $this->actingAs($this->admin);
+        Livewire::test(LeadCardPage::class, ['lead' => (string) $lead->id])->assertSeeHtml('data-lead-brief-page')->assertSee('Bir ajansla çalışıyor ya da çalışmış')
+            ->set('afterCallNote', 'Eşine soracak, cuma tekrar arayacağım')->call('afterCall')->assertHasNoErrors()->assertSet('afterCallNote', '');
+        $lead->refresh();
+        $this->assertSame('2026-11-13', $lead->next_step_at->timezone('Europe/Istanbul')->toDateString());
+        $this->assertSame('queued', $lead->draft_status);
+        $this->assertSame(1, $lead->events()->where('kind', 'call')->count());
+        CarbonImmutable::setTestNow();
     }
 
     public function test_an_old_win_and_a_win_without_terms_are_handled(): void
