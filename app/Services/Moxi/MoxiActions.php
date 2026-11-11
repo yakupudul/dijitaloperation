@@ -8,6 +8,7 @@ use App\Models\Brand;
 use App\Models\MoxiMessage;
 use App\Models\SalesLead;
 use App\Models\User;
+use App\Services\Sales\Agreements;
 use App\Services\Sales\ReferralRewards;
 use App\Services\Sales\SalesLeads;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +33,7 @@ final class MoxiActions
         'lead_plan' => 'Hatırlatma / toplantı',
         'lead_offer' => 'Teklif',
         'brand_fact' => 'Marka bilgisi',
+        'brand_agreement' => 'Anlaşma',
     ];
 
     public function __construct(private readonly SalesLeads $leads) {}
@@ -51,6 +53,7 @@ final class MoxiActions
         return match ($action) {
             'lead_add' => $this->previewAdd($title, $args),
             'brand_fact' => $this->previewFact($title, $args),
+            'brand_agreement' => $this->previewAgreement($title, $args),
             default => $this->previewLead($action, $title, $args),
         };
     }
@@ -69,6 +72,7 @@ final class MoxiActions
         return DB::transaction(fn (): array => match ($action) {
             'lead_add' => $this->add($args, $user),
             'brand_fact' => $this->fact($args),
+            'brand_agreement' => $this->agreement($args, $user),
             default => $this->onLead($action, $args, $user),
         });
     }
@@ -191,6 +195,53 @@ final class MoxiActions
             'scope' => self::text($args['scope'] ?? null, 160), 'question_id' => $question], fn ($v) => $v !== null);
 
         return ['title' => $title, 'lines' => ['Marka: '.$brand->name, ($field !== '' ? $field.': ' : 'Cevap: ').$value], 'args' => $clean];
+    }
+
+    /**
+     * Anlaşma (yakup 2026-11-11: "bota söyleyeyim, markalara işlesin"): a served brand's fee, kind and payment day,
+     * said in one sentence. The card shows what will be written; a running monthly agreement is replaced by the new one.
+     *
+     * @param  array<string, mixed>  $args
+     */
+    private function previewAgreement(string $title, array $args): array
+    {
+        $brand = Brand::query()->find((int) ($args['brand_id'] ?? 0)) ?? throw new InvalidArgumentException('Marka bulunamadı.');
+        $kind = (string) ($args['kind'] ?? 'monthly');
+        if (! isset(Agreement::KINDS[$kind])) {
+            throw new InvalidArgumentException('Anlaşma türü şunlardan biri olmalı: '.implode(', ', array_keys(Agreement::KINDS)).'.');
+        }
+        $fee = (int) ($args['fee'] ?? 0);
+        if (($fee <= 0 && $kind !== 'partnership') || $fee > 99_999_999) {
+            throw new InvalidArgumentException('Ücret yazılmalı (TL, KDV hariç).');
+        }
+        $due = (int) ($args['due_day'] ?? 1);
+        if ($due < 1 || $due > 28) {
+            throw new InvalidArgumentException('Ödeme günü 1-28 arasında olmalı.');
+        }
+        $term = isset($args['term_months']) ? (int) $args['term_months'] : null;
+        if ($kind === 'term' && ($term === null || $term < 1 || $term > 36)) {
+            throw new InvalidArgumentException('Dönemlik anlaşmada ay sayısı gerekir (1-36).');
+        }
+        $starts = isset($args['starts_on']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $args['starts_on']) === 1 ? (string) $args['starts_on'] : now('Europe/Istanbul')->startOfMonth()->toDateString();
+        $clean = array_filter(['brand_id' => $brand->id, 'kind' => $kind, 'fee' => $fee, 'due_day' => $due, 'term_months' => $kind === 'term' ? $term : null,
+            'starts_on' => $starts, 'note' => self::text($args['note'] ?? null, 500)], fn ($v) => $v !== null);
+        $running = Agreement::query()->where('brand_id', $brand->id)->active()->where('kind', '!=', 'one_time')->first();
+        $lines = ['Marka: '.$brand->name, Agreement::KINDS[$kind].': '.number_format($fee, 0, ',', '.').' ₺ + KDV'.($kind === 'term' ? ' · '.$term.' ay' : ''),
+            'Başlangıç '.self::trDate($starts).($kind !== 'one_time' ? ' · ödeme günü '.$due : '')];
+        if ($running !== null && $kind !== 'one_time') {
+            $lines[] = 'Yürüyen anlaşma ('.$running->feeLabel().') bunun başladığı gün biter.';
+        }
+
+        return ['title' => $title, 'lines' => $lines, 'args' => $clean];
+    }
+
+    /** @param array<string, mixed> $args */
+    private function agreement(array $args, User $user): array
+    {
+        $brand = Brand::query()->findOrFail((int) $args['brand_id']);
+        $agreement = app(Agreements::class)->start($brand, $args, $user);
+
+        return ['text' => $brand->name.': anlaşma yazıldı ('.$agreement->feeLabel().').', 'url' => route('operator.brand', ['brand' => $brand->id, 'tab' => 'ayarlar'])];
     }
 
     /** @param array<string, mixed> $args */

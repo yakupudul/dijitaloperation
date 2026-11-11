@@ -64,6 +64,7 @@ final class MoxiTools
         'hatirlatma' => 'lead_plan',
         'teklif' => 'lead_offer',
         'marka_bilgisi' => 'brand_fact',
+        'anlasma_yaz' => 'brand_agreement',
     ];
 
     /** Longest tool result handed back to the model (characters); longer ones are cut and say so. */
@@ -108,6 +109,10 @@ final class MoxiTools
             ['name' => 'hatirlatma', 'description' => 'KART: satış kaydı için Takvim\'e hatırlatma ya da toplantı koyar.', 'input_schema' => $object(['lead_id' => $int('Satış kaydı id.'), 'kind' => $str('Tür.', ['task', 'meeting']), 'title' => $str('Başlık.'), 'date' => $date, 'time' => $str('Saat, SS:DD.')], ['lead_id', 'date'])],
             ['name' => 'teklif', 'description' => 'KART: satış kaydının aylık teklifini (TL) ve hizmetini yazar; 0 teklifi siler.', 'input_schema' => $object(['lead_id' => $int('Satış kaydı id.'), 'amount' => $int('Aylık TL.'), 'service' => $str('Hizmet.', array_keys(SalesLead::SERVICES))], ['lead_id', 'amount'])],
             ['name' => 'marka_bilgisi', 'description' => 'KART: operatörün söylediği bir marka bilgisini epikrize yazar (telefon, garanti, fiyat, uzman, fark…). Yalnız operatörün kendi sözü; tahmin asla. field ya da question_id gerekir.', 'input_schema' => $object(['brand_id' => $int('Marka id.'), 'field' => $str('Epikriz alanı (marka_dosyasi epikriz alanları).'), 'value' => $str('Bilgi, sade Türkçe.'), 'scope' => $str('Hangi hizmet ya da şube için.'), 'question_id' => $int('Cevapladığı açık soru id.')], ['brand_id', 'value'])],
+            ['name' => 'anlasma_yaz', 'description' => 'KART: hizmet verilen bir markanın anlaşmasını yazar (aylık ücret, ödeme günü). Operatör "Dentocare aylık 14.000, ödeme günü 5" gibi söyleyince marka_bul ile markayı bul, her marka için ayrı kart aç. Ücret KDV hariç TL; söylenmeyen ücreti asla tahmin etme. Yürüyen aylık anlaşmanın yerine geçer.', 'input_schema' => $object([
+                'brand_id' => $int('Marka id (marka_bul ile bul).'), 'fee' => $int('Aylık ya da toplam ücret, TL, KDV hariç.'), 'kind' => $str('Anlaşma türü (söylenmediyse monthly).', ['monthly', 'term', 'one_time', 'partnership']),
+                'term_months' => $int('Dönemlik ise ay sayısı.'), 'due_day' => $int('Ödeme günü (1-28; söylenmediyse 1).'), 'starts_on' => $date, 'note' => $str('Not (ör. 6 ay peşin).'),
+            ], ['brand_id', 'fee'])],
             ['name' => 'yapilacaklar', 'description' => 'Operatörün kendi yapılacakları ve notları (Takvim › Yapılacaklar): bugün, geciken, tarihsiz işler ve son notlar. q verilirse işlerde ve notlarda (toplantı notları dahil) arar; "X ile ne konuşmuştuk" gibi sorular için.', 'input_schema' => $object(['q' => $str('Aranan kelime (boş = açık işler ve son notlar).')])],
             ['name' => 'yapilacak_ekle', 'description' => 'Operatörün söylediği işi, hatırlatmayı ya da notu hemen Takvim\'e yazar (kart yok). Metni operatörün sözüyle ver: "yarın 10\'da Şaban Bey\'i ara" tarihli hatırlatma, "not: …" not, "toplantı: cuma 14:00 …" toplantı olur; tarih yoksa tikleyene kadar Yapılacaklar\'da durur.', 'input_schema' => $object(['text' => $str('Operatörün cümlesi; ilk satır başlık, gerisi not.')], ['text'])],
             ['name' => 'deftere_yaz', 'description' => 'Defterine kalıcı bir şey yazar: operatörün söylediği genel bir bilgi (bilgi), nasıl çalışmak istediği (tercih) ya da seni düzelttiği bir yer (ders). Kısa, tek cümle. Markaya özel bilgi için marka_bilgisi kartı kullan.', 'input_schema' => $object(['text' => $str('Öğrendiğin, tek cümle.'), 'kind' => $str('Tür.', ['bilgi', 'tercih', 'ders'])], ['text', 'kind'])],

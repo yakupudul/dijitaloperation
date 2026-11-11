@@ -2259,6 +2259,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   Panel şifre tutmaz.
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
+- **Moxi `anlasma_yaz` kartı** (yakup 11.11: "bota söyleyeyim, markalara işlesin"): "Dentocare aylık 14.000, ödeme günü 5" → kart → Yap → `Agreements::start` (action `brand_agreement`). Söylenmeyen ücret tahmin edilmez; yürüyen aylık anlaşmanın yerine geçer.
 - **Tek fiyat kaynağı (Satış 1.5, yakup 11.11 onayı)**: `StandingRules::prices()` (WhatsApp entegrasyonu config `price_list`, başlangıç `resources/prompts/moximu-price-list.md`), Satış › Ayarlar › Fiyat listesi'nden elle düzenlenir. AI adımları `StandingRules::forAi()` okur (kurallar + FİYAT LİSTESİ); sales-reply / sales-analysis / social-reply istemlerindeki gömülü fiyatlar çıktı. Sabit kararlar metninde fiyat yazılmaz.
 - **Kaydı sil**: /satis satır menüsünde yalnız admin, yalnız elle/formdan girilmiş ve müşteri olmayan kayıt (`SalesLeads::remove`); sohbetten açılan kayıt silinmez ("Aday olmayan").
 - **Satış 2.6 ilk cevap hızı**: yeni kişinin (hiç cevap yazılmamış) taslağı hazır olunca `SalesReplyWriter::pushFirstAnswer` telefona "İlk cevap hazır: …" bildirimi yollar; dokununca `/satis/{lead}/ilk-cevap` → wa.me, metin kutuda. Kayıt başına bir kez, gece sessiz. 10:00 toplu bildirimi (`sales-morning-push`) kaldırıldı (zamanlanmış iş sayısı -1). Süre zaten Rapor'da "ilk mesaja kadar (ortanca)".

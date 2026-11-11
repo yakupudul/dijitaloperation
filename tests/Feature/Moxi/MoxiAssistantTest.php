@@ -9,6 +9,7 @@ use App\Mcp\Tools\ListTasks;
 use App\Mcp\Tools\MoxiRequests;
 use App\Models\AgencySetting;
 use App\Models\Agreement;
+use App\Models\Brand;
 use App\Models\MoxiMessage;
 use App\Models\SystemChange;
 use App\Models\User;
@@ -16,6 +17,7 @@ use App\Services\AiTasks\AiWorkers;
 use App\Services\Moxi\MoxiAgent;
 use App\Services\Moxi\MoxiCharacter;
 use App\Services\Moxi\MoxiTools;
+use App\Services\Sales\Agreements;
 use App\Services\Sales\SalesLeads;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -130,6 +132,29 @@ class MoxiAssistantTest extends TestCase
         $agreement = Agreement::query()->where('brand_id', $lead->fresh()->brand_id)->sole();
         $this->assertSame(14000, (int) $agreement->fee);
         $this->assertTrue($lead->events()->get()->contains(fn ($event): bool => str_starts_with((string) $event->body, 'Moxi müşteriye çevirdi')), 'event bodies are encrypted');
+    }
+
+    public function test_an_agreement_said_in_one_sentence_is_written_on_the_brand_after_yap(): void
+    {
+        $brand = Brand::factory()->create(['name' => 'Dentocare']);
+        $this->fakeClaude([
+            ['stop_reason' => 'tool_use', 'content' => [['type' => 'tool_use', 'id' => 't1', 'name' => 'anlasma_yaz', 'input' => ['brand_id' => $brand->id, 'fee' => 14000, 'due_day' => 5]]]],
+            ['stop_reason' => 'end_turn', 'content' => [['type' => 'text', 'text' => 'Kartı hazırladım.']]],
+        ]);
+
+        $this->ask('Dentocare aylık 14.000, ödeme günü 5');
+
+        $card = MoxiMessage::query()->where('role', MoxiMessage::CARD)->sole();
+        $this->assertStringContainsString('Aylık: 14.000 ₺ + KDV', implode(' ', $card->meta['lines']));
+        $this->assertSame(0, Agreement::query()->count(), 'nothing is written before Yap');
+
+        Livewire::test(Moxi::class)->call('confirm', $card->id);
+
+        $agreement = Agreement::query()->where('brand_id', $brand->id)->sole();
+        $this->assertSame(14000, (int) $agreement->fee);
+        $this->assertSame(5, (int) $agreement->due_day);
+        $this->assertSame('monthly', $agreement->kind);
+        $this->assertSame(14000, app(Agreements::class)->mrr());
     }
 
     public function test_a_card_for_a_wrong_record_is_refused_and_a_cancelled_card_never_runs(): void
