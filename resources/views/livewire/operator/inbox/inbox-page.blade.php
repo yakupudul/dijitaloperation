@@ -80,7 +80,7 @@
             <a href="{{ route('operator.marketing') }}" wire:navigate class="mt-auto hidden px-3 py-3 text-xs text-gray-500 hover:text-gray-900 2xl:block dark:hover:text-white" data-inbox-to-marketing>Kanallar neyi getiriyor? Pazarlama</a>
         </nav>
         {{-- Left: the chats --}}
-        <section @class(['flex w-full flex-col border-r border-gray-200 md:w-[22rem] md:shrink-0 dark:border-gray-800', 'hidden md:flex' => $selected !== null]) data-inbox-list>
+        <section @class(['flex w-full flex-col border-r border-gray-200 md:w-[19rem] 2xl:w-[22rem] md:shrink-0 dark:border-gray-800', 'hidden md:flex' => $selected !== null]) data-inbox-list>
             <div class="space-y-2 border-b border-gray-200 p-3 dark:border-gray-800">
                 <select wire:change="pickChannel($event.target.value)" class="h-9 w-full lg:hidden {{ $input }}" aria-label="Kanal" data-inbox-channel-select>
                     @foreach ($channelLook as $key => $look)
@@ -289,7 +289,7 @@
             @if ($who)
                 <div wire:click="$set('who', false)" class="fixed inset-0 z-30 bg-black/30 xl:hidden" aria-hidden="true"></div>
             @endif
-            <aside @class(['w-80 shrink-0 space-y-3 overflow-y-auto border-l border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900', 'fixed inset-y-0 right-0 z-40 block w-[22rem] max-w-full shadow-xl xl:static xl:z-auto xl:w-80 xl:shadow-none' => $who, 'hidden xl:block' => ! $who]) data-inbox-record>
+            <aside @class(['w-72 shrink-0 2xl:w-80 space-y-3 overflow-y-auto border-l border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900', 'fixed inset-y-0 right-0 z-40 block w-[22rem] max-w-full shadow-xl xl:static xl:z-auto xl:w-72 xl:shadow-none 2xl:w-80' => $who, 'hidden xl:block' => ! $who]) data-inbox-record>
                 @if ($person !== null)
                     <section class="card p-4" data-inbox-who>
                         <div class="flex items-start justify-between gap-2">
