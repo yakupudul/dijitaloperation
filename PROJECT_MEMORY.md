@@ -2259,6 +2259,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   Panel şifre tutmaz.
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
+- **Satış 2.2 kapıda eleme** (`App\Services\Sales\DoorScreen`, kural tabanlı, AI yok): hiç yazmadığımız yeni WhatsApp kişisinin ilk 6 mesajı okunur; hasta / iş arayan / yanlış numara ise kayıt `lifecycle=irrelevant` olur (`classification.door`), cevap taslağı ve araştırma kuyruğa girmez, yeniden yazsa da açılmaz. İş sahibi kelimesi (site, reklam, klinik sahibi…) geçen herkes aday kalır. Satış › Aday olmayanlar'da "Kapıda elendi · Hasta" + "Adaya çevir" (bir daha elenmez: `door.kept`).
 
 - **Satış 2.4 "Bugün 5 kişi"**: /satis Adaylar'ın üstünde günlük deste (`App\Services\Sales\TodayFive`). Günde bir kez (İstanbul) paraya yakınlığa göre 5 kişi seçilir (güçlü+cevap bekleyen, görüşme, teklif masada, cevap bekleyen, adımı bugün); kart Gönderdim / Sonra (ertesi iş günü) / Kapat ile desteden çıkar, deste yeniden dolmaz; yalnız bugün yazan kişi eklenir. "Bugün / gecikmiş" hızlı süzgeci kalktı.
 - Google bağlantı sayfası: "veri geliyor mu" tek yerden (`data_state` fresh/stale) okunur; veri gelirken "İlk veri çekimi bekleniyor" ve "Sonraki adım: veri çek" satırları çıkmaz.

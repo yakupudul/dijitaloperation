@@ -133,6 +133,9 @@
                             @endforeach
                         </div>
                     @endif
+                    @if (($doorWeek ?? 0) > 0)
+                        <p class="mt-2 text-[13px] text-gray-500" data-sales-door-week>Son 7 günde {{ $n($doorWeek) }} kişi kapıda elendi (hasta, iş arayan, yanlış numara). <button type="button" wire:click="showStatus('aday_degil')" class="font-semibold text-gray-900 underline decoration-gray-300 underline-offset-2 dark:text-white">Bak</button></p>
+                    @endif
                 </div>
             @endif
             @if (in_array($status, ['devam', 'guclu', 'kararsiz'], true))
@@ -152,6 +155,9 @@
                 </div>
             @endif
 
+            @if ($status === 'aday_degil' && trim($q) === '')
+                <p class="text-[13px] text-gray-500" data-sales-door-note>Hasta, iş arayan ve yanlış numara ilk mesajında burada kalır: kart açılmaz, cevap ve araştırma hazırlanmaz, hiçbir sayıya girmez. Yanlış elenen olursa "Adaya çevir" yeter; o kişi bir daha elenmez.</p>
+            @endif
             @if ($status === 'arsiv' && trim($q) === '')
                 <p class="text-[13px] text-gray-500" data-sales-archive-note>Telefon yedeğinden ve WhatsApp geçmişinden gelen, 14 günden uzun sessiz konuşmalar. Hiçbir listeye ve sayıya girmezler, silinmezler. Kişi canlı hatta yeniden yazarsa kart kendiliğinden geri gelir.</p>
             @endif
@@ -282,6 +288,10 @@
                                     <a href="{{ route('operator.sales.lead', ['lead' => $lead->id]) }}" wire:navigate @class(['truncate text-sm font-semibold hover:underline', 'text-gray-900 dark:text-white' => filled($lead->name) || filled($lead->company), 'text-gray-400' => ! filled($lead->name) && ! filled($lead->company)])>{{ $named ? $lead->title() : 'İsimsiz' }}</a>
                                     @if ($ours)<span class="chip chip-down shrink-0" title="Son mesaj onlardan" data-sales-ball>Sende{{ $waitDays ? ' · '.$waitDays.' g' : '' }}</span>@endif
                                     <span class="chip {{ $stChip }} lg:hidden">{{ $lead->statusLabel() }}</span>
+                                    @if ($doorKind = \App\Services\Sales\DoorScreen::verdict($lead))
+                                        <span class="chip chip-flat shrink-0" title="{{ data_get($lead->classification, 'door.said') }}" data-sales-door>Kapıda elendi · {{ $doorKind }}</span>
+                                        <button type="button" wire:click="setStatus({{ $lead->id }}, 'devam')" class="shrink-0 text-[12px] font-semibold text-gray-900 underline decoration-gray-300 underline-offset-2 hover:decoration-gray-900 dark:text-white" data-sales-door-keep>Adaya çevir</button>
+                                    @endif
                                 </div>
                                 @php $sub = collect([filled($lead->name) ? $lead->company : null, $lead->city, $lead->kindLabel()])->filter()->unique()->implode(' · '); @endphp
                                 @if ($sub !== '')<p class="truncate text-[13px] text-gray-500">{{ $sub }}</p>@endif

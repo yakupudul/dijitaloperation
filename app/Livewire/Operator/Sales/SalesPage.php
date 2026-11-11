@@ -632,6 +632,7 @@ final class SalesPage extends Component
         return view('livewire.operator.sales.sales-page', [
             'dueCount' => $dueCount,
             'five' => $five,
+            'doorWeek' => $this->tab === 'adaylar' && $this->status === 'devam' ? SalesLead::query()->where('lifecycle', 'irrelevant')->where('lost_at', '>=', now()->subDays(7))->whereNotNull('classification->door->kind')->whereNull('classification->door->kept')->count() : 0,
             'openCount' => (clone $open)->count(),
             'stageCounts' => $stageCounts,
             'list' => $list,

@@ -272,12 +272,13 @@ final class SalesLeads
         }
         $lead->save();
         if ($created) {
-            $this->event($lead, 'system', 'WhatsApp görüşmesinden kart açıldı.', $conversation->created_at);
+            $this->event($lead, 'system', 'WhatsApp görüşmesinden kayıt açıldı.', $conversation->created_at);
             if ($lead->heard_from === 'meta_ads' && is_array($conversation->referral)) {
                 $ad = (string) ($conversation->referral['headline'] ?? $conversation->referral['source_id'] ?? '');
                 $this->event($lead, 'system', 'Reklamdan yazdı'.($ad !== '' ? ': '.$ad : '.'), $conversation->last_incoming_at, ['referral' => $conversation->referral], 'referral:'.$conversation->id);
             }
         }
+        app(DoorScreen::class)->screen($lead, $conversation, $this);
 
         return $lead;
     }
@@ -330,6 +331,10 @@ final class SalesLeads
         }
         $lead->save();
         if ($lead->history_only || $lead->isArchived()) {
+            return;
+        }
+        // Kapıda eleme (Satış Düzeni 2.2): a patient, a job seeker or a wrong number gets no card, no answer, no research.
+        if (app(DoorScreen::class)->screen($lead, $conversation, $this)) {
             return;
         }
         // They wrote: Claude answers in the background (unless the operator is already editing a text of their own).
@@ -421,7 +426,8 @@ final class SalesLeads
         $this->readReferral($lead, $conversation);
         if (! $lead->isOpen()) {
             // They wrote again after we closed the card: it is open once more (an "İlgisiz" record becomes a prospect again).
-            if ($lead->stage === 'lost' && $lastIn !== null && $lead->lost_at !== null && $lastIn->gt($lead->lost_at)) {
+            // (Somebody put aside at the door stays there however often they write; only "Adaya çevir" brings them back.)
+            if ($lead->stage === 'lost' && $lastIn !== null && $lead->lost_at !== null && $lastIn->gt($lead->lost_at) && DoorScreen::verdict($lead) === null) {
                 $lead->stage = 'contacted';
                 $lead->lost_at = null;
                 $lead->lost_reason = null;
@@ -968,6 +974,7 @@ final class SalesLeads
         }
         // An open status: a closed or irrelevant card comes back to the open line.
         if ($lead->lifecycle === 'irrelevant') {
+            DoorScreen::keep($lead);
             $lead->lifecycle = 'prospect';
         }
         $lead->is_strong = $status === 'guclu';
