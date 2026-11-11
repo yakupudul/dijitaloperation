@@ -174,6 +174,28 @@
         @endif
         </div>
         <div class="order-first xl:order-last xl:mt-0">
+            @if ($promises->isNotEmpty())
+                {{-- Söz defteri (Günlük Düzen 4.2): promises caught in his own messages, asked once. --}}
+                <aside class="card mb-4 p-4" id="sozler" data-calendar-promises>
+                    <h2 class="section-title">Söz defteri <span class="section-count">{{ $promises->count() }}</span></h2>
+                    <p class="mt-1 text-[13px] text-gray-500">Yazdığın mesajlarda yakalanan sözler. Eklersen o günün işine düşer.</p>
+                    <ul class="mt-3 divide-y divide-gray-100 dark:divide-white/10">
+                        @foreach ($promises as $p)
+                            <li class="py-2.5" wire:key="soz-{{ $p->id }}" data-calendar-promise>
+                                <p class="text-sm text-gray-900 dark:text-white">{{ $p->text }}</p>
+                                <p class="mt-0.5 text-[13px] text-gray-500">{{ $p->due_on->locale('tr')->isoFormat('D MMMM dddd') }}@if (filled($p->who)), {{ $p->who }}@endif</p>
+                                <div class="mt-2 flex gap-2">
+                                    <button type="button" wire:click="promise({{ $p->id }}, true)" class="btn-dark px-3 py-1.5 text-[13px]" data-promise-add>Ekle</button>
+                                    <button type="button" wire:click="promise({{ $p->id }}, false)" class="btn-quiet px-3 py-1.5 text-[13px]" data-promise-reject>Söz değil</button>
+                                    @if ($p->conversation_id)
+                                        <a href="{{ route('operator.inbox', ['kayit' => 'wa-'.$p->conversation_id]) }}" wire:navigate class="link-neutral ml-auto self-center text-[13px]">Konuşma</a>
+                                    @endif
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+                </aside>
+            @endif
             @include('livewire.operator.calendar.partials.todos')
         </div>
     </div>

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Today;
 
 use App\Enums\CustomerStatus;
+use App\Jobs\Moxi\MoxiTurnJob;
 use App\Livewire\Demo\Dashboard;
 use App\Livewire\Demo\GlobalSearch;
 use App\Models\AiLiveOperation;
@@ -10,14 +11,18 @@ use App\Models\AssetAlert;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\DigitalAsset;
+use App\Models\MoxiMessage;
+use App\Models\Reminder;
 use App\Models\Suggestion;
 use App\Services\Operator\TodayCockpitReader;
 use App\Support\OperatorMenu;
+use App\Support\Roles;
 use App\View\Components\Operator\AssetContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\Feature\Site\SiteTestCase;
@@ -181,6 +186,22 @@ final class TodayCockpitTest extends SiteTestCase
         Livewire::test(GlobalSearch::class)->set('q', 'onarım')
             ->assertSee('Onarım masası')->assertSee(route('operator.repair'), false)
             ->assertSee('Sorgularda ara: "onarım"');
+    }
+
+    public function test_the_one_box_keeps_a_sentence_as_a_note_or_hands_it_to_moxi(): void
+    {
+        app()->setLocale('tr');
+        Queue::fake();
+        $user = auth()->user();
+        $user->assignRole(Roles::ADMIN);
+
+        Livewire::test(GlobalSearch::class)->set('q', 'yarın Ali Beyi ara')->assertSeeHtml('data-box-capture')->assertSeeHtml('data-box-ask')
+            ->call('capture')->assertSeeHtml('data-box-saved')->assertSet('q', '');
+        $this->assertSame(1, Reminder::query()->where('user_id', $user->id)->count());
+
+        Livewire::test(GlobalSearch::class)->set('q', 'bu ay kaç aday geldi?')->call('ask')->assertDispatched('moxi-open')->assertSet('q', '');
+        $this->assertSame('bu ay kaç aday geldi?', MoxiMessage::query()->sole()->body);
+        Queue::assertPushed(MoxiTurnJob::class);
     }
 
     public function test_asset_breadcrumb_writes_names_once_and_links_the_brand_analysis(): void

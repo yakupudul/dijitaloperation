@@ -1,5 +1,5 @@
 {{-- Moxi, the corner assistant (yakup 2026-11-09). The corner button is a chat icon made from the Moximu cone (no character); sounds and speech: operator/partials/moxi-script. --}}
-<div class="mx-root @if ($alert) has-alert @endif" x-data="moxiChat()" x-init="boot()"
+<div class="mx-root @if ($alert) has-alert @endif" x-data="moxiChat()" x-init="boot()" @moxi-open.window="open = true"
     @moxi-think.window="think()" @moxi-said.window="said($event.detail)" @moxi-happy.window="happy($event.detail)"
     data-rank="{{ $rank['level'] ?? 1 }}" data-rank-name="{{ $rank['name'] ?? 'Çırak' }}" data-cards="{{ $doneCards }}"
     wire:poll.{{ $busy ? '2s' : ($waitingJobs ? '30s' : '90s') }}="refresh" data-moxi>

@@ -6,10 +6,12 @@ use App\Models\BrandFinding;
 use App\Models\BrandSession;
 use App\Models\Reminder;
 use App\Services\Calendar\CalendarFeed;
+use App\Services\Calendar\PromiseBook;
 use App\Services\Sales\ClosingSteps;
 use App\Services\Sales\TodayFive;
 use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -32,7 +34,7 @@ final class Agenda
     public function today(int $userId): array
     {
         $rows = [...$this->part(fn (): array => $this->meetings($userId)), ...$this->part(fn (): array => $this->people()),
-            ...$this->part(fn (): array => $this->brands()), ...$this->part(fn (): array => $this->tasks($userId))];
+            ...$this->part(fn (): array => $this->brands()), ...$this->part(fn (): array => $this->promises($userId)), ...$this->part(fn (): array => $this->tasks($userId))];
 
         return ['rows' => array_slice($rows, 0, self::MAX), 'hidden' => max(0, count($rows) - self::MAX), 'total' => count($rows)];
     }
@@ -111,6 +113,20 @@ final class Agenda
         usort($out, fn (array $a, array $b): int => [$b['weight'], $a['title']] <=> [$a['weight'], $b['title']]);
 
         return array_map(fn (array $row): array => array_diff_key($row, ['weight' => 0]), $out);
+    }
+
+    /** Söz defteri (Günlük Düzen 4.2): promises caught in his own messages that wait for "işe ekle?", one line. */
+    private function promises(int $userId): array
+    {
+        $asked = app(PromiseBook::class)->asked($userId);
+        if ($asked->isEmpty()) {
+            return [];
+        }
+        $first = $asked->first();
+
+        return [['key' => 'promises', 'kind' => 'promise', 'when' => null, 'title' => $asked->count().' söz yakalandı',
+            'line' => Str::limit((filled($first->who) ? $first->who.': ' : '').$first->text, 90).($asked->count() > 1 ? ' ve '.($asked->count() - 1).' söz daha' : ''),
+            'url' => route('operator.calendar').'#sozler', 'late' => false]];
     }
 
     /** The operator's own tasks: today's, then the ones left from earlier days and the ones without a date. */

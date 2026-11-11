@@ -3,11 +3,13 @@
 namespace App\Livewire\Operator\Calendar;
 
 use App\Models\Brand;
+use App\Models\Promise;
 use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Services\Assistant\ReminderService;
 use App\Services\Calendar\CalendarFeed;
 use App\Services\Calendar\CalendarIcs;
+use App\Services\Calendar\PromiseBook;
 use App\Services\Calendar\QuickCapture;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesReplyWriter;
@@ -193,6 +195,13 @@ final class CalendarPage extends Component
     }
 
     /** One line from the Yapılacaklar box: a to-do, a reminder with a date, a meeting or a note (QuickCapture rules). */
+    /** Söz defteri (Günlük Düzen 4.2): "Ekle" makes the caught promise a task, "Söz değil" dismisses it. */
+    public function promise(int $id, bool $add, PromiseBook $book): void
+    {
+        $promise = Promise::query()->where('user_id', auth()->id())->where('status', 'asked')->findOrFail($id);
+        $add ? $book->add($promise) : $book->reject($promise);
+    }
+
     public function quickAdd(QuickCapture $capture): void
     {
         $text = trim($this->quick);
@@ -259,6 +268,7 @@ final class CalendarPage extends Component
             'leads' => $this->adding ? SalesLead::query()->open()->orderByDesc('updated_at')->limit(200)->get() : collect(),
             'komuta' => $open['komuta'] ?? null,
             'board' => $this->board(),
+            'promises' => app(PromiseBook::class)->asked($userId),
             'komutaToday' => ! $failed && ! $this->report && $gridFrom->toDateString() <= $now->toDateString() && $gridTo->toDateString() >= $now->toDateString() ? $feed->komuta() : null,
         ]);
     }

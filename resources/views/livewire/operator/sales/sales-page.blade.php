@@ -465,7 +465,7 @@
                             </div>
                         @endforeach
                         <div data-sales-week-decisions>
-                            <p class="text-[13px] font-medium text-gray-900 dark:text-white">Üç karar <span class="tabular-nums text-gray-400">{{ $week['waiting'] }}</span></p>
+                            <p class="text-[13px] font-medium text-gray-900 dark:text-white">Bekleyen karar <span class="tabular-nums text-gray-400">{{ $week['waiting'] }}</span></p>
                             @forelse ($week['decisions'] as $decision)
                                 <p class="mt-1.5 text-[13px] text-gray-700 dark:text-gray-300"><span class="text-gray-400">{{ $decision['kind'] }}:</span> {{ \Illuminate\Support\Str::limit($decision['text'], 160) }}</p>
                             @empty

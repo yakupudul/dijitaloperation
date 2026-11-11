@@ -147,7 +147,7 @@ return [
     ],
 
     'search' => [
-        'placeholder' => 'Portföyde ara…',
+        'placeholder' => 'Ara, not al ya da sor',
         'page' => 'Sayfa',
         'queries' => 'Sorgular',
         'in_queries' => 'Sorgularda ara: ":q"',

@@ -146,7 +146,7 @@ return [
     ],
 
     'search' => [
-        'placeholder' => 'Search portfolio…',
+        'placeholder' => 'Search, note or ask',
         'page' => 'Page',
         'queries' => 'Queries',
         'in_queries' => 'Search queries for ":q"',

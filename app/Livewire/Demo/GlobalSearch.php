@@ -2,17 +2,23 @@
 
 namespace App\Livewire\Demo;
 
+use App\Jobs\Moxi\MoxiTurnJob;
+use App\Livewire\Operator\Moxi;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\CustomerContact;
 use App\Models\DigitalAsset;
+use App\Models\MoxiMessage;
 use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\Suggestion;
+use App\Models\User;
+use App\Services\Calendar\QuickCapture;
 use App\Services\Operator\KomutaReader;
 use App\Services\Operator\OperatorPortfolioPresenter;
 use App\Services\Repair\RepairDesk;
 use App\Support\Demo\DemoMenu;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -32,12 +38,46 @@ class GlobalSearch extends Component
 
     public function updatedQ(): void
     {
+        $this->saved = '';
         $this->open = trim($this->q) !== '';
     }
 
     public function select(): void
     {
         $this->open = false;
+    }
+
+    /** Tek kutu (Günlük Düzen 4.1): what was just written down from the box, shown as its own row. */
+    public string $saved = '';
+
+    /** A sentence, not a name: kept as a note, or as a reminder when it carries a day ("yarın Ali'yi ara"). */
+    public function capture(QuickCapture $capture): void
+    {
+        $text = trim($this->q);
+        if ($text === '' || ! auth()->user() instanceof User) {
+            return;
+        }
+        $row = $capture->capture(auth()->user(), $text);
+        $this->saved = $row->remind_at !== null
+            ? CarbonImmutable::instance($row->remind_at)->setTimezone('Europe/Istanbul')->locale('tr')->isoFormat('D MMMM').' gününe yazıldı'
+            : ($row->isNote() ? 'Not alındı' : 'Yapılacaklara eklendi');
+        $this->q = '';
+        $this->open = true;
+    }
+
+    /** A question or a job: handed to Moxi, whose panel opens with the answer (a job comes back as an approval card). */
+    public function ask(): void
+    {
+        $text = trim($this->q);
+        if ($text === '' || ! Moxi::allowed()) {
+            return;
+        }
+        $message = MoxiMessage::query()->create(['user_id' => auth()->id(), 'role' => MoxiMessage::USER, 'status' => MoxiMessage::PENDING, 'body' => mb_substr($text, 0, 4000)]);
+        MoxiTurnJob::dispatch($message->id);
+        $this->q = '';
+        $this->open = false;
+        $this->dispatch('moxi-open');
+        $this->dispatch('moxi-think');
     }
 
     public function render(): View

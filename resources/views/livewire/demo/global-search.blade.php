@@ -41,9 +41,28 @@
                 <span class="mt-0.5 block text-xs text-gray-500">{{ $row['meta'] }}</span>
             </a>
         @empty
-            @if (trim($q) !== '')
-                <p class="px-4 py-3 text-sm text-gray-500">{{ __('operator.search.empty') }}</p>
-            @endif
         @endforelse
+        @if ($saved !== '')
+            <a href="{{ route('operator.calendar') }}" wire:navigate wire:click="select" class="block px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03]" data-box-saved>
+                <span class="font-medium text-gray-900 dark:text-white">{{ $saved }}</span>
+                <span class="mt-0.5 block text-xs text-gray-500">Takvim › Yapılacaklar</span>
+            </a>
+        @endif
+        @if (trim($q) !== '')
+            {{-- Tek kutu (Günlük Düzen 4.1): the same text can be kept as a note or reminder, or asked to Moxi. --}}
+            @php $n = count($results); @endphp
+            <div @class(['border-t border-gray-100 dark:border-white/10' => $n > 0]) data-box-actions>
+                <a href="#" wire:click.prevent="capture" class="block px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03]" :class="active === {{ $n }} && 'bg-gray-50 dark:bg-white/[0.04]'" @mouseenter="active = {{ $n }}" role="option" data-box-capture>
+                    <span class="font-medium text-gray-900 dark:text-white">Not al ya da hatırlat</span>
+                    <span class="mt-0.5 block truncate text-xs text-gray-500">"{{ \Illuminate\Support\Str::limit(trim($q), 60) }}" Yapılacaklar'a yazılır; gün yazdıysan o güne.</span>
+                </a>
+                @if (\App\Livewire\Operator\Moxi::allowed())
+                    <a href="#" wire:click.prevent="ask" class="block px-4 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-white/[0.03]" :class="active === {{ $n + 1 }} && 'bg-gray-50 dark:bg-white/[0.04]'" @mouseenter="active = {{ $n + 1 }}" role="option" data-box-ask>
+                        <span class="font-medium text-gray-900 dark:text-white">Moxi'ye sor</span>
+                        <span class="mt-0.5 block text-xs text-gray-500">Soruysa cevaplar, işse onayına getirir.</span>
+                    </a>
+                @endif
+            </div>
+        @endif
     </div>
 </div>
