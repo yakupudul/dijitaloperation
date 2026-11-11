@@ -32,7 +32,7 @@ final class CommandNamesTest extends TestCase
         $this->assertSame(['Europe/Istanbul'], $zones);
         $this->assertSame('40 4 * * *', $at('moxdop:repair:audit'));
         $this->assertSame('40 5 * * *', $at('moxdop:brands:dossier'), 'after the desk audit and preparation');
-        $this->assertSame('5 9 * * *', $at('moxdop:repair:digest'), 'a morning digest');
+        $this->assertSame('', $at('moxdop:repair:digest'), 'the repair digest is a line of the 08:30 morning plan, not a job of its own');
     }
 
     public function test_the_nightly_brand_data_audit_runs_the_data_audit(): void

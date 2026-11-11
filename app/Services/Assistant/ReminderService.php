@@ -43,7 +43,7 @@ final class ReminderService
                 $reminder->forceFill(['followup_notified_at' => now()])->save();
             });
 
-        $sent += $this->morningSummary();
+        // Günlük Düzen 3.2: the open tasks are a line of the morning plan now (DayDigest), not a push of their own.
 
         return $sent;
     }

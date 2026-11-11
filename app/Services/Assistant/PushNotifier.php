@@ -57,6 +57,13 @@ final class PushNotifier
             ->where('created_at', '>=', now()->subHours($dedupeHours))->exists()) {
             return 0;
         }
+        // Günlük Düzen 3.1: the one door. What is not for now waits for the morning plan or the evening close.
+        $policy = app(PushPolicy::class);
+        if ($policy->decide($dedupeKey, $severity) === PushPolicy::HOLD) {
+            $policy->hold($dedupeKey, $title, $body, $severity, $url);
+
+            return 0;
+        }
         $sent = 0;
         foreach ($channels as $channel) {
             if ($channel === 'browser') {
@@ -95,6 +102,12 @@ final class PushNotifier
      */
     public function browser(string $dedupeKey, string $title, string $body, string $severity, ?string $url): int
     {
+        $policy = app(PushPolicy::class);
+        if ($policy->decide($dedupeKey, $severity) === PushPolicy::HOLD) {
+            $policy->hold($dedupeKey, $title, $body, $severity, $url);
+
+            return 0;
+        }
         $id = DB::table('push_notifications')->insertGetId([
             'dedupe_key' => mb_substr($dedupeKey, 0, 191), 'channel' => 'browser', 'severity' => $severity,
             'title' => mb_substr($title, 0, 255), 'body' => mb_substr($body, 0, 2000), 'url' => $url !== null ? mb_substr($url, 0, 500) : null,

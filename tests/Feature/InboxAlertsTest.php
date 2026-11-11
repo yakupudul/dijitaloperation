@@ -11,6 +11,7 @@ use App\Models\SocialThread;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppWebhookReceipt;
+use App\Services\Assistant\DayDigest;
 use App\Services\Inbox\InboxAlerts;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\WhatsApp\WhatsAppIngestion;
@@ -111,7 +112,12 @@ final class InboxAlertsTest extends TestCase
 
         $this->travelTo('2026-11-10 05:30:00'); // 08:30
         $this->assertSame(1, app(InboxAlerts::class)->nightSummary());
-        $this->assertStringStartsWith('Gece 1 kişi yazdı', (string) $this->pushes()->last()->title);
+        // Günlük Düzen 3.2: the night line waits for the morning plan and is told there once.
+        $this->assertStringStartsWith('Gece 1 kişi yazdı', (string) DB::table('push_notifications')->where('status', 'held')->value('title'));
+        app(DayDigest::class)->morning();
+        $this->assertSame('Sabah planı', (string) $this->pushes()->last()->title);
+        $this->assertStringContainsString('Gece 1 kişi yazdı', (string) $this->pushes()->last()->body);
+        $this->assertSame(0, DB::table('push_notifications')->where('status', 'held')->count());
     }
 
     public function test_an_unanswered_chat_is_reminded_once_and_an_answered_one_is_not(): void

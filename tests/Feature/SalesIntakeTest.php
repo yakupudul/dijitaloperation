@@ -13,6 +13,7 @@ use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SalesLeadEvent;
 use App\Models\User;
+use App\Services\Assistant\DayDigest;
 use App\Services\Sales\LeadIntake;
 use App\Services\Sales\SalesAnalysisWriter;
 use App\Services\Sales\SalesLeads;
@@ -171,7 +172,9 @@ class SalesIntakeTest extends TestCase
         CarbonImmutable::setTestNow('2026-11-05 05:30:00'); // 08:30 Istanbul
         $this->assertFalse(LeadIntake::quiet());
         $this->assertSame(1, app(LeadIntake::class)->morningSummary());
-        $this->assertCount(1, $this->pushes());
+        $this->assertSame([], $this->pushes(), 'the night forms are a line of the morning plan');
+        app(DayDigest::class)->morning();
+        $this->assertSame(1, count($this->pushes()));
     }
 
     public function test_connecting_the_site_form_keeps_the_old_token_when_the_site_refuses(): void

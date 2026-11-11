@@ -6,6 +6,7 @@ use App\Jobs\ApproveKomutaGroupJob;
 use App\Models\BrandTarget;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Assistant\PushPolicy;
 use App\Services\Gbp\GbpSuggestions;
 use App\Services\Goals\BrandTargets;
 use App\Services\Operator\Agenda;
@@ -133,6 +134,14 @@ final class KomutaPage extends Component
         $this->say($target->brand?->name.' için amaç onaylandı: ayda '.$target->fresh()->monthly_leads.' talep.');
     }
 
+    /** Günlük Düzen 3.5 (izin modu): "bugün yokum" - only money alarms ring until the day ends; the rest waits in the summary. */
+    public function setAway(bool $on): void
+    {
+        $this->admin();
+        PushPolicy::setAway($on);
+        $this->say($on ? 'İzin modu açık: bugün yalnız para alarmı gelir, gerisi yarın sabah planında.' : 'İzin modu kapandı, bildirimler yeniden geliyor.');
+    }
+
     public function render(KomutaReader $komuta, TodayCockpitReader $cockpit, Agenda $agenda): View
     {
         $box = $komuta->box();
@@ -147,6 +156,7 @@ final class KomutaPage extends Component
         return view('livewire.operator.komuta.komuta-page', [
             'box' => $box,
             'agenda' => $agenda->today((int) auth()->id()),
+            'away' => PushPolicy::away(),
             'elsewhere' => $komuta->elsewhere(),
             'loss' => collect($alarms['items'])->where('tone', 'critical')->values(),
             'portfolio' => $portfolio,

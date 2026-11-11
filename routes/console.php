@@ -50,6 +50,7 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Alerts\AdBudgetWatch;
 use App\Services\Analyst\AnalystEngine;
 use App\Services\Analyst\AnalystRegistry;
+use App\Services\Assistant\DayDigest;
 use App\Services\Assistant\PushNotifier;
 use App\Services\Assistant\ReminderService;
 use App\Services\Assistant\WhatsAppContactLinker;
@@ -879,10 +880,7 @@ Schedule::command('moxdop:repair:verify')
     ->withoutOverlapping(30)
     ->name('repair-desk-verify');
 
-Schedule::command('moxdop:repair:digest')
-    ->dailyAt('09:05')
-    ->withoutOverlapping(10)
-    ->name('repair-desk-digest');
+// (The 09:05 repair digest push is gone since Günlük Düzen 3.2: its line is part of the 08:30 morning plan.)
 
 // Faz 5: sektör paketi uyum denetimi (AI taslakları, Meta reklam metni/hedefleme, site sayfaları, İşletme Profili).
 Schedule::command('moxdop:compliance:scan')
@@ -1872,11 +1870,17 @@ Schedule::call(fn () => app(SalesLeads::class)->draftDue())
 
 // Satış (2026-11-05): forms that came in the quiet hours (22:00-08:00) are told in one push at 08:30; since 2026-11-09
 // also who wrote on WhatsApp / Instagram in the night (their pushes came silently).
+// Günlük Düzen 3.2: these are lines of the one morning plan now; the evening close says what was finished, who wrote
+// and tomorrow's first job. Two summaries a day; what PushPolicy held in between is told in them.
 Schedule::call(function (): void {
-    app(LeadIntake::class)->morningSummary();
-    app(InboxAlerts::class)->nightSummary();
+    rescue(fn () => app(LeadIntake::class)->morningSummary());
+    rescue(fn () => app(InboxAlerts::class)->nightSummary());
+    rescue(fn () => Artisan::call('moxdop:repair:digest'));
+    app(DayDigest::class)->morning();
 })
-    ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('sales-night-forms')->withoutOverlapping(10);
+    ->dailyAt('08:30')->timezone('Europe/Istanbul')->name('morning-plan')->withoutOverlapping(10);
+Schedule::call(fn () => app(DayDigest::class)->evening())
+    ->dailyAt('19:00')->timezone('Europe/Istanbul')->name('evening-close')->withoutOverlapping(10);
 
 // (The 10:00 "bugün N kişiye yazacaksın" push is gone since Satış Düzeni 2.6: a new person's first answer is pushed the
 // moment it is ready, and the day's short list is the "Bugün 5 kişi" deck on Satış.)

@@ -38,6 +38,7 @@
             @else
                 Günün listesi aşağıda. Her satır işin yapıldığı yeri açar.
             @endif
+                @if ($isAdmin && ! $away)<span class="text-gray-300 dark:text-gray-600">·</span> <button type="button" wire:click="setAway(true)" wire:confirm="Bugün yalnız para alarmı gelsin, gerisi yarın sabah planında birikir; açılsın mı?" class="link-neutral" data-komuta-leave>Bugün yokum</button>@endif
         </p>
     </header>
 
@@ -47,6 +48,13 @@
             <span class="min-w-0 flex-1"><b class="font-semibold">{{ $loss->count() }} hesap para ya da trafik kaybediyor:</b> {{ $loss->pluck('brand')->filter()->unique()->take(3)->implode(', ') }}</span>
             <span class="shrink-0 font-medium">Bak →</span>
         </a>
+    @endif
+
+    @if ($away)
+        <div class="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-komuta-away>
+            <span class="min-w-0 flex-1"><b class="font-semibold text-gray-900 dark:text-white">İzin modu açık.</b> Bugün yalnız para alarmı gelir; gerisi yarın sabah planında birikir.</span>
+            @if ($isAdmin)<button type="button" wire:click="setAway(false)" class="btn">Kapat</button>@endif
+        </div>
     @endif
 
     {{-- Tek gündem (Günlük Düzen 2.1): the one list of the day, at most seven lines; the rest stands behind "daha fazla". --}}
