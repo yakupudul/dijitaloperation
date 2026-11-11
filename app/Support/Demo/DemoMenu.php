@@ -31,7 +31,8 @@ final class DemoMenu
         $tr = app()->getLocale() === 'tr';
 
         $item = static fn (string $label, string $route, string $icon, array $children = [], array $active = []): array => ['label' => $label, 'route' => $route, 'icon' => $icon, 'children' => $children, 'active' => $active];
-        $child = static fn (string $label, string $route): array => ['label' => $label, 'route' => $route];
+        // A child may name its group (Ayarlar: Ajans / Kurallar / Makine): the page's tabs then show the groups first, the group's own screens under them.
+        $child = static fn (string $label, string $route, ?string $group = null): array => ['label' => $label, 'route' => $route] + ($group !== null ? ['group' => $group] : []);
 
         $group = static fn (string $label, array $items, bool $pinned = false): array => ['label' => $label, 'items' => $items, 'pinned' => $pinned];
         $own = self::agencyBrand();
@@ -89,19 +90,22 @@ final class DemoMenu
                     $child($tr ? 'Bağlantı sağlığı' : 'Connection health', 'operator.integrations.connection-health'),
                     $child($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets'),
                 ]),
+                // Bağlantı Düzeni 2.3 (2026-11-11): three groups instead of a row of tabs. Ajans = who we are, Kurallar = how the
+                // work is done, Makine = what keeps the system running (it only asks for attention when something is wrong).
                 $item(__('operator.nav.settings'), 'operator.settings', 'settings', [
-                    $child($tr ? 'AI sağlayıcıları' : 'AI providers', 'operator.settings.ai-workers'),
-                    $child($tr ? 'AI işlemleri ve promptlar' : 'AI operations & prompts', 'operator.settings.ai-operations'),
-                    $child($tr ? 'Standartlar' : 'Standards', 'operator.library.website-standards'),
-                    $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services'),
-                    $child($tr ? 'Sorgu kuralları' : 'Query rules', 'operator.settings.query-rules'),
-                    $child($tr ? 'Kullanıcılar' : 'Users', 'operator.settings.users'),
-                    $child($tr ? 'MCP anahtarları' : 'MCP keys', 'operator.settings.mcp'),
-                    $child($tr ? 'Güvenlik karnesi' : 'Security card', 'operator.settings.security'),
-                    $child($tr ? 'Sistem' : 'System', 'operator.settings.system-health'),
-                    $child($tr ? 'Zamanlanmış işler' : 'Scheduled jobs', 'operator.settings.jobs'),
-                    $child($tr ? 'Geliştirme havuzu' : 'Improvements', 'operator.settings.improvements'),
-                    $child($tr ? 'Sürümler' : 'Releases', 'operator.settings.releases'),
+                    $child($tr ? 'Kullanıcılar' : 'Users', 'operator.settings.users', $tr ? 'Ajans' : 'Agency'),
+                    $child($tr ? 'Standartlar' : 'Standards', 'operator.library.website-standards', $tr ? 'Kurallar' : 'Rules'),
+                    $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services', $tr ? 'Kurallar' : 'Rules'),
+                    $child($tr ? 'Sorgu kuralları' : 'Query rules', 'operator.settings.query-rules', $tr ? 'Kurallar' : 'Rules'),
+                    $child($tr ? 'AI sağlayıcıları' : 'AI providers', 'operator.settings.ai-workers', $tr ? 'Makine' : 'Machine'),
+                    $child($tr ? 'AI işlemleri ve promptlar' : 'AI operations & prompts', 'operator.settings.ai-operations', $tr ? 'Makine' : 'Machine'),
+                    $child($tr ? 'MCP anahtarları' : 'MCP keys', 'operator.settings.mcp', $tr ? 'Makine' : 'Machine'),
+                    $child($tr ? 'Güvenlik karnesi' : 'Security card', 'operator.settings.security', $tr ? 'Makine' : 'Machine'),
+                    $child($tr ? 'Sistem' : 'System', 'operator.settings.system-health', $tr ? 'Makine' : 'Machine'),
+                    $child($tr ? 'Zamanlanmış işler' : 'Scheduled jobs', 'operator.settings.jobs', $tr ? 'Makine' : 'Machine'),
+                    $child($tr ? 'Değişiklik kaydı' : 'Change log', 'operator.settings.changes', $tr ? 'Makine' : 'Machine'),
+                    $child($tr ? 'Geliştirme havuzu' : 'Improvements', 'operator.settings.improvements', $tr ? 'Makine' : 'Machine'),
+                    $child($tr ? 'Sürümler' : 'Releases', 'operator.settings.releases', $tr ? 'Makine' : 'Machine'),
                 ]),
             ], true),
         ];

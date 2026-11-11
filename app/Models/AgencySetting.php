@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\Operations\SettingChanges;
+use App\Support\Operator\AgencySettingCatalog;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
@@ -50,9 +52,11 @@ class AgencySetting extends Model
     protected static function booted(): void
     {
         // A row saved without a language takes the installation's (the column's own default is a blind 'en').
+        // Ayar değişiklik kaydı: every changed column is written down with its value before (SettingChanges).
+        static::updating(fn (self $model) => SettingChanges::agencySaving($model));
         static::creating(function (self $model): void {
             if (! filled($model->locale)) {
-                $model->locale = \App\Support\Operator\AgencySettingCatalog::appDefaultLocale();
+                $model->locale = AgencySettingCatalog::appDefaultLocale();
             }
         });
     }

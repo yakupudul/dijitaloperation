@@ -281,11 +281,15 @@ final class OperatorMenu
                     continue;
                 }
 
+                // Grouped children (Ayarlar): the entry itself belongs to the first group and is called "Genel" there.
+                $firstGroup = collect($children)->pluck('group')->filter()->first();
+                $head = ['label' => $firstGroup !== null ? (app()->getLocale() === 'tr' ? 'Genel' : 'General') : $item['label'], 'route' => $item['route']] + ($firstGroup !== null ? ['group' => $firstGroup] : []);
+
                 return array_map(fn (array $entry): array => [
                     'label' => $entry['label'],
                     'url' => route($entry['route'], absolute: false),
                     'active' => $entry['route'] === $routeName,
-                ], [['label' => $item['label'], 'route' => $item['route']], ...$children]);
+                ] + (isset($entry['group']) ? ['group' => $entry['group']] : []), [$head, ...$children]);
             }
         }
 

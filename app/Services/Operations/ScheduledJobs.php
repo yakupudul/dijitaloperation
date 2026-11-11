@@ -109,10 +109,12 @@ final class ScheduledJobs
         if (! in_array($key, $known, true)) {
             throw new InvalidArgumentException('Böyle bir zamanlanmış iş yok.');
         }
+        $was = ! in_array($key, self::off(), true);
         $off = array_values(array_unique($on ? array_diff(self::off(), [$key]) : [...self::off(), $key]));
         $settings = AgencySetting::query()->first() ?? new AgencySetting;
         $settings->forceFill(['jobs_off' => json_encode($off)])->save();
         Cache::forget(self::CACHE);
+        SettingChanges::record('job:'.$key, 'Zamanlanmış iş: '.$key, $was, $on);
     }
 
     /** "5 dakikada bir", "her gün 03:30", "pazartesi 09:00", "ayın 1'i 09:00"; anything else is shown as it is. */

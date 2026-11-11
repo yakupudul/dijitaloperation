@@ -2260,6 +2260,10 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
 
+- **Bağlantı 2.3 Ayarlar üç grupta**: `DemoMenu` alt öğeleri `group` taşır (Ajans / Kurallar / Makine); `OperatorMenu::sectionTabs` grubu döndürür, layout önce grup haplarını, altında açık grubun sekmelerini gösterir.
+- **Bağlantı 2.4 Zamanlanmış işler** (`/settings/jobs`, `ScheduledJobs`): gerçek takvimden işler, sıklık, son çalışma, 30 günlük süre ve hata (`usage_daily`), aç / kapa (`agency_settings.jobs_off`; routes/console.php sonundaki skip kancası). Sistemi ayakta tutan işler (yedek, kuyruk, deploy, uyarılar) kapatılamaz.
+- **Bağlantı 2.5 Değişiklik kaydı** (`/settings/changes`, `SettingChanges`, tablo `setting_changes`, değerler şifreli): ajans ayarları (model `updating`), yetki kademeleri, zamanlanmış iş anahtarı, satış sabit kararları ve fiyat listesi kaydedilir; "Geri al" eski değeri koyar. Sırlar değer saklanmadan "değiştirildi" diye düşer, geri alınmaz. Yeni ayar yazan kod `SettingChanges::record()` çağırmalı.
+
 - **Bağlantı 3.5 güvenlik karnesi**: Ayarlar › Güvenlik karnesi (`/settings/security`, `SecurityCard`): iki adımlı doğrulama, şifre sıfırlama ulaşır mı (sahte adres / SMTP), açık hesaplar ve son girişler, açık anahtarlar (30 gün kullanılmayan sarı), eski sunucu anahtarı, günlük yedek, sunucu dışı yedek, geri yükleme provası, debug, acil durdurma. Kırmızı önce; yalnız okur, sır göstermez.
 
 - **Bağlantı 3.2 yetki kademeleri** (`App\Support\WriteLevels`): marka × kanal (wordpress, gbp; google_ads ve meta_ads kilitli "Yalnız oku") için oku / oner / yaz, `brands.write_levels` (null = varsayılan: 11 Kasım 2026'dan önce açılmış marka "yaz", sonrası "oner"). Her yazma `external_write_actions.origin` taşır (hand: panel tıkı, onay linki, WorkBatch, `WriteLevels::byHand`; auto: konsol / MCP). `ExternalWriteService::execute` kademeye uymayanı "Gönderilmedi (yetki kademesi)" diye bırakır; "Yalnız oku" sitede MCP site-tool yalnız okuma araçlarını çalıştırır. Ekran: Bağlantı sağlığı › Yetkiler (`?gorunum=yetkiler`).

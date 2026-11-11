@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Brand;
 use App\Models\ExternalWriteAction;
+use App\Services\Operations\SettingChanges;
 use App\Services\Work\WorkBatches;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
@@ -67,8 +68,11 @@ final class WriteLevels
         if (! isset(self::CHANNELS[$channel], self::LABELS[$level]) || in_array($channel, self::LOCKED, true)) {
             throw new InvalidArgumentException('Bu kanalın kademesi değiştirilemez.');
         }
+        $before = data_get($brand->write_levels, $channel);
         $brand->write_levels = array_merge((array) $brand->write_levels, [$channel => $level]);
         $brand->save();
+        SettingChanges::record('level:'.$brand->id.':'.$channel, $brand->name.', '.self::CHANNELS[$channel].' yetkisi',
+            is_string($before) ? $before : null, $level);
     }
 
     private static bool $byHand = false;

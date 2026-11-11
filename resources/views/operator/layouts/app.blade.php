@@ -148,6 +148,17 @@
             <div class="mx-auto min-w-0 max-w-[1520px] px-4 pb-16 pt-6 md:px-10 md:pt-8">
                 @php($sectionTabs = \App\Support\OperatorMenu::sectionTabs())
                 <livewire:operator.emergency-stop-switch />
+                @php($tabGroups = $sectionTabs ? collect($sectionTabs)->filter(fn (array $t): bool => isset($t['group']))->groupBy('group') : collect())
+                @if ($tabGroups->count() > 1)
+                    {{-- Grouped section (Ayarlar: Ajans / Kurallar / Makine): the groups first, then the open group's screens. --}}
+                    @php($openGroup = collect($sectionTabs)->firstWhere('active', true)['group'] ?? $tabGroups->keys()->first())
+                    <nav class="no-scrollbar -mt-1 mb-3 flex gap-2 overflow-x-auto" aria-label="Bölüm grubu" data-tab-groups>
+                        @foreach ($tabGroups as $groupName => $groupTabs)
+                            <a href="{{ $groupTabs->first()['url'] }}" wire:navigate @class(['seg', 'seg-active' => $groupName === $openGroup])>{{ $groupName }}</a>
+                        @endforeach
+                    </nav>
+                    @php($sectionTabs = $tabGroups[$openGroup]->values()->all())
+                @endif
                 @if ($sectionTabs)
                     <nav class="no-scrollbar -mt-1 mb-6 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">
                         @foreach ($sectionTabs as $tab)

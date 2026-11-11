@@ -120,7 +120,12 @@ class PanelDesignFreezeTest extends TestCase
         $tabs = OperatorMenu::sectionTabs('operator.integrations.accounts');
         $this->assertSame(['/integrations', '/integrations/accounts', '/integrations/connection-health', '/assets'], array_column($tabs, 'url'), 'Bağlantı sağlığı added with the repair plan 2026-10-08; Dijital varlıklar moved here from the sidebar 2026-10-20; Veri merkezi left 2026-10-22 (Aşama 11); Hesaplar added 2026-10-22 (Aşama 6); Keşfedilen varlıklar and WordPress siteleri folded into Hesaplar and Web siteleri 2026-11-01');
         $this->assertSame([false, true, false, false], array_column($tabs, 'active'));
-        $this->assertSame(['/settings', '/settings/ai', '/settings/ai-operations', '/library/website-standards', '/library/services', '/settings/query-rules', '/settings/users', '/settings/mcp', '/settings/system-health', '/settings/improvements', '/settings/releases'], array_column(OperatorMenu::sectionTabs('operator.settings.users'), 'url'), 'v2: Ayarlar carries AI sağlayıcıları, AI işlemleri, Standartlar, Sektör ve hizmet kataloğu, Sorgu kuralları, Kullanıcılar, MCP anahtarları, Sistem, Geliştirme havuzu, Sürümler');
+        $settingsTabs = collect(OperatorMenu::sectionTabs('operator.settings.users'));
+        $this->assertSame([
+            ['/settings', '/settings/users'],
+            ['/library/website-standards', '/library/services', '/settings/query-rules'],
+            ['/settings/ai', '/settings/ai-operations', '/settings/mcp', '/settings/security', '/settings/system-health', '/settings/jobs', '/settings/changes', '/settings/improvements', '/settings/releases'],
+        ], $settingsTabs->groupBy('group')->map(fn ($tabs): array => $tabs->pluck('url')->all())->values()->all(), 'Bağlantı Düzeni 2.3 (2026-11-11): Ayarlar in three groups, Ajans / Kurallar / Makine');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
         $this->assertSame(['/brands', '/portfoy', '/websites'], array_column(OperatorMenu::sectionTabs('operator.portfolio'), 'url'), 'Portföy and Web siteleri are tabs of Markalar since 2026-11-09');
 

@@ -3,6 +3,7 @@
 namespace App\Services\Sales;
 
 use App\Models\CoreIntegration;
+use App\Services\Operations\SettingChanges;
 use App\Services\WhatsApp\WhatsAppConnection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -48,11 +49,13 @@ final class StandingRules
         if ($text === '' || mb_strlen($text) > 4000) {
             throw ValidationException::withMessages(['prices' => 'Fiyat listesi boş olamaz, en çok 4.000 karakter.']);
         }
+        $before = self::prices();
         self::change(function (array $config) use ($text): array {
             $config['price_list'] = $text;
 
             return $config;
         });
+        SettingChanges::record('sales:prices', 'Satış fiyat listesi', $before, $text);
     }
 
     /** What every AI step reads: the rules, then the price list as the single price source. */
@@ -68,11 +71,13 @@ final class StandingRules
         if ($text === '' || mb_strlen($text) > 12000) {
             throw ValidationException::withMessages(['rules' => 'Sabit kararlar boş olamaz, en çok 12.000 karakter.']);
         }
+        $before = self::text();
         self::change(function (array $config) use ($text): array {
             $config['business_context'] = $text;
 
             return $config;
         });
+        SettingChanges::record('sales:rules', 'Satış sabit kararları', $before, $text);
     }
 
     /**
