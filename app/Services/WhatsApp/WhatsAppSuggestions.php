@@ -8,6 +8,7 @@ use App\Models\WhatsAppConversation;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\AiTasks\AiTaskQueue;
+use App\Services\Sales\StandingRules;
 use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use App\Support\Ai\AiProviderCatalog;
 use App\Support\Ai\AiProviderOptions;
@@ -143,7 +144,7 @@ final class WhatsAppSuggestions
             }
             $payload = [
                 'current_time' => now('Europe/Istanbul')->toIso8601String(),
-                'business_context' => data_get($integration->config, 'business_context', ''),
+                'business_context' => StandingRules::forAi(),
                 'learned_profile' => WhatsAppBrain::forPrompt($integration),
                 'contact_name' => $conversation->contact_name,
                 'messages' => array_reverse($context),
@@ -235,7 +236,7 @@ final class WhatsAppSuggestions
     /** A draft is stale when the operator's instructions or the learned brain changed after it was written. */
     public static function fingerprint(?CoreIntegration $integration): string
     {
-        return hash('sha256', (string) data_get($integration?->config, 'business_context', '').'|'.(string) data_get($integration?->config, 'brain.learned_at', ''));
+        return hash('sha256', (string) data_get($integration?->config, 'business_context', '').'|'.(string) data_get($integration?->config, 'price_list', '').'|'.(string) data_get($integration?->config, 'brain.learned_at', ''));
     }
 
     private function fail(int $id, int $revision, string $code): void

@@ -396,6 +396,9 @@
                                         @endif
                                         <button type="button" x-on:click="menu = false" wire:click="openDialog('offer', {{ $lead->id }})" class="block w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5" data-sales-offer>Teklif{{ $lead->offer_amount ? ' · '.$n($lead->offer_amount).' ₺' : '' }}</button>
                                         <button type="button" x-on:click="menu = false" wire:click="openDialog('from', {{ $lead->id }})" class="block w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5">Kimden</button>
+                                        @if ($isAdmin && $lead->conversation_id === null && ! $lead->isCustomer() && $lead->brand_id === null && $lead->stage !== 'won')
+                                            <button type="button" x-on:click="menu = false" wire:click="removeLead({{ $lead->id }})" wire:confirm="{{ $lead->title() }} kaydı geçmişiyle birlikte silinsin mi? Geri alınamaz." class="block w-full px-3 py-1.5 text-left text-error-600 hover:bg-gray-50 dark:hover:bg-white/5" data-sales-remove>Kaydı sil</button>
+                                        @endif
                                         @if ($lead->isArchived())
                                             <button type="button" x-on:click="menu = false" wire:click="restore({{ $lead->id }})" class="block w-full px-3 py-1.5 text-left hover:bg-gray-50 dark:hover:bg-white/5" data-sales-restore>Arşivden geri al</button>
                                         @elseif ($lead->isOpen() && ! $lead->isCustomer())

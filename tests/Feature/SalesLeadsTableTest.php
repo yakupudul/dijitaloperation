@@ -6,8 +6,10 @@ use App\Livewire\Operator\Sales\LeadCardPage;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Models\AgencySetting;
 use App\Models\SalesLead;
+use App\Models\SalesLeadEvent;
 use App\Models\User;
 use App\Services\Sales\SalesLeads;
+use App\Services\Sales\StandingRules;
 use App\Services\Sales\TodayFive;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
@@ -246,5 +248,31 @@ class SalesLeadsTableTest extends TestCase
         $page->set('told', '5566 yarın yazacak')->call('tell');
         $this->assertSame('2026-11-08', $ali->fresh()->next_step_at->timezone('Europe/Istanbul')->toDateString());
         $page->set('told', 'Mehmet yarın arayacak')->call('tell')->assertSee('tanıdığım bir kişi yok')->assertSet('told', 'Mehmet yarın arayacak');
+    }
+
+    public function test_a_hand_typed_test_record_can_be_deleted_but_a_customer_or_a_chat_record_cannot(): void
+    {
+        $leads = app(SalesLeads::class);
+        $test = $leads->quickAdd(['name' => 'TEST Kayıt', 'phone' => '0532 111 22 33'], $this->admin);
+        $chat = $leads->quickAdd(['name' => 'Sohbetten Gelen', 'phone' => '0533 444 55 66'], $this->admin);
+        $chat->forceFill(['conversation_id' => 77])->save();
+
+        Livewire::test(SalesPage::class)->assertSeeHtml('data-sales-remove')
+            ->call('removeLead', $test->id)->assertSee('kayıt silindi')
+            ->call('removeLead', $chat->id)->assertSee('Aday olmayan');
+        $this->assertNull(SalesLead::query()->find($test->id));
+        $this->assertSame(0, SalesLeadEvent::query()->where('lead_id', $test->id)->count());
+        $this->assertNotNull(SalesLead::query()->find($chat->id));
+    }
+
+    public function test_the_price_list_is_the_one_price_source_and_is_edited_by_hand(): void
+    {
+        $this->assertStringContainsString('14.000', StandingRules::prices());
+        $this->assertStringNotContainsString('14.000', StandingRules::text(), 'the rules carry no price of their own');
+        Livewire::test(SalesPage::class)->set('tab', 'ayarlar')->assertSeeHtml('data-sales-prices')
+            ->set('pricesText', 'Ana paket 16.000 + KDV/ay.')->call('savePrices')->assertHasNoErrors();
+        $this->assertSame('Ana paket 16.000 + KDV/ay.', StandingRules::prices());
+        $this->assertStringContainsString('FİYAT LİSTESİ', StandingRules::forAi());
+        $this->assertStringEndsWith('Ana paket 16.000 + KDV/ay.', StandingRules::forAi());
     }
 }

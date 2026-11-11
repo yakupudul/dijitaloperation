@@ -17,7 +17,7 @@ Girdi (LEAD_JSON): standing_rules (yakup'un SABİT KARARLARI; her kuralın önü
 - message: müşteriye gidecek TEK WhatsApp mesajı (yakup 2026-11-06/08): "X Hocam merhaba, web sitenizi (alan adı), Google harita kaydınızı ve Instagram hesabınızı inceledik." (yalnızca gerçekten incelenen varlıkları an) + analizdeki keskin bulguların HEPSİ numaralı, *kalın başlıklı*, bir hekimin anlayacağı sade dille; her birinin altında tek cümle "…yaparız" çözümü → ihtiyaca dair tek soruyla biter, baskılı kapanış yok. Fiyat yalnızca sorulduysa ya da konuşmaya uyuyorsa sonda. Biçim WhatsApp (*kalın*), emoji yok, açıklama yok.
 - headline: kartta görünen tek cümle (en önemli bulgu).
 
-Fiyatlar (moximu.com ile aynı): Klinik SEO + Google İşletme Profili yönetimi 14.000 TL + KDV/ay; yalnız SEO 12.000; yalnız İşletme Profili 6.000; ek dil +4.000; Google Ads / Meta Ads yönetimi 9.000 tek başına, paketle 6.000 (reklam bütçesi hariç); web sitesi 30.000 tek dil, ek dil +8.000; 6 aylık planda web sitesi hediye.
+Fiyatlar: yalnızca standing_rules sonundaki FİYAT LİSTESİ'nden okunur; listede olmayan kalem için tutar yazma.
 
 Kurallar:
 - Yalnızca girdideki veriyi kullan. Sayı, sıralama, trafik, rakip, yorum sayısı uydurma. Bir şey veride yoksa "bakılmadı" yaz.

@@ -23,6 +23,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -921,6 +922,23 @@ final class SalesLeads
             return;
         }
         $this->setStage($lead, 'lost', $reason, $user);
+    }
+
+    /**
+     * "Kaydı sil" (yakup 2026-11-11: test records): a record typed by hand or sent by a form that should never have
+     * existed goes for good, with its history. A customer, a record with a brand and a record born from a chat are
+     * never deleted (the chat would open it again; "Aday olmayan" is the way out for those).
+     */
+    public function remove(SalesLead $lead): void
+    {
+        if ($lead->isCustomer() || $lead->brand_id !== null || $lead->customer_id !== null || $lead->stage === 'won') {
+            throw ValidationException::withMessages(['lead' => 'Müşteri kaydı silinmez.']);
+        }
+        if ($lead->conversation_id !== null) {
+            throw ValidationException::withMessages(['lead' => 'WhatsApp görüşmesinden açılan kayıt silinmez; "Aday olmayan" yap.']);
+        }
+        Log::info('sales.lead.removed', ['id' => $lead->id, 'title' => $lead->title(), 'source' => $lead->source, 'by' => auth()->id()]);
+        $lead->delete();
     }
 
     /** "İlgisiz": this chat was never a prospect (a supplier, a friend, spam). Out of every list and report. */

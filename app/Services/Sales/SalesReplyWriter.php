@@ -214,7 +214,7 @@ final class SalesReplyWriter
         return [
             'current_time' => $now->isoFormat('YYYY-MM-DD HH:mm, dddd'),
             // Sabit kararlar (yakup 2026-11-08): the operator's standing rules win over everything else.
-            'standing_rules' => StandingRules::text(),
+            'standing_rules' => StandingRules::forAi(),
             // Satış beyni: lessons the operator approved and questions they answered; they follow the standing rules.
             'learned' => SalesBrain::forPrompt(),
             'lead' => array_filter([

@@ -100,10 +100,22 @@
         </form>
     </div>
 
+    <form wire:submit="savePrices" class="card" data-sales-prices>
+        <label class="block px-4 pt-3.5">
+            <span class="block text-sm font-medium text-gray-900 dark:text-white">Fiyat listesi</span>
+            <span class="mt-0.5 block text-[13px] text-gray-500">Tek fiyat kaynağı. WhatsApp cevabı, aday mesajı, analiz ve Instagram cevabı fiyatı yalnız buradan okur. Sitedeki listeyle aynı tut; değiştirdiğinde sıradaki taslaklar yeni fiyatla yazılır.</span>
+            <textarea wire:model="pricesText" rows="7" maxlength="4000" class="mt-3 {{ $area }}"></textarea>
+        </label>
+        @error('prices')<p class="px-4 pt-1 text-xs text-error-600">{{ $message }}</p>@enderror
+        <div class="mt-3 flex justify-end border-t border-gray-200 bg-gray-50/60 px-4 py-3 dark:border-gray-800 dark:bg-white/[0.02]">
+            <button type="submit" class="btn-dark">Kaydet</button>
+        </div>
+    </form>
+
     <form wire:submit="saveRules" class="card" data-sales-brain-rules>
         <label class="block px-4 pt-3.5">
             <span class="block text-sm font-medium text-gray-900 dark:text-white">Sabit kararlar</span>
-            <span class="mt-0.5 block text-[13px] text-gray-500">Fiyatlar, yapılmayanlar, aday mesajı kuralları. Her WhatsApp cevabı, aday mesajı ve analiz önce bunu okur. WhatsApp › Beyin'deki metnin aynısıdır. Müşterilerin ödediği ücretleri buraya yazma.</span>
+            <span class="mt-0.5 block text-[13px] text-gray-500">Yapılmayanlar, aday mesajı kuralları, bilinen adaylar. Fiyatlar üstteki listededir. Her WhatsApp cevabı, aday mesajı ve analiz önce bunu okur. WhatsApp › Beyin'deki metnin aynısıdır. Müşterilerin ödediği ücretleri buraya yazma.</span>
             <textarea wire:model="rulesText" rows="12" maxlength="12000" class="mt-3 {{ $area }}"></textarea>
         </label>
         @error('rules')<p class="px-4 pt-1 text-xs text-error-600">{{ $message }}</p>@enderror

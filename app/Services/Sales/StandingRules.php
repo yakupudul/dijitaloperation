@@ -17,6 +17,8 @@ final class StandingRules
 {
     public const string FILE = 'prompts/moximu-standing-rules.md';
 
+    public const string PRICE_FILE = 'prompts/moximu-price-list.md';
+
     public static function text(): string
     {
         $stored = trim((string) data_get(app(WhatsAppConnection::class)->integration()?->config, 'business_context', ''));
@@ -27,6 +29,36 @@ final class StandingRules
     public static function initial(): string
     {
         return trim((string) @file_get_contents(resource_path(self::FILE)));
+    }
+
+    /**
+     * Fiyat listesi (yakup 2026-11-11: one price source, editable by hand): the only place a price is read from. Kept
+     * next to the Sabit kararlar (config price_list), edited on Satış › Ayarlar; it starts as moximu.com's list.
+     */
+    public static function prices(): string
+    {
+        $stored = trim((string) data_get(app(WhatsAppConnection::class)->integration()?->config, 'price_list', ''));
+
+        return $stored !== '' ? $stored : trim((string) @file_get_contents(resource_path(self::PRICE_FILE)));
+    }
+
+    public static function savePrices(string $text): void
+    {
+        $text = trim($text);
+        if ($text === '' || mb_strlen($text) > 4000) {
+            throw ValidationException::withMessages(['prices' => 'Fiyat listesi boş olamaz, en çok 4.000 karakter.']);
+        }
+        self::change(function (array $config) use ($text): array {
+            $config['price_list'] = $text;
+
+            return $config;
+        });
+    }
+
+    /** What every AI step reads: the rules, then the price list as the single price source. */
+    public static function forAi(): string
+    {
+        return trim(self::text()."\n\nFİYAT LİSTESİ (tek fiyat kaynağı; başka yerde geçen genel fiyat geçersizdir, bir adaya yazılı verilmiş fiyat o adayda korunur)\n".self::prices());
     }
 
     /** Satış › Ayarlar › Sabit kararlar: the same text WhatsApp › Beyin edits; open chats' drafts are written again. */

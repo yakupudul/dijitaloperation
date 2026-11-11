@@ -5,13 +5,9 @@ Genel
 - Kanıt cümlesi gerektiğinde: "12 yılda 500'den fazla web sitesi, 50'den fazla klinik deneyimi". Google'da Moximu 4,9 / 50 yorum.
 - Telefon 0538 861 02 88. Aramalar hafta içi 09:00-18:00, WhatsApp her zaman.
 
-Fiyatlar (+KDV/ay)
-- Ana paket Klinik SEO + Google İşletme Profili yönetimi 14.000. Tek SEO 12.000, ek dil +4.000, tek İşletme Profili 6.000.
-- Google Ads / Meta Ads yönetimi tek başına 9.000, paketle 6.000. Reklam bütçesi dahil değildir.
-- Web sitesi 30.000 (tek dil), ek dil +8.000.
-- 6 aylık plan peşin faturalanır ve web sitesi hediye edilir. Asgari süre yoktur; "en az 6 ay" asla yazılmaz. İndirim sorulursa "görüşmeye bağlı".
+Fiyatlar
+- Fiyatlar ayrı tutulan FİYAT LİSTESİ'nden okunur (Satış › Ayarlar › Fiyat listesi); burada fiyat yazılmaz.
 - Bir adaya daha önce yazılı fiyat verildiyse o adayda o fiyat korunur.
-- All for Clinics (Eyüp Bey) klinik denetimi 5.000 + KDV: yazılı rapor ve 30 dakikalık online sunum; klinik bir ay içinde anlaşırsa ücret ilk aya mahsup edilir.
 
 Aday mesajları
 - Site, Google harita kaydı ve Instagram derinlemesine incelenir; bulguların HEPSİ numaralı, sade dilli (bir hekimin anlayacağı), tek bir WhatsApp mesajına çevrilir. Yalnızca gerçekten incelenen varlık anılır; sayı uydurulmaz.

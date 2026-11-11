@@ -82,6 +82,8 @@ final class SalesPage extends Component
     /** Sabit kararlar (the same text as WhatsApp › Beyin). */
     public ?string $rulesText = null;
 
+    public ?string $pricesText = null;
+
     #[Url(as: 'sekme', except: 'adaylar')]
     public string $tab = 'adaylar';
 
@@ -216,6 +218,22 @@ final class SalesPage extends Component
         $leads->setStatus($lead, $status, auth()->user());
         $fresh = $lead->fresh();
         $this->say($fresh->title().': '.$fresh->statusLabel().'.'.($status === 'musteri' && $fresh->brand_id ? ' Müşteri ve marka kaydı açıldı; anlaşmayı marka sayfasından gir.' : ''));
+    }
+
+    /** "Kaydı sil": only a hand-typed or form record that is not a customer; asked once on the button. */
+    public function removeLead(int $id, SalesLeads $leads): void
+    {
+        abort_unless((bool) auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $lead = SalesLead::query()->findOrFail($id);
+        $title = $lead->title();
+        try {
+            $leads->remove($lead);
+        } catch (ValidationException $exception) {
+            $this->say((string) collect($exception->errors())->flatten()->first());
+
+            return;
+        }
+        $this->say($title.': kayıt silindi.');
     }
 
     /** Yaz ya da söyle: "Serap Hanım perşembe arayacak" → the person's note and next step. $id = the person picked when several fit. */
@@ -388,6 +406,18 @@ final class SalesPage extends Component
     {
         StandingRules::save((string) $this->rulesText);
         $this->say('Sabit kararlar kaydedildi.');
+    }
+
+    public function savePrices(): void
+    {
+        try {
+            StandingRules::savePrices((string) $this->pricesText);
+        } catch (ValidationException $exception) {
+            $this->addError('prices', (string) collect($exception->errors())->flatten()->first());
+
+            return;
+        }
+        $this->say('Fiyat listesi kaydedildi; bundan sonraki her taslak bu listeyi okur.');
     }
 
     public function voidReward(int $id, ReferralRewards $rewards): void
@@ -882,6 +912,7 @@ final class SalesPage extends Component
     private function brain(): array
     {
         $this->rulesText ??= StandingRules::text();
+        $this->pricesText ??= StandingRules::prices();
         $proposed = SalesLesson::query()->proposed()->with('lead')->orderBy('id')->get();
         foreach ($proposed->where('kind', '!=', 'soru') as $lesson) {
             $this->lessonEdits[$lesson->id] ??= $lesson->text;

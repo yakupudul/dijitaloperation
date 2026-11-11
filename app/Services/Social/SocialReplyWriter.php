@@ -8,6 +8,7 @@ use App\Models\SocialThread;
 use App\Services\Ai\AiProviderRuntimeConfig;
 use App\Services\Ai\AiRouteResolver;
 use App\Services\Sales\SalesSubscription;
+use App\Services\Sales\StandingRules;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Throwable;
@@ -126,6 +127,7 @@ final class SocialReplyWriter
 
         return [
             'current_time' => now('Europe/Istanbul')->locale('tr')->isoFormat('YYYY-MM-DD HH:mm, dddd'),
+            'price_list' => StandingRules::prices(),
             'kind' => $thread->kind,
             'platform' => $thread->account?->platform,
             'author' => $thread->author_name,
