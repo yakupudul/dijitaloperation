@@ -40,10 +40,13 @@
         <div class="min-w-0">
             <h1 class="page-title"><span class="highlight">{{ __('operator.integrations_ui.title') }}</span></h1>
             <p class="page-sub mt-1.5! text-[15px]!">
-                @if ($problems === [])
+                @php $gapCount = (int) (($gaps['operator'] ?? 0) + ($gaps['system'] ?? 0)); @endphp
+                @if ($gapCount > 0)
+                    <a href="{{ route('operator.integrations.connection-health') }}" wire:navigate class="link-neutral" data-hub-gaps>{{ $gaps['brands'] }} markada {{ $gapCount }} eksik bağlantı</a>{{ $gaps['operator'] > 0 ? ', '.$gaps['operator'].' tanesi senin işin' : ', hepsini sistem onarıyor' }}.
+                @elseif ($problems === [])
                     {{ $connectionCount }} bağlantı, düzeltilecek bir şey yok.
                 @else
-                    {{ count($problems) }} bağlantı sorunu{{ $errorCount > 0 ? ', '.$errorCount.' tanesi acil' : '' }}.
+                    Markaların bağlantıları tam; aşağıda {{ count($problems) }} hesap uyarısı var.
                 @endif
             </p>
         </div>
@@ -75,7 +78,7 @@
     {{-- 1. What needs a fix: one tinted card each, one button each. --}}
     <section aria-labelledby="hub-health">
         <div class="section-head">
-            <h2 id="hub-health" class="section-title">Bağlantı sağlığı @if ($problems !== [])<span class="section-count">{{ count($problems) }}</span>@endif</h2>
+            <h2 id="hub-health" class="section-title">Hesap ve site uyarıları @if ($problems !== [])<span class="section-count">{{ count($problems) }}</span>@endif</h2>
         </div>
         @if ($problems === [])
             <ul class="card">

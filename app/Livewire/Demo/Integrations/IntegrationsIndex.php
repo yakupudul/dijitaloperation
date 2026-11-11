@@ -4,12 +4,14 @@ namespace App\Livewire\Demo\Integrations;
 
 use App\Models\DiscoveryCandidate;
 use App\Models\SocialAccount;
+use App\Services\DataStatus\ConnectionHealth;
 use App\Services\Integrations\OperatorIntegrationsHubQuery;
 use App\Services\Operations\SystemHealthReader;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\ProviderRegistry;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -56,6 +58,8 @@ class IntegrationsIndex extends Component
         return view('livewire.demo.integrations.integrations-index', [
             'groups' => $this->visibleGroups($hub->groups()),
             'problems' => $this->problems(),
+            // Bağlantı Düzeni 1.1: the headline number is the same one Bağlantı sağlığı shows (brands with a gap).
+            'gaps' => $this->gaps(),
             'discoveredProfiles' => DiscoveryCandidate::query()->with(['brand', 'digitalAsset'])
                 ->where('status', 'accepted')->where('target_field', 'social_links')
                 ->where('support_json->application->state', 'integration_ready')
@@ -177,5 +181,17 @@ class IntegrationsIndex extends Component
         usort($rows, fn (array $a, array $b): int => ($a['tone'] === 'error' ? 0 : 1) <=> ($b['tone'] === 'error' ? 0 : 1));
 
         return $rows;
+    }
+
+    /** @return array{system: int, operator: int, brands: int, passive: int}|null the Bağlantı sağlığı summary, kept five minutes */
+    private function gaps(): ?array
+    {
+        try {
+            return Cache::remember('integrations-hub.gaps', 300, fn (): array => app(ConnectionHealth::class)->summary());
+        } catch (Throwable $error) {
+            report($error);
+
+            return null;
+        }
     }
 }
