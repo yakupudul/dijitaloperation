@@ -81,6 +81,7 @@ use App\Livewire\Operator\Settings\AiWorkersPage;
 use App\Livewire\Operator\Settings\ImprovementsPage;
 use App\Livewire\Operator\Settings\McpKeysPage;
 use App\Livewire\Operator\Settings\ReleasesPage;
+use App\Livewire\Operator\Settings\ScheduledJobsPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SecurityCardPage;
 use App\Livewire\Operator\Settings\SystemHealthPage;
@@ -211,6 +212,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
         Route::livewire('/settings/mcp', McpKeysPage::class)->name('operator.settings.mcp');
         Route::livewire('/settings/security', SecurityCardPage::class)->name('operator.settings.security');
+        Route::livewire('/settings/jobs', ScheduledJobsPage::class)->name('operator.settings.jobs');
         Route::livewire('/settings/ai', AiWorkersPage::class)->name('operator.settings.ai-workers');
         Route::livewire('/settings/query-rules', QueriesPage::class)->name('operator.settings.query-rules');
         Route::livewire('/settings/improvements', ImprovementsPage::class)->name('operator.settings.improvements');

@@ -99,6 +99,7 @@ final class DemoMenu
                     $child($tr ? 'MCP anahtarları' : 'MCP keys', 'operator.settings.mcp'),
                     $child($tr ? 'Güvenlik karnesi' : 'Security card', 'operator.settings.security'),
                     $child($tr ? 'Sistem' : 'System', 'operator.settings.system-health'),
+                    $child($tr ? 'Zamanlanmış işler' : 'Scheduled jobs', 'operator.settings.jobs'),
                     $child($tr ? 'Geliştirme havuzu' : 'Improvements', 'operator.settings.improvements'),
                     $child($tr ? 'Sürümler' : 'Releases', 'operator.settings.releases'),
                 ]),

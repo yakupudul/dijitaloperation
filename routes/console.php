@@ -84,6 +84,7 @@ use App\Services\Integrations\WordPress\WordPressEventReconciliation;
 use App\Services\Marketing\MarketingFunnel;
 use App\Services\Observability\ErrorTriage;
 use App\Services\Observability\WorkerHeartbeatService;
+use App\Services\Operations\ScheduledJobs;
 use App\Services\Operations\ScreenChecker;
 use App\Services\Operations\ServerStatusReader;
 use App\Services\Ownership\OwnershipIntegrity;
@@ -1912,3 +1913,9 @@ Schedule::command('moxdop:social:inbox')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->name('social-inbox');
+
+// Bağlantı Düzeni 2.4: a job the operator switched off on Ayarlar › Zamanlanmış işler is skipped (it stays on the
+// schedule, so switching it on again needs no deploy). Keep this block at the end of the file: it covers every job above.
+foreach (Schedule::events() as $scheduledEvent) {
+    $scheduledEvent->skip(fn (): bool => ScheduledJobs::isOff($scheduledEvent));
+}
