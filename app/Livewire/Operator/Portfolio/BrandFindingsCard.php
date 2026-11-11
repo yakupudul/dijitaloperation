@@ -5,8 +5,11 @@ namespace App\Livewire\Operator\Portfolio;
 use App\Livewire\Concerns\AdminOnly;
 use App\Models\Brand;
 use App\Models\BrandFinding;
+use App\Models\BrandSession;
 use App\Services\Brand\Findings;
+use App\Services\Brand\MonthlySession;
 use App\Services\Brand\NewOrder;
+use App\Services\Sales\CustomerSignals;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -63,15 +66,36 @@ final class BrandFindingsCard extends Component
         $this->message = $on ? 'Yeni düzen açıldı. '.$count.' açık satır kenara alındı.' : 'Eski düzene dönüldü. '.$count.' satır geri geldi.';
     }
 
+    /** Marka Düzeni 2.6: the month's one approval; the session's jobs become findings in Claude's hands. */
+    public function approveSession(int $id, MonthlySession $sessions): void
+    {
+        $this->adminOnly();
+        $session = BrandSession::query()->where('brand_id', $this->brandId)->findOrFail($id);
+        $count = $sessions->approve($session, auth()->user());
+        $this->message = $session->monthLabel().' oturumu onaylandı. '.$count.' iş Claude\'a iletildi; müşteri raporu hazır.';
+    }
+
+    /** The "rapor gönderildi" tick of the session's month (sending itself is the operator's own message). */
+    public function reportSent(int $id, bool $sent, CustomerSignals $signals): void
+    {
+        $this->adminOnly();
+        $session = BrandSession::query()->where('brand_id', $this->brandId)->findOrFail($id);
+        $brand = Brand::query()->findOrFail($this->brandId);
+        $sent ? $signals->markReportSent($brand, $session->month, auth()->user(), 'link') : $signals->unmarkReport($brand, $session->month);
+        $this->message = $sent ? $session->monthLabel().' raporu gönderildi olarak işlendi.' : 'Gönderildi işareti kaldırıldı.';
+    }
+
     private function row(int $id): BrandFinding
     {
         return BrandFinding::query()->where('brand_id', $this->brandId)->findOrFail($id);
     }
 
-    public function render(Findings $findings): View
+    public function render(Findings $findings, MonthlySession $sessions, CustomerSignals $signals): View
     {
         $brand = Brand::query()->findOrFail($this->brandId);
+        $session = $sessions->current($brand);
 
-        return view('livewire.operator.portfolio.brand-findings-card', ['brand' => $brand, 'page' => $findings->page($brand), 'held' => $brand->new_order_at !== null ? NewOrder::heldCount((int) $brand->id) : 0]);
+        return view('livewire.operator.portfolio.brand-findings-card', ['brand' => $brand, 'page' => $findings->page($brand), 'held' => $brand->new_order_at !== null ? NewOrder::heldCount((int) $brand->id) : 0,
+            'session' => $session, 'reportSent' => $session !== null ? $signals->report($brand, $session->month)?->sent_at : null]);
     }
 }

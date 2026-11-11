@@ -15,6 +15,7 @@ use App\Http\Controllers\Mcp\McpOAuthController;
 use App\Http\Controllers\Operator\PushController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
 use App\Http\Controllers\Ops\OpsHealthController;
+use App\Http\Controllers\Public\BrandReportController;
 use App\Http\Controllers\Public\GbpReviewApprovalController;
 use App\Http\Controllers\Public\LinkSurveyController;
 use App\Http\Controllers\Sales\ShareController;
@@ -43,6 +44,7 @@ Route::post('/logout', [OperatorLoginController::class, 'destroy'])
 
 // Brand approval of prepared review replies (link without login; ADR-073 publishing stays with the Admin).
 // Bağlantı kaynakları (Backlink hizmeti, 2026-11-06): the client's relations form, one standing link per brand.
+Route::get('/rapor/{token}', [BrandReportController::class, 'show'])->middleware('throttle:60,1')->name('brand-report');
 Route::get('/baglanti-kaynaklari/{token}', [LinkSurveyController::class, 'show'])->middleware('throttle:60,1')->name('link-survey');
 Route::post('/baglanti-kaynaklari/{token}', [LinkSurveyController::class, 'store'])->middleware('throttle:20,1')->name('link-survey.store');
 Route::get('/onay/yorum-yanitlari/{token}', [GbpReviewApprovalController::class, 'show'])->middleware('throttle:60,1')->name('gbp-review-approval');

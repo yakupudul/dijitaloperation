@@ -8,6 +8,7 @@ use App\Services\AiTasks\AiTaskPriority;
 use App\Services\AiTasks\AiWorkers;
 use App\Services\AiTasks\McpCaller;
 use App\Services\Brand\Findings;
+use App\Services\Brand\MonthlySession;
 use App\Support\Ai\AiOperationLabels;
 use App\Support\SchemaState;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -53,6 +54,8 @@ class ListTasks extends Tool
             'moxi_requests' => SchemaState::hasTable('moxi_messages') ? MoxiMessage::query()->where('role', MoxiMessage::REQUEST)->where('status', MoxiMessage::PENDING)->count() : 0,
             // Marka sayfası › "Çöz": findings the operator handed over (brand-findings only_requested=true); also before the queue.
             'findings_requested' => SchemaState::hasTable('brand_findings') ? Findings::requested() : 0,
+            // Aylık oturum (Marka Düzeni 2.6): brands whose month has not been read yet (brand-findings action=session).
+            'sessions_due' => MonthlySession::due(),
             'waiting' => $open()->count(),
             'oldest_waiting_hours' => $oldest !== null ? (int) floor(Carbon::parse((string) $oldest)->diffInMinutes(now()) / 60) : null,
             // Work order: writing / repair checks first, then people waiting (WhatsApp, reviews), then bulk; oldest first inside.

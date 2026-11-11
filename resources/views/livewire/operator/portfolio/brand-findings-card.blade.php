@@ -9,6 +9,53 @@
 @endphp
 {{-- Bulgular (Marka Düzeni 2.1 / 2.2): the approved brand page prototype. Nothing is drawn until the brand has had its first look. --}}
 <div data-brand-findings>
+    {{-- Aylık oturum (Marka Düzeni 2.6): one summary, at most five jobs, one approval; then the customer's one page. --}}
+    @if ($session !== null)
+        @php($jobs = collect((array) $session->jobs))
+        <section class="mb-10" data-brand-session="{{ $session->status }}">
+            <div class="section-head">
+                <h3 class="section-title">{{ $session->monthLabel() }} oturumu</h3>
+                @if ($session->isApproved())<span class="chip chip-flat">Onaylandı · {{ $day($session->approved_at) }}</span>@else<span class="chip chip-down">Tek onayını bekliyor</span>@endif
+            </div>
+            <div class="card">
+                <p class="whitespace-pre-line px-4 py-4 text-sm leading-relaxed text-gray-700 dark:text-gray-300" data-brand-session-summary>{{ $session->summary }}</p>
+                @if ($jobs->isNotEmpty())
+                    <ol class="divide-y divide-gray-100 border-t border-gray-200 dark:divide-gray-800 dark:border-gray-800">
+                        @foreach ($jobs as $i => $job)
+                            <li class="flex flex-col gap-x-4 gap-y-1 px-4 py-3 sm:flex-row sm:items-center" x-data="{ open: false }">
+                                <button type="button" x-on:click="open = !open" class="min-w-0 flex-1 text-left">
+                                    <span class="block text-[12px] text-gray-500">{{ $job['area'] ?? 'Diğer' }}</span>
+                                    <span class="block text-[15px] font-semibold text-gray-900 dark:text-white">{{ $job['title'] }}</span>
+                                    <span class="mt-0.5 block text-[13px] text-gray-500">{{ $job['evidence'] ?? '' }}</span>
+                                    <span x-show="open" x-cloak class="mt-2 block whitespace-pre-line text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">{{ ($job['plan'] ?? '') ?: 'Plan yazılmadı.' }}@if (filled($job['needs'] ?? null))
+
+Senden: {{ $job['needs'] }}@endif</span>
+                                </button>
+                                <span class="chip chip-flat shrink-0 self-start sm:self-center">{{ \App\Models\BrandFinding::APPROVALS[$job['approval'] ?? 'none'] ?? '' }}</span>
+                            </li>
+                        @endforeach
+                    </ol>
+                @endif
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-gray-200 px-4 py-3 dark:border-gray-800" x-data="{ copied: false }">
+                    @if (! $session->isApproved())
+                        <button type="button" wire:click="approveSession({{ $session->id }})" wire:loading.attr="disabled" class="btn-dark" data-brand-session-approve>{{ $jobs->isNotEmpty() ? $jobs->count().' işi onayla' : 'Oturumu onayla' }}</button>
+                        <a href="{{ route('brand-report', ['token' => $session->token]) }}" target="_blank" rel="noopener" class="btn-quiet">Müşteri raporuna bak</a>
+                        <p class="basis-full text-[13px] text-gray-500">Onaylayınca işler Claude'a gider; yayın ve yönlendirme isteyen iş yine sana sorulur. Rapor müşteriye kendiliğinden gitmez.</p>
+                    @else
+                        <a href="{{ route('brand-report', ['token' => $session->token]) }}" target="_blank" rel="noopener" class="btn" data-brand-session-report>Müşteri raporunu aç</a>
+                        <button type="button" class="btn-quiet" x-on:click="navigator.clipboard.writeText(@js(route('brand-report', ['token' => $session->token]))).then(() => { copied = true; setTimeout(() => copied = false, 2000) })"><span x-show="!copied">Bağlantıyı kopyala</span><span x-show="copied" x-cloak>Kopyalandı</span></button>
+                        @if ($reportSent)
+                            <span class="text-[13px] text-gray-500">Müşteriye gönderildi · {{ $day($reportSent) }}</span>
+                            <button type="button" wire:click="reportSent({{ $session->id }}, false)" class="text-[12px] text-gray-400 underline decoration-gray-300 underline-offset-2 hover:text-gray-700">geri al</button>
+                        @else
+                            <button type="button" wire:click="reportSent({{ $session->id }}, true)" class="btn-quiet" data-brand-session-sent>Gönderdim</button>
+                        @endif
+                    @endif
+                </div>
+            </div>
+            @if (! $page['any'] && $message !== '')<p role="status" class="mt-3 text-[13px] text-gray-600 dark:text-gray-300">{{ $message }}</p>@endif
+        </section>
+    @endif
     @if ($page['any'])
         <section class="space-y-8">
             <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">

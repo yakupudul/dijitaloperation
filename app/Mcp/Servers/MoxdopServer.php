@@ -97,6 +97,10 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
   with its evidence, what you will do and what you need; "baktım, dokunmuyorum" (untouched), "göremedim" (unseen) and the
   operator's own jobs (task). `list-tasks` shows `findings_requested`: rows the operator pressed "Çöz" on. Do those before
   the queue with your usual tools, then `brand-findings action=result` (waiting=true when an approval is still his).
+- Aylık oturum: `list-tasks` shows `sessions_due`, brands in the new order whose start numbers are 30 days old and that have no
+  session this month. For each, read the month once and write ONE `brand-findings action=session`: the summary against the start
+  numbers, at most 5 jobs, the lines of the one-page customer report (a job that did not work is written too). The operator
+  approves once; the jobs then come back to you as requested findings. Never send the report yourself.
 
 ## AI task queue (routine work)
 0. Several AI workers (Claude, ChatGPT, APIs) share this queue in the operator's order. When `list-tasks` or

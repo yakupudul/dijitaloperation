@@ -2260,6 +2260,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
 
+- **Marka 2.6 aylık oturum** (`App\Services\Brand\MonthlySession`, tablo `brand_sessions`, marka + ay başına tek satır): Claude MCP `brand-findings action=session` ile ayın özetini, en çok 5 işi ve müşteri raporunun en çok 8 satırını yazar; onaylanana kadar yeniden yazılabilir. Marka sayfasında bulgular kartının üstünde tek onay: işler `requested` bulgu olur (Claude'da). Müşteri raporu `/rapor/{token}` (girişsiz, noindex, yalnız müşteri diliyle yazılan satırlar + başlangıç sayıları; özet, kanıt, plan görünmez; onaydan sonra "Önümüzdeki ay" iş başlıkları). Sistem müşteriye hiçbir şey göndermez; "Gönderdim" mevcut `BrandReport` tikini işler.
 - **Marka 2.3 başlangıç sayıları** (`App\Services\Brand\Baseline`, tablo `brand_baselines`, marka başına tek satır): son 30 tam gün (3 gün gecikmeli pencere), kanal kanal talep (dönüşüm sözlüğü), organik tık, ana hizmet tıkları. Marka sayfası › Hizmet karnesi sekmesinin üstünde başlangıç / şimdi / değişim. Kurulumda MCP `brand-findings action=baseline` alır.
 - **Marka 2.7 içerik kuralı** (`App\Services\Site\ContentRule`): otomatik haftalık fikir turu ayda en çok 4 fikir açar, 5 yazılmış yazı yayımlanmadan beklerken ve yeni düzendeki markada hiç açmaz (nedeni İçerik kapsama satırında). Elle istenen fikir (`$wants`, `$only`) kurala takılmaz.
 

@@ -7,6 +7,7 @@ use App\Models\BrandFinding;
 use App\Services\Assistant\PushNotifier;
 use App\Services\Brand\Baseline;
 use App\Services\Brand\Findings;
+use App\Services\Brand\MonthlySession;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -15,14 +16,16 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Marka sayfası › Bulgular: the findings store of a brand page. action=baseline (brand_id) takes the start numbers of the brand once: demand per channel, organic clicks and the clicks of each main service over the last 30 full days (Marka sayfası › Hizmet karnesi shows them beside the current 30 days). action=list (brand_id optional; only_requested=true = the rows the operator pressed "Çöz" on, do these before the AI queue). action=save writes one row for a brand after you looked at its data: kind finding (needs evidence: the number or the address), untouched ("baktım, dokunmuyorum": looked, fine as it is), unseen ("göremedim": no access / no data, say what is missing) or task (only the operator can do it: an access to ask for, a decision); area (Web sitesi | Ölçüm | Google Ads | Meta reklamları | İşletme Profili | İçerik | Mevzuat | Erişim | Diğer); title one plain Turkish sentence; evidence one line with numbers; saw / plan / needs = Ne gördüm / Ne yapacağım / Senden; approval none (reversible, no approval) | redirect | publish | file (you prepare a file, the operator uploads; ads are never written). Pass id to update a row instead of adding a twin. action=result on a requested row after doing the work with the usual tools: result (what was done, plain Turkish), url (where to see it), waiting=true when the operator still has to approve something. action=effect a month later: the measured change ("mobil hız 30 → 55"). Never write a finding you did not see in the data; plain Turkish, no jargon.')]
+#[Description('Marka sayfası › Bulgular: the findings store of a brand page. action=baseline (brand_id) takes the start numbers of the brand once: demand per channel, organic clicks and the clicks of each main service over the last 30 full days (Marka sayfası › Hizmet karnesi shows them beside the current 30 days). action=session (brand_id, summary, jobs, report_lines, client_note, month) writes the monthly session of the brand after you read its month: summary = what the numbers did against the start numbers and what you propose, for the operator; jobs = AT MOST 5 jobs for the coming month, each {title, area, evidence, plan, needs, approval} like a finding (the title also stands on the customer report under next month, so write it so the customer can read it); report_lines = at most 8 lines of the one-page customer report, each {what, result}, in plain Turkish for the customer with a number where there is one, a job that did not work is written too; client_note = one short paragraph that opens the report. The operator approves once on the brand page: the jobs become findings already handed to you (they then show under only_requested). Can be rewritten until approved; one session per brand per month. action=list (brand_id optional; only_requested=true = the rows the operator pressed "Çöz" on, do these before the AI queue). action=save writes one row for a brand after you looked at its data: kind finding (needs evidence: the number or the address), untouched ("baktım, dokunmuyorum": looked, fine as it is), unseen ("göremedim": no access / no data, say what is missing) or task (only the operator can do it: an access to ask for, a decision); area (Web sitesi | Ölçüm | Google Ads | Meta reklamları | İşletme Profili | İçerik | Mevzuat | Erişim | Diğer); title one plain Turkish sentence; evidence one line with numbers; saw / plan / needs = Ne gördüm / Ne yapacağım / Senden; approval none (reversible, no approval) | redirect | publish | file (you prepare a file, the operator uploads; ads are never written). Pass id to update a row instead of adding a twin. action=result on a requested row after doing the work with the usual tools: result (what was done, plain Turkish), url (where to see it), waiting=true when the operator still has to approve something. action=effect a month later: the measured change ("mobil hız 30 → 55"). Never write a finding you did not see in the data; plain Turkish, no jargon.')]
 class BrandFindings extends Tool
 {
     public function handle(Request $request, Findings $findings, PushNotifier $push): Response
     {
         $validated = $request->validate([
-            'action' => ['required', Rule::in(['list', 'save', 'result', 'effect', 'baseline'])],
-            'brand_id' => ['required_if:action,save', 'nullable', 'integer'],
+            'action' => ['required', Rule::in(['list', 'save', 'result', 'effect', 'baseline', 'session'])],
+            'brand_id' => ['required_if:action,save', 'required_if:action,session', 'nullable', 'integer'],
+            'summary' => ['required_if:action,session', 'nullable', 'string', 'max:4000'], 'client_note' => ['nullable', 'string', 'max:1500'],
+            'month' => ['nullable', 'string', 'max:7'], 'jobs' => ['nullable', 'array'], 'jobs.*' => ['array'], 'report_lines' => ['nullable', 'array'], 'report_lines.*' => ['array'],
             'id' => ['required_if:action,result', 'required_if:action,effect', 'nullable', 'integer'],
             'only_requested' => ['nullable', 'boolean'],
             'kind' => ['nullable', 'string'], 'area' => ['nullable', 'string', 'max:40'], 'title' => ['nullable', 'string', 'max:255'],
@@ -53,6 +56,23 @@ class BrandFindings extends Tool
             $taken = app(Baseline::class)->take($brand);
 
             return Response::json(['brand' => $brand->name, 'from' => $taken->period_from->toDateString(), 'to' => $taken->period_to->toDateString(), 'numbers' => $taken->numbers]);
+        }
+        if ($validated['action'] === 'session') {
+            // Marka Düzeni 2.6: the month's session (summary, at most five jobs, the customer's one page).
+            $brand = Brand::query()->find((int) $validated['brand_id']);
+            if ($brand === null) {
+                return Response::error('Marka #'.$validated['brand_id'].' yok.');
+            }
+            try {
+                $session = app(MonthlySession::class)->write($brand, $validated);
+            } catch (ValidationException $exception) {
+                return Response::error((string) collect($exception->errors())->flatten()->implode(' '));
+            }
+            $push->send('brand-session:'.$session->id.':'.$session->updated_at?->timestamp, $brand->name.': '.$session->monthLabel().' oturumu hazır',
+                count((array) $session->jobs).' iş tek onayını bekliyor.', 'high', route('operator.brand', ['brand' => $brand->id]));
+
+            return Response::json(['session' => $session->id, 'brand' => $brand->name, 'month' => $session->month, 'jobs' => count((array) $session->jobs),
+                'report_preview' => route('brand-report', ['token' => $session->token]), 'note' => 'Operatör marka sayfasında bir kez onaylar; işler o zaman sana düşer.']);
         }
         if ($validated['action'] === 'save') {
             $brand = Brand::query()->find((int) $validated['brand_id']);
@@ -91,7 +111,7 @@ class BrandFindings extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'action' => $schema->string()->enum(['list', 'save', 'result', 'effect', 'baseline'])->description('list | save | result | effect | baseline')->required(),
+            'action' => $schema->string()->enum(['list', 'save', 'result', 'effect', 'baseline', 'session'])->description('list | save | result | effect | baseline | session')->required(),
             'brand_id' => $schema->integer()->description('Brand (save; optional filter for list).'),
             'id' => $schema->integer()->description('Row id (result, effect; save = update this row).'),
             'only_requested' => $schema->boolean()->description('list: only rows the operator pressed "Çöz" on.'),
@@ -107,6 +127,16 @@ class BrandFindings extends Tool
             'url' => $schema->string()->description('result: where to see it.'),
             'waiting' => $schema->boolean()->description('result: true when the operator still has to approve.'),
             'effect' => $schema->string()->description('effect: the measured change a month later.'),
+            'summary' => $schema->string()->description('session: the month for the operator, with numbers.'),
+            'jobs' => $schema->array()->items($schema->object(fn (JsonSchema $job): array => [
+                'title' => $job->string()->required(), 'area' => $job->string(), 'evidence' => $job->string()->required(), 'plan' => $job->string(),
+                'needs' => $job->string(), 'approval' => $job->string()->enum(array_keys(BrandFinding::APPROVALS)),
+            ]))->description('session: at most 5 jobs for the coming month.'),
+            'report_lines' => $schema->array()->items($schema->object(fn (JsonSchema $line): array => [
+                'what' => $line->string()->required(), 'result' => $line->string(),
+            ]))->description('session: at most 8 lines of the customer report (what was done, what the number did).'),
+            'client_note' => $schema->string()->description('session: one short opening paragraph of the customer report.'),
+            'month' => $schema->string()->description('session: YYYY-MM (default this month).'),
         ];
     }
 }
