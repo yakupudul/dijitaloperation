@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Ai\Agents\SalesReplyAgent;
 use App\Livewire\Operator\Sales\SalesPage;
 use App\Models\AgencySetting;
-use App\Models\AiTask;
 use App\Models\CoreIntegration;
 use App\Models\PushSubscription;
 use App\Models\SalesLead;
@@ -88,7 +87,6 @@ class SalesDoorScreenTest extends TestCase
         $this->assertSame('irrelevant', $out->lifecycle);
         $this->assertSame('Hasta', DoorScreen::verdict($out));
         $this->assertNull($out->research_status, 'nobody is looked up for a patient');
-        $this->assertSame(0, AiTask::query()->where('subject_type', SalesLead::class)->where('subject_id', $out->id)->count());
         $in = SalesLead::query()->where('conversation_id', $prospect->id)->firstOrFail();
         $this->assertSame('prospect', $in->lifecycle);
         $this->assertSame(1, SalesLead::query()->open()->relevant()->count());

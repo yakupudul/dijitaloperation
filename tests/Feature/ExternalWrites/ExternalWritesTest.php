@@ -135,6 +135,7 @@ final class ExternalWritesTest extends TestCase
 
     public function test_admin_sends_a_draft_skeleton_to_wordpress_and_undoes_it(): void
     {
+        $this->actingAs($this->admin); // the operator's own write (WriteLevels: a new brand starts at "Öner")
         $site = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'website', 'status' => 'active', 'module_id' => 'website']);
         $connection = CoreConnection::factory()->create([
             'digital_asset_id' => $site->id, 'type' => 'wordpress_connector', 'enabled' => true,

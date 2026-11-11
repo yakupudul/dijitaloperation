@@ -108,7 +108,8 @@ final class WriteLevels
                 return self::AUTO;
             }
 
-            return auth()->check() || $request->hasValidSignature() ? self::HAND : self::AUTO;
+            // The approval links (/onay/…) are opened by the operator from the phone without a panel session.
+            return auth()->check() || $request->is('onay/*') || $request->hasValidSignature() ? self::HAND : self::AUTO;
         } catch (Throwable) {
             return self::AUTO;
         }

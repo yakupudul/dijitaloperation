@@ -59,6 +59,7 @@ final class GbpWritesTest extends TestCase
 
     public function test_review_reply_is_published_and_undo_deletes_it(): void
     {
+        $this->actingAs($this->admin); // the operator's own write (WriteLevels: a new brand starts at "Öner")
         $review = new GbpReview;
         $review->forceFill(['digital_asset_id' => $this->profile->id, 'external_resource_id' => $this->resource->id, 'run_id' => 1, 'location_name' => 'locations/22', 'review_id' => 'R1',
             'star_rating' => 'TWO', 'comment' => 'Beklettiler', 'raw_payload' => [], 'collected_at' => now()])->save();

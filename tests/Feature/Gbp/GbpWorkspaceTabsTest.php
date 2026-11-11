@@ -208,6 +208,7 @@ final class GbpWorkspaceTabsTest extends TestCase
 
     public function test_post_whose_photo_google_cannot_take_goes_out_without_it(): void
     {
+        $this->actingAs($this->admin); // the operator's own write (WriteLevels: a new brand starts at "Öner")
         $writes = app(ExternalWriteService::class);
         // Google answers "Internal error encountered." once: the post goes again without the photo and says so.
         $this->postFailures = 1;
