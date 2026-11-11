@@ -65,7 +65,8 @@
             @endif
         </ul>
         <div class="border-t border-gray-200 px-4 py-2 dark:border-gray-800">
-            <a href="{{ route('operator.settings', ['section' => 'notifications']) }}" wire:navigate class="link-neutral text-xs">{{ __('operator.notifications.preferences') }}</a>
+            {{-- The old "Bildirim tercihleri" link opened Ayarlar › Genel, which has no such section (Bağlantı Düzeni 1.9). --}}
+            <a href="{{ route('operator.settings.system-health') }}" wire:navigate class="link-neutral text-xs">Hata merkezini aç</a>
         </div>
     </div>
 </div>
