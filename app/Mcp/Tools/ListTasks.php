@@ -7,6 +7,7 @@ use App\Models\MoxiMessage;
 use App\Services\AiTasks\AiTaskPriority;
 use App\Services\AiTasks\AiWorkers;
 use App\Services\AiTasks\McpCaller;
+use App\Services\Brand\Findings;
 use App\Support\Ai\AiOperationLabels;
 use App\Support\SchemaState;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
@@ -50,6 +51,8 @@ class ListTasks extends Tool
             'your_turn' => true,
             // Moxi işleri: the operator's own jobs handed over by the panel assistant; done before the queue.
             'moxi_requests' => SchemaState::hasTable('moxi_messages') ? MoxiMessage::query()->where('role', MoxiMessage::REQUEST)->where('status', MoxiMessage::PENDING)->count() : 0,
+            // Marka sayfası › "Çöz": findings the operator handed over (brand-findings only_requested=true); also before the queue.
+            'findings_requested' => SchemaState::hasTable('brand_findings') ? Findings::requested() : 0,
             'waiting' => $open()->count(),
             'oldest_waiting_hours' => $oldest !== null ? (int) floor(Carbon::parse((string) $oldest)->diffInMinutes(now()) / 60) : null,
             // Work order: writing / repair checks first, then people waiting (WhatsApp, reviews), then bulk; oldest first inside.

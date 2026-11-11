@@ -2,6 +2,7 @@
 
 namespace App\Mcp\Servers;
 
+use App\Mcp\Tools\BrandFindings;
 use App\Mcp\Tools\BuildSite;
 use App\Mcp\Tools\ChannelData;
 use App\Mcp\Tools\ClusterOverlapsList;
@@ -89,6 +90,13 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 - Moxi is the panel's corner assistant; jobs it could not do itself come to you. `list-tasks` shows `moxi_requests` (how
   many wait), also when `your_turn` is false. When it is above 0, first `moxi-requests action=list`, do each one, and `moxi-requests action=answer` (short
   Turkish, links as [Ad](url)); the answer lands in Moxi's chat and on the operator's phone.
+
+## Marka bulguları (the brand page)
+- Each brand page opens with its findings (`brand-findings`). When the operator asks you to look at a brand, read its data once
+  (get-brand, channel-data, meta-performance, get-page) and write what you saw with `brand-findings action=save`: a finding
+  with its evidence, what you will do and what you need; "baktım, dokunmuyorum" (untouched), "göremedim" (unseen) and the
+  operator's own jobs (task). `list-tasks` shows `findings_requested`: rows the operator pressed "Çöz" on. Do those before
+  the queue with your usual tools, then `brand-findings action=result` (waiting=true when an approval is still his).
 
 ## AI task queue (routine work)
 0. Several AI workers (Claude, ChatGPT, APIs) share this queue in the operator's order. When `list-tasks` or
@@ -191,6 +199,7 @@ class MoxdopServer extends Server
         GetPage::class,
         MetaPerformance::class,
         MoxiRequests::class,
+        BrandFindings::class,
         ChannelData::class,
         SaveNote::class,
         LeadKindsTool::class,

@@ -21,6 +21,9 @@
         <p class="card px-4 py-3 text-sm text-gray-600 dark:text-gray-300" data-brand-not-served>{{ \App\Support\ServiceScope::NOT_SERVED }}</p>
     @endunless
 
+    {{-- Bulgular (Marka Düzeni 2.1 / 2.2): what Claude saw on this brand, "Çöz", the operator's jobs, what was done. Empty until the first look. --}}
+    <livewire:operator.portfolio.brand-findings-card :brand-id="(int) $brandModel->id" :key="'brand-findings-'.$brandModel->id" />
+
     {{-- 1. Aşama 6 (2026-10-22): the month's goal and one card per channel with its top findings and "Hepsini çöz" (loaded after the page) --}}
     <livewire:operator.portfolio.brand-page-panel lazy :brand-id="(int) $brandModel->id" :days="$days" :key="'brand-page-'.$brandModel->id.'-'.$days" />
 
