@@ -825,6 +825,12 @@ final class ExternalWriteService
 
             return;
         }
+        // Kırmızı çizgiler (Bağlantı Düzeni 3.1): a text with one of the brand's forbidden phrases does not leave.
+        if (($line = RedLines::crossed($action)) !== null) {
+            $this->abandon($action, 'Gönderilmedi (kırmızı çizgi): '.$line);
+
+            return;
+        }
         $action->forceFill(['status' => 'running', 'started_at' => now()])->save();
         try {
             $result = match (true) {
