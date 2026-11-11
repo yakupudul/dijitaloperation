@@ -73,10 +73,28 @@ final class SalesTidy
     {
         $live = WhatsAppMessage::query()->where('is_history', false)->distinct()->pluck('conversation_id')->flip();
         $stats = ['history' => 0, 'live' => 0, 'steps' => 0, 'archived' => 0];
+        // Last incoming message per chat that WhatsApp did not share, and the last one that can be read.
+        $incoming = fn (bool $unreadable) => WhatsAppMessage::query()->where('direction', 'incoming')
+            ->where(fn ($q) => $unreadable ? $q->whereIn('message_type', WhatsAppMessage::UNREADABLE_TYPES)
+                : $q->whereNull('message_type')->orWhereNotIn('message_type', WhatsAppMessage::UNREADABLE_TYPES))
+            ->groupBy('conversation_id')->selectRaw('conversation_id, max(sent_at) as at')->pluck('at', 'conversation_id');
+        $unreadable = $incoming(true);
+        $readable = $unreadable->isEmpty() ? collect() : $incoming(false);
         SalesLead::query()->whereNotNull('conversation_id')->where('source', 'whatsapp')->orderBy('id')
-            ->chunkById(200, function ($leads) use ($live, &$stats): void {
+            ->chunkById(200, function ($leads) use ($live, $unreadable, $readable, &$stats): void {
                 foreach ($leads as $lead) {
                     $historyOnly = ! isset($live[$lead->conversation_id]);
+                    // "They wrote last" stamped by a message nobody can read (before that rule existed): back to the
+                    // last message that can be read, so the card stops owing an answer (Marka Düzeni 1.6).
+                    if ($lead->last_incoming_at !== null && isset($unreadable[$lead->conversation_id])
+                        && self::unreadableStamp($lead, $unreadable[$lead->conversation_id], $readable[$lead->conversation_id] ?? null)) {
+                        $lead->last_incoming_at = isset($readable[$lead->conversation_id]) ? CarbonImmutable::parse($readable[$lead->conversation_id]) : null;
+                        if ($lead->isOpen() && self::isUnsafeStep($lead->next_step) && $lead->last_contact_at === null && $lead->last_incoming_at === null) {
+                            $lead->next_step = null;
+                            $lead->next_step_at = null;
+                        }
+                        $stats['steps']++;
+                    }
                     if ((bool) $lead->history_only !== $historyOnly) {
                         $lead->history_only = $historyOnly;
                         $stats[$historyOnly ? 'history' : 'live']++;
@@ -106,6 +124,17 @@ final class SalesTidy
             });
 
         return $stats;
+    }
+
+    /** Is the card's "they wrote last" time the time of an unreadable message, with nothing readable after it? */
+    public static function unreadableStamp(SalesLead $lead, mixed $unreadableAt, mixed $readableAt): bool
+    {
+        $stamp = $lead->last_incoming_at?->getTimestamp();
+        if ($stamp === null || $unreadableAt === null || abs(CarbonImmutable::parse($unreadableAt)->getTimestamp() - $stamp) > 1) {
+            return false;
+        }
+
+        return $readableAt === null || CarbonImmutable::parse($readableAt)->getTimestamp() < $stamp;
     }
 
     public function archive(SalesLead $lead, ?User $user = null): void

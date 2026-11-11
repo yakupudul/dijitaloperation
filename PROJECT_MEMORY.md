@@ -2259,6 +2259,9 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
   Panel şifre tutmaz.
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
+- Google bağlantı sayfası: "veri geliyor mu" tek yerden (`data_state` fresh/stale) okunur; veri gelirken "İlk veri çekimi bekleniyor" ve "Sonraki adım: veri çek" satırları çıkmaz.
+- Gelen kutusu 1536 pikselin altında liste ve kişi panelini daraltır; Akış satırında durum etiketi başlığın sütununu almaz.
+- Satış: okunamayan bir WhatsApp mesajının eskiden bıraktığı "sen yazacaksın" damgası saatlik `SalesTidy::sweep` turunda geri alınır (`SalesTidy::unreadableStamp`); tek seferlik veri düzeltmesi yok, kural kendini onarır.
 
 yakup 2026-11-11: "tüm yol haritalarını şimdi yap". Beş yol haritasının (Marka, Satış, Günlük, Bağlantı, Pazarlama Düzeni)
 1. aşama düzeltmelerinden yapılanlar:

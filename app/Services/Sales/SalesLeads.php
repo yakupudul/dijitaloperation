@@ -414,7 +414,10 @@ final class SalesLeads
         }
         // A call or a meeting logged by hand can be newer than the last WhatsApp message: keep the later one.
         $lead->last_contact_at = $lastOut !== null && ($lead->last_contact_at === null || $lastOut->gt($lead->last_contact_at)) ? $lastOut : $lead->last_contact_at;
-        $lead->last_incoming_at = $lastIn ?? $lead->last_incoming_at;
+        $unreadableIn = WhatsAppMessage::query()->where('conversation_id', $conversation->id)->where('direction', 'incoming')
+            ->whereIn('message_type', WhatsAppMessage::UNREADABLE_TYPES)->max('sent_at');
+        // (A time stamped earlier by an unreadable message is taken back; a form or a hand note keeps its own time.)
+        $lead->last_incoming_at = SalesTidy::unreadableStamp($lead, $unreadableIn, $readableIn) ? $lastIn : ($lastIn ?? $lead->last_incoming_at);
         $this->readReferral($lead, $conversation);
         if (! $lead->isOpen()) {
             // They wrote again after we closed the card: it is open once more (an "İlgisiz" record becomes a prospect again).

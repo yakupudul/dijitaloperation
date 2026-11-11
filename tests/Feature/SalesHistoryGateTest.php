@@ -157,4 +157,24 @@ final class SalesHistoryGateTest extends TestCase
         $this->assertSame('(Okunamayan mesaj, telefonda görün)', MessageText::clean('[WhatsApp bu mesajın içeriğini paylaşmadı · telefonda görün]'));
         $this->assertSame('Merhaba', MessageText::clean('Merhaba'));
     }
+
+    public function test_the_hourly_round_takes_back_a_they_wrote_last_time_stamped_by_an_unreadable_message(): void
+    {
+        $conversation = $this->chat('905551110099', 'Merhaba, fiyat alabilir miyim?', 3, false);
+        $this->chat('905551110099', 'Buyurun, bilgi vereyim.', 2, false, 'outgoing');
+        $lead = SalesLead::query()->where('conversation_id', $conversation->id)->firstOrFail();
+        $unreadableAt = now()->subDay();
+        WhatsAppMessage::query()->create(['conversation_id' => $conversation->id, 'message_id' => 'err-1', 'direction' => 'incoming',
+            'message_type' => 'unsupported', 'body' => '[okunamayan]', 'sent_at' => $unreadableAt, 'is_history' => false]);
+        // The state the old rule left behind: the unreadable message counted as "they wrote last".
+        $lead->forceFill(['last_incoming_at' => $unreadableAt, 'next_step' => 'Cevap yaz', 'next_step_at' => $unreadableAt])->saveQuietly();
+        $this->assertTrue($lead->fresh()->awaitsUs());
+
+        app(SalesTidy::class)->sweep();
+
+        $lead = $lead->fresh();
+        $this->assertFalse($lead->awaitsUs());
+        $this->assertTrue($lead->last_incoming_at->eq(now()->subDays(3)));
+        $this->assertNotSame('Cevap yaz', $lead->next_step);
+    }
 }
