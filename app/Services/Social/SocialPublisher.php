@@ -5,6 +5,7 @@ namespace App\Services\Social;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
+use App\Support\EmergencyStop;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
@@ -22,6 +23,10 @@ class SocialPublisher
     /** Publishes everything due. @return array{published: int, failed: int, processing: int} */
     public function run(): array
     {
+        if (EmergencyStop::active()) {
+            // Acil durdurma: approved posts keep their place and go out once the stop is lifted.
+            return ['published' => 0, 'failed' => 0, 'processing' => 0];
+        }
         $lock = Cache::lock('social-publisher', 600);
         if (! $lock->get()) {
             return ['published' => 0, 'failed' => 0, 'processing' => 0];

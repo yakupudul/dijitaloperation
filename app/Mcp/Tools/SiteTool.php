@@ -3,6 +3,7 @@
 namespace App\Mcp\Tools;
 
 use App\Services\Integrations\WordPress\WordPressSiteBuilder;
+use App\Support\EmergencyStop;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -24,6 +25,10 @@ class SiteTool extends Tool
             'tool' => ['required', 'string', 'max:60', 'regex:/^[a-z_]+$/'],
             'arguments' => ['nullable', 'array'],
         ]);
+        // Acil durdurma: only the reading tools answer while the stop is on.
+        if (EmergencyStop::active() && preg_match('/^(list|get|read|inspect|search|site_info|site_check|setup_guide)/', (string) $validated['tool']) !== 1) {
+            return Response::error(EmergencyStop::REASON);
+        }
         try {
             return Response::json($this->builder->tool((int) $validated['site_id'], (string) $validated['tool'], (array) ($request->get('arguments') ?? [])));
         } catch (Throwable $exception) {

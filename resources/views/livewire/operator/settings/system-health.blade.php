@@ -32,7 +32,10 @@
             <p class="page-sub">Yayındaki sürüm: <span class="font-mono text-[13px]">{{ $release['sha'] !== null ? substr($release['sha'], 0, 12) : 'bilinmiyor' }}</span>@if ($release['deployed_at']), {{ $when($release['deployed_at']) }}@endif</p>
         </div>
         @if ($isAdmin)
-            <button type="button" wire:click="retryStopped" class="btn-primary w-full sm:w-auto">Durmuş toplamaları tekrar dene</button>
+            <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                <livewire:operator.emergency-stop-switch mode="button" />
+                <button type="button" wire:click="retryStopped" class="btn-primary w-full sm:w-auto">Durmuş toplamaları tekrar dene</button>
+            </div>
         @endif
     </header>
 

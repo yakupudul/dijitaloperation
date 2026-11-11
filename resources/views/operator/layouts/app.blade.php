@@ -147,6 +147,7 @@
 
             <div class="mx-auto min-w-0 max-w-[1520px] px-4 pb-16 pt-6 md:px-10 md:pt-8">
                 @php($sectionTabs = \App\Support\OperatorMenu::sectionTabs())
+                <livewire:operator.emergency-stop-switch />
                 @if ($sectionTabs)
                     <nav class="no-scrollbar -mt-1 mb-6 flex gap-1 overflow-x-auto border-b border-gray-200 dark:border-gray-800" aria-label="Bölüm">
                         @foreach ($sectionTabs as $tab)

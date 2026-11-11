@@ -29,6 +29,7 @@ use App\Services\Site\BrokenTranslations;
 use App\Services\Site\ClusterOverlaps;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentUpdateGoLive;
+use App\Support\EmergencyStop;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,9 @@ final class ExternalWriteService
     /** Start of the error line of a write that waits for its site (ExternalWriteService::waitForSite). */
     /** Minutes a write waits after the site answered "busy": the 1st, 2nd, 3rd… time; the last value repeats. */
     public const array BUSY_WAIT_MINUTES = [2, 5, 15, 30, 60];
+
+    /** Minutes between two looks at a write held by the emergency stop. */
+    public const int HOLD_MINUTES = 5;
 
     public const string SITE_WAIT_ERROR = 'Site işi almayı bekliyor';
 
@@ -889,6 +893,18 @@ final class ExternalWriteService
         $action->forceFill(['status' => 'queued', 'started_at' => null, 'error' => mb_substr(self::SITE_WAIT_ERROR.': '.$reason, 0, 500),
             'result' => ['waiting_since' => $since->toIso8601String(), 'waits' => (int) data_get($action->result, 'waits', 0) + 1, 'wait_id' => $waitId]])->save();
         $this->dispatch($action, undo: false, delayMinutes: $delayMinutes ?? self::SITE_WAIT_MINUTES, waitId: $waitId);
+    }
+
+    /**
+     * Acil durdurma is on: the write keeps its place (queued, with the reason) and is looked at again HOLD_MINUTES
+     * later; the time it waited for its site (waiting_since) is not touched, so nothing is abandoned by the stop.
+     */
+    public function hold(ExternalWriteAction $action): void
+    {
+        $waitId = (string) Str::uuid();
+        $action->forceFill(['status' => 'queued', 'started_at' => null, 'error' => mb_substr(EmergencyStop::REASON, 0, 500),
+            'result' => [...(array) $action->result, 'wait_id' => $waitId]])->save();
+        $this->dispatch($action, undo: false, delayMinutes: self::HOLD_MINUTES, waitId: $waitId);
     }
 
     /**

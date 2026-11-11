@@ -3,6 +3,7 @@
 namespace Tests\Feature\ExternalWrites;
 
 use App\Jobs\ExecuteExternalWriteJob;
+use App\Livewire\Operator\EmergencyStopSwitch;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
 use App\Models\DigitalAsset;
@@ -10,12 +11,17 @@ use App\Models\ExternalWriteAction;
 use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Integrations\WordPress\WordPressConnectorClient;
+use App\Services\Social\SocialPublisher;
+use App\Support\EmergencyStop;
 use App\Support\Integrations\WordPress\WordPressConnectorCanonicalJson;
+use App\Support\Roles;
+use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Livewire\Livewire;
 use MoxDop\Website\Discovery\PublicUrlSafety;
 use Tests\TestCase;
 
@@ -113,5 +119,32 @@ final class ExecuteExternalWriteJobTest extends TestCase
         $status = 504;
         app()->call([new ExecuteExternalWriteJob($action->id, false, data_get($action->result, 'wait_id')), 'handle']);
         $this->assertSame('failed', $action->refresh()->status, 'a gateway error may have reached WordPress: not sent again by itself');
+    }
+
+    public function test_the_emergency_stop_holds_writes_and_they_go_on_once_it_is_lifted(): void
+    {
+        Queue::fake();
+        $this->seed(RoleAndPermissionSeeder::class);
+        $this->admin->assignRole(Roles::ADMIN);
+        $this->actingAs($this->admin);
+        $action = $this->write();
+
+        Livewire::test(EmergencyStopSwitch::class)->assertDontSeeHtml('data-emergency-stop-on');
+        Livewire::test(EmergencyStopSwitch::class, ['mode' => 'button'])->call('stop');
+        $this->assertTrue(EmergencyStop::active());
+        Livewire::test(EmergencyStopSwitch::class)->assertSeeHtml('data-emergency-stop-on')->assertSee('Devam ettir');
+
+        app()->call([new ExecuteExternalWriteJob($action->id), 'handle']);
+        $this->assertSame('queued', $action->refresh()->status);
+        $this->assertNull($action->started_at, 'nothing was sent');
+        $this->assertStringStartsWith('Acil durdurma açık', (string) $action->error);
+        Http::assertNothingSent();
+        Queue::assertPushed(ExecuteExternalWriteJob::class, fn (ExecuteExternalWriteJob $job): bool => $job->actionId === $action->id && $job->waitId === data_get($action->result, 'wait_id'));
+        $this->assertSame(['published' => 0, 'failed' => 0, 'processing' => 0], app(SocialPublisher::class)->run());
+
+        Livewire::test(EmergencyStopSwitch::class)->call('resume');
+        $this->assertFalse(EmergencyStop::active());
+        app()->call([new ExecuteExternalWriteJob($action->id, false, data_get($action->result, 'wait_id')), 'handle']);
+        $this->assertNotNull($action->refresh()->started_at, 'the held write went on');
     }
 }

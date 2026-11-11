@@ -2280,3 +2280,12 @@ yakup 2026-11-11: "tüm yol haritalarını şimdi yap". Beş yol haritasının (
 - **Satış › Müşteriler:** "Bu ay eklenen aylık gelir" yalnız aylık işleri toplar; tek seferlik iş ayrı yazılır.
 - **Dizin:** `dataset_write_batches` ve `website_html_snapshot` tablolarında `raw_ingestion_object_id` dizini; gece
   temizliği her silmede bu iki tabloyu baştan sona tarıyordu.
+- **Takvim günü:** üçten fazla satış adımı tek satırda toplanır ("Satış: N kişiye yazılacak"), açınca liste görünür.
+- **Onarım masası sıralaması:** 30 / 90 gün kararları sıralamayı etkilemez (`brain.weight_range` 0); kayıt okuma bilgisi olarak kalır.
+- **Entegrasyonlar başlığı:** Bağlantı sağlığı ile aynı sayıyı gösterir (`ConnectionHealth::summary`, 5 dk önbellek).
+- **Kırmızı çizgi, noindex:** sayfayı Google'a kapatan satır (`RepairDesk::closesToGoogle`) her zaman "Yüksek (tek tek)"
+  risklidir; toplu onaya ve "Hepsini çöz"e girmez.
+- **Acil durdurma (Bağlantı Düzeni 3.3):** `EmergencyStop` (agency_settings.writes_stopped_at). Açıkken onaylı yazmalar
+  sırada bekler (`ExternalWriteService::hold`, 5 dakikada bir bakılır, hiçbiri başarısız olmaz), sosyal gönderiler
+  yayınlanmaz, Claude'un MCP site araçlarından yalnız okuyanlar cevap verir. Düğme Hata merkezinde; açıkken her ekranda
+  kırmızı şerit ve "Devam ettir" çıkar. Veri okuma durmaz.

@@ -6,6 +6,7 @@ use App\Models\CoreConnection;
 use App\Models\ExternalWriteAction;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Integrations\WordPress\WordPressConnectorCommands;
+use App\Support\EmergencyStop;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,12 @@ final class ExecuteExternalWriteJob implements ShouldQueue
             return;
         }
         if ($action->status !== 'queued' || ($this->waitId !== null && data_get($action->result, 'wait_id') !== $this->waitId)) {
+            return;
+        }
+        if (EmergencyStop::active()) {
+            // Acil durdurma: the write stays queued and is looked at again in a few minutes; nothing fails.
+            $service->hold($action);
+
             return;
         }
         if (($waiting = $this->siteNotAsking($action)) !== null) {
