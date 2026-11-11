@@ -5,6 +5,7 @@ namespace App\Livewire\Operator\Portfolio;
 use App\Models\Brand;
 use App\Services\Sales\Agreements;
 use App\Services\Sales\CustomerSignals;
+use App\Support\Demo\DemoMenu;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
@@ -19,7 +20,8 @@ final class BrandCommercialStrip extends Component
     public function render(Agreements $agreements, CustomerSignals $signals): View
     {
         $brand = Brand::query()->with('customer')->find($this->brandId);
-        if ($brand === null) {
+        // The agency's own brand is nobody's customer: no agreement, payment or "son temas" line on its page.
+        if ($brand === null || (int) (DemoMenu::agencyBrand()['id'] ?? 0) === (int) $brand->id) {
             return view('livewire.operator.portfolio.brand-commercial-strip', ['row' => null]);
         }
         $summary = $agreements->summary($brand);
