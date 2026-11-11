@@ -6,6 +6,7 @@ use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\User;
 use App\Services\Operator\Agenda;
+use App\Services\Sales\WeekReview;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -63,6 +64,10 @@ final class DayDigest
             }
             $first = Reminder::query()->where('user_id', $this->operatorId())->whereNull('done_at')->whereIn('kind', ['task', 'meeting'])
                 ->whereBetween('remind_at', [$now->addDay()->startOfDay()->utc(), $now->addDay()->endOfDay()->utc()])->orderBy('remind_at')->first();
+            // Haftalık 10 dakika (Satış Düzeni 4.2): on Friday the week's sales in one line; the card is on Satış › Rapor.
+            if ($now->isFriday() && ($week = app(WeekReview::class)->week($now)['line']) !== '') {
+                array_unshift($lines, $week);
+            }
             if ($first !== null) {
                 $lines[] = 'Yarın ilk iş: '.CarbonImmutable::instance($first->remind_at)->setTimezone(self::TZ)->format('H:i').' '.$first->title.'.';
             }

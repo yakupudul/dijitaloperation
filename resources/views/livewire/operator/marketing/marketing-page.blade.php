@@ -270,6 +270,28 @@
                             </tbody></table>
                         </div>
                     @endif
+                    @if ($adLeads !== [])
+                        {{-- Hangi reklam gerçek aday getiriyor (Satış Düzeni 4.3): the ad is judged by who it brought, not by its message count. --}}
+                        <div class="mt-6" data-marketing-ad-leads>
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Hangi reklam aday getiriyor</h3>
+                            <p class="text-[13px] text-gray-500">Son {{ \App\Services\Marketing\AdLeads::DAYS }} günde reklamdan WhatsApp'a yazanlar, kayıtlarının bugünkü durumuyla.</p>
+                            <div class="card mt-3 overflow-x-auto">
+                                <table class="data-table"><thead><tr><th>Reklam</th><th class="text-right">Yazan</th><th class="text-right">Aday</th><th class="text-right">Kapıda elenen</th><th class="text-right">Teklif</th><th class="text-right">Müşteri</th><th class="text-right">Son yazan</th></tr></thead><tbody>
+                                    @foreach ($adLeads as $ad)
+                                        <tr data-marketing-ad-row>
+                                            <td class="max-w-[22rem]"><span class="block truncate font-medium text-gray-900 dark:text-white" title="{{ $ad['ad'] }}">{{ $ad['ad'] }}</span>@if ($ad['text'] !== '')<span class="block truncate text-xs text-gray-500" title="{{ $ad['text'] }}">{{ $ad['text'] }}</span>@endif</td>
+                                            <td class="text-right tabular-nums">{{ $n($ad['wrote']) }}</td>
+                                            <td class="text-right tabular-nums font-semibold text-gray-900 dark:text-white">{{ $n($ad['prospects']) }}</td>
+                                            <td class="text-right tabular-nums text-gray-500">{{ $n($ad['screened']) }}</td>
+                                            <td class="text-right tabular-nums">{{ $n($ad['offers']) }}</td>
+                                            <td class="text-right tabular-nums">{{ $n($ad['won']) }}</td>
+                                            <td class="text-right tabular-nums text-gray-500">{{ $ad['last'] !== '' ? \Carbon\CarbonImmutable::parse($ad['last'])->format('d.m') : '' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody></table>
+                            </div>
+                        </div>
+                    @endif
                     <p class="mt-3 text-xs text-gray-500">Reklamdan WhatsApp'a yazan kişi, ilk mesajında reklamın bilgisini getirir ve kaydı kendiliğinden "Instagram / Facebook reklamı" olur. Meta'nın saydığı mesaj ile kayda düşen başvuru arasındaki fark, işaretlenmemiş ya da kayda dönmemiş konuşmadır. Reklam hesabına buradan yazılmaz.</p>
                 @elseif ($channel === 'google_ads')
                     @if ($google['connected'])

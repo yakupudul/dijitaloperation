@@ -14,6 +14,7 @@ use App\Models\SocialPost;
 use App\Models\User;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppMessage;
+use App\Services\Marketing\AdLeads;
 use App\Services\Marketing\MarketingFunnel;
 use App\Services\Marketing\OwnChannels;
 use App\Services\Sales\Agreements;
@@ -237,5 +238,28 @@ final class MarketingFunnelTest extends TestCase
         $this->assertSame([0, 0, 0, 1, 0, 1], array_column($trend, 'counted'));
         $this->assertSame(1, $trend[5]['by']['meta']);
         $this->assertSame(25, $trend[0]['target']);
+    }
+
+    public function test_an_ad_is_judged_by_the_prospects_it_brought_not_by_its_messages(): void
+    {
+        $inbox = CoreIntegration::factory()->create(['provider' => 'whatsapp', 'status' => CoreIntegration::STATUS_ACTIVE, 'config' => ['phone_number_id' => 'PN1', 'waba_id' => 'W1', 'business_phone' => '905388610288', 'enabled' => true]]);
+        $chat = fn (string $phone, ?array $referral): int => (int) WhatsAppConversation::query()->create(['integration_id' => $inbox->id, 'phone_number_id' => 'PN1', 'contact_id' => $phone,
+            'last_message_at' => now(), 'last_incoming_at' => now(), 'referral' => $referral])->id;
+        $adA = ['source_id' => 'A1', 'headline' => 'Haritada üst sıra', 'body' => 'Kliniğiniz Google\'da görünsün'];
+        $adB = ['source_id' => 'B1', 'headline' => 'Web sitesi'];
+        // Every chat gets its record by itself; the test only says what each person turned out to be.
+        $record = fn (int $conversationId, array $attributes) => SalesLead::query()->where('conversation_id', $conversationId)->firstOrFail()->forceFill($attributes)->save();
+        $record($chat('905321110011', $adA), ['stage' => 'priced', 'offer_amount' => 14000, 'offer_confirmed' => true]);
+        $chat('905321110012', $adA);
+        $record($chat('905321110013', $adB), ['lifecycle' => 'irrelevant']);
+        $chat('905321110014', $adB);
+        $chat('905321110015', null);
+
+        $rows = app(AdLeads::class)->rows();
+        $this->assertSame(['Haritada üst sıra', 'Web sitesi'], array_column($rows, 'ad'));
+        $this->assertSame([2, 2, 0, 1, 0], [$rows[0]['wrote'], $rows[0]['prospects'], $rows[0]['screened'], $rows[0]['offers'], $rows[0]['won']]);
+        $this->assertSame([2, 1, 1], [$rows[1]['wrote'], $rows[1]['prospects'], $rows[1]['screened']]);
+
+        Livewire::test(MarketingPage::class)->call('show', 'meta')->assertSeeHtml('data-marketing-ad-leads')->assertSee('Haritada üst sıra');
     }
 }

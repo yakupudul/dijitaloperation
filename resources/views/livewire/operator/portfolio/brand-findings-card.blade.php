@@ -51,6 +51,16 @@ Senden: {{ $job['needs'] }}@endif</span>
                         @if ($reportSent)
                             <span class="text-[13px] text-gray-500">Müşteriye gönderildi · {{ $day($reportSent) }}</span>
                             <button type="button" wire:click="reportSent({{ $session->id }}, false)" class="text-[12px] text-gray-400 underline decoration-gray-300 underline-offset-2 hover:text-gray-700">geri al</button>
+                            @if ($referralAsk)
+                                {{-- Referans isteme anı (Satış Düzeni 4.5): the first report has gone; the ready text, sent by the operator himself. --}}
+                                @php($ask = "Merhaba, bu ayın raporunu ilettim. Sonuçlardan memnunsanız bir ricam olacak: çevrenizde aynı desteğe ihtiyacı olan bir meslektaşınız varsa beni önerebilir misiniz? Sizin önerinizle başlayan her yeni çalışma için bir aylık hizmetiniz bizden.")
+                                <div class="basis-full rounded-lg bg-gray-50 px-3 py-3 dark:bg-white/[0.03]" x-data="{ asked: false }" data-brand-referral-ask>
+                                    <p class="text-[13px] font-medium text-gray-900 dark:text-white">Referans istemek için iyi an</p>
+                                    <p class="mt-1 text-[13px] leading-relaxed text-gray-600 dark:text-gray-300">{{ $ask }}</p>
+                                    <button type="button" class="btn mt-2 h-8" x-on:click="navigator.clipboard.writeText(@js($ask)).then(() => { asked = true; setTimeout(() => asked = false, 2000) })"><span x-show="!asked">Metni kopyala</span><span x-show="asked" x-cloak>Kopyalandı</span></button>
+                                    <span class="ml-2 text-[12px] text-gray-400">Raporu beğendiyse gönder; mesajı sen gönderirsin.</span>
+                                </div>
+                            @endif
                         @else
                             <button type="button" wire:click="reportSent({{ $session->id }}, true)" class="btn-quiet" data-brand-session-sent>Gönderdim</button>
                         @endif

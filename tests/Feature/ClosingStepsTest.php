@@ -7,6 +7,7 @@ use App\Livewire\Operator\Sales\SalesPage;
 use App\Models\AgencySetting;
 use App\Models\BrandFinding;
 use App\Models\SalesLead;
+use App\Models\SalesLesson;
 use App\Models\User;
 use App\Services\Access\AccessLinks;
 use App\Services\Brand\Baseline;
@@ -14,10 +15,12 @@ use App\Services\Operator\Agenda;
 use App\Services\Sales\CallBrief;
 use App\Services\Sales\ClosingSteps;
 use App\Services\Sales\SalesLeads;
+use App\Services\Sales\WeekReview;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -109,6 +112,32 @@ class ClosingStepsTest extends TestCase
         $this->assertSame('2026-11-13', $lead->next_step_at->timezone('Europe/Istanbul')->toDateString());
         $this->assertSame('queued', $lead->draft_status);
         $this->assertSame(1, $lead->events()->where('kind', 'call')->count());
+        CarbonImmutable::setTestNow();
+    }
+
+    public function test_the_week_review_lists_who_moved_who_is_stuck_and_three_decisions(): void
+    {
+        CarbonImmutable::setTestNow('2026-11-13 17:00:00'); // Friday
+        $moved = SalesLead::query()->create(['name' => 'Dr. İlerleyen', 'stage' => 'priced', 'source' => 'whatsapp', 'stage_at' => '2026-11-11 10:00:00', 'offer_amount' => 14000, 'offer_confirmed' => true, 'last_contact_at' => '2026-11-12 10:00:00']);
+        SalesLead::query()->create(['name' => 'Dr. Eski', 'stage' => 'meeting', 'source' => 'whatsapp', 'stage_at' => '2026-11-02 10:00:00']);
+        $owed = SalesLead::query()->create(['name' => 'Dr. Bekleyen', 'stage' => 'talking', 'source' => 'whatsapp', 'last_incoming_at' => '2026-11-09 10:00:00', 'last_contact_at' => '2026-11-08 10:00:00']);
+        SalesLead::query()->create(['name' => 'Dr. Sessiz', 'stage' => 'thinking', 'source' => 'form', 'stage_at' => '2026-10-20 10:00:00', 'last_contact_at' => '2026-11-01 10:00:00']);
+        foreach (['Dr. İlerleyen' => '2026-11-11 10:00:00', 'Dr. Eski' => '2026-11-02 10:00:00', 'Dr. Sessiz' => '2026-10-20 10:00:00', 'Dr. Bekleyen' => '2026-11-01 10:00:00'] as $name => $at) {
+            DB::table('sales_leads')->where('name', $name)->update(['stage_at' => $at]);
+        }
+        foreach (['soru', 'karar', 'yontem', 'soru'] as $i => $kind) {
+            SalesLesson::query()->create(['kind' => $kind, 'text' => 'Öneri '.$i, 'status' => 'proposed']);
+        }
+
+        $week = app(WeekReview::class)->week();
+        $this->assertSame([$moved->id], array_column($week['moved'], 'id'));
+        $this->assertSame(['4 gündür cevap bekliyor', 'Teklif 12 gündür sessiz'], array_column($week['stuck'], 'line'));
+        $this->assertSame($owed->id, $week['stuck'][0]['id']);
+        $this->assertSame(['Soru', 'Soru', 'Karar'], array_column($week['decisions'], 'kind'));
+        $this->assertSame('Satış haftası: 1 kişi ilerledi, 2 kişi takıldı, 3 karar bekliyor.', $week['line']);
+
+        $this->actingAs($this->admin);
+        Livewire::test(SalesPage::class)->set('tab', 'sonuclar')->assertSeeHtml('data-sales-week')->assertSee('Dr. Bekleyen');
         CarbonImmutable::setTestNow();
     }
 

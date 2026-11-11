@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Marketing;
 
 use App\Models\SalesLead;
+use App\Services\Marketing\AdLeads;
 use App\Services\Marketing\MarketingActions;
 use App\Services\Marketing\MarketingFunnel;
 use App\Services\Marketing\OwnChannels;
@@ -160,6 +161,7 @@ final class MarketingPage extends Component
             'summary' => $this->channel === '' ? $funnel->summary($month, $this->filter) : [],
             'records' => $this->channel === 'unknown' ? $unknownRecords : ($this->channel !== '' ? $funnel->records($month, $this->filter, $this->span, $this->channel) : []),
             'suggested' => $suggested,
+            'adLeads' => $this->channel === 'meta' ? app(AdLeads::class)->rows() : [],
             'filters' => $funnel->filters(),
             'website' => $own->brand()['website'] ?? null,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),

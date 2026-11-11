@@ -102,7 +102,7 @@ class MonthlySessionTest extends TestCase
         $this->get('/rapor/'.str_repeat('a', 48))->assertNotFound();
 
         $this->actingAs(User::query()->firstOrFail());
-        Livewire::test(BrandFindingsCard::class, ['brandId' => $this->brand->id])->call('approveSession', $session->id)->call('reportSent', $session->id, true)->assertSee('Müşteriye gönderildi');
+        Livewire::test(BrandFindingsCard::class, ['brandId' => $this->brand->id])->call('approveSession', $session->id)->call('reportSent', $session->id, true)->assertSee('Müşteriye gönderildi')->assertSeeHtml('data-brand-referral-ask');
         $this->assertNotNull(BrandReport::query()->where('brand_id', $this->brand->id)->where('month', '2026-11')->value('sent_at'));
         $this->get('/rapor/'.$session->token)->assertSee('Önümüzdeki ay')->assertSee('İş 1');
     }

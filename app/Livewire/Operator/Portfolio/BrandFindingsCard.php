@@ -6,6 +6,7 @@ use App\Livewire\Concerns\AdminOnly;
 use App\Models\Brand;
 use App\Models\BrandFinding;
 use App\Models\BrandSession;
+use App\Models\SalesLead;
 use App\Services\Brand\Findings;
 use App\Services\Brand\MonthlySession;
 use App\Services\Brand\NewOrder;
@@ -96,6 +97,9 @@ final class BrandFindingsCard extends Component
         $session = $sessions->current($brand);
 
         return view('livewire.operator.portfolio.brand-findings-card', ['brand' => $brand, 'page' => $findings->page($brand), 'held' => $brand->new_order_at !== null ? NewOrder::heldCount((int) $brand->id) : 0,
-            'session' => $session, 'reportSent' => $session !== null ? $signals->report($brand, $session->month)?->sent_at : null]);
+            'session' => $session, 'reportSent' => $session !== null ? $signals->report($brand, $session->month)?->sent_at : null,
+            // Referans isteme anı (Satış Düzeni 4.5): the brand's first report has gone and this customer has not referred anyone yet.
+            'referralAsk' => $session !== null && $session->isApproved() && ! BrandSession::query()->where('brand_id', $brand->id)->where('id', '<', $session->id)->where('status', 'approved')->exists()
+                && ($brand->customer_id === null || ! SalesLead::query()->where('referrer_customer_id', $brand->customer_id)->exists())]);
     }
 }

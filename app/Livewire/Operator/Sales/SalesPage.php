@@ -29,6 +29,7 @@ use App\Services\Sales\SalesTidy;
 use App\Services\Sales\SayIt;
 use App\Services\Sales\StandingRules;
 use App\Services\Sales\TodayFive;
+use App\Services\Sales\WeekReview;
 use App\Support\Roles;
 use App\Support\WhatsApp\MessageText;
 use Carbon\CarbonImmutable;
@@ -712,6 +713,7 @@ final class SalesPage extends Component
             'customerRows' => $customers['rows'],
             'customerStrip' => $customers['strip'],
             'results' => $this->tab === 'sonuclar' ? $leads->results() : [],
+            'week' => $this->tab === 'sonuclar' ? app(WeekReview::class)->week() : null,
             'money' => $this->tab === 'sonuclar' ? $this->money() : null,
             'report' => $this->tab === 'sonuclar' ? app(SalesMonthReport::class)->month($reportMonth) : null,
             'patterns' => $this->tab === 'sonuclar' ? app(SalesMonthReport::class)->patterns() : null,

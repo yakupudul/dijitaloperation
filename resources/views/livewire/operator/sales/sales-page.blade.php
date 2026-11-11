@@ -445,6 +445,37 @@
         @include('livewire.operator.sales.partials.settings')
     @else
         <section class="mt-5" data-sales-results>
+            @if ($week !== null && ($week['moved'] !== [] || $week['stuck'] !== [] || $week['decisions'] !== []))
+                {{-- Haftalık 10 dakika (Satış Düzeni 4.2): the week on one card; decisions are answered in Ayarlar › Satış beyni. --}}
+                <div class="card mb-5 p-4" data-sales-week>
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Bu hafta</h2>
+                        <p class="text-[13px] text-gray-500">{{ $week['from']->locale('tr')->isoFormat('D MMMM') }} haftası. Cuma günü on dakikada okunur.</p>
+                    </div>
+                    <div class="mt-3 grid gap-5 md:grid-cols-3">
+                        @foreach (['moved' => ['İlerleyenler', 'Bu hafta ilerleyen olmadı.'], 'stuck' => ['Takılanlar', 'Takılan kimse yok.']] as $key => [$title, $empty])
+                            <div data-sales-week-{{ $key }}>
+                                <p class="text-[13px] font-medium text-gray-900 dark:text-white">{{ $title }} <span class="tabular-nums text-gray-400">{{ count($week[$key]) }}</span></p>
+                                @forelse (array_slice($week[$key], 0, 6) as $row)
+                                    <a href="{{ route('operator.sales.lead', ['lead' => $row['id']]) }}" wire:navigate class="mt-1.5 block text-[13px] hover:underline"><span class="font-medium text-gray-900 dark:text-white">{{ $row['title'] }}</span> <span class="text-gray-500">{{ $row['line'] }}</span></a>
+                                @empty
+                                    <p class="mt-1.5 text-[13px] text-gray-500">{{ $empty }}</p>
+                                @endforelse
+                                @if (count($week[$key]) > 6)<p class="mt-1.5 text-[13px] text-gray-400">ve {{ count($week[$key]) - 6 }} kişi daha</p>@endif
+                            </div>
+                        @endforeach
+                        <div data-sales-week-decisions>
+                            <p class="text-[13px] font-medium text-gray-900 dark:text-white">Üç karar <span class="tabular-nums text-gray-400">{{ $week['waiting'] }}</span></p>
+                            @forelse ($week['decisions'] as $decision)
+                                <p class="mt-1.5 text-[13px] text-gray-700 dark:text-gray-300"><span class="text-gray-400">{{ $decision['kind'] }}:</span> {{ \Illuminate\Support\Str::limit($decision['text'], 160) }}</p>
+                            @empty
+                                <p class="mt-1.5 text-[13px] text-gray-500">Bekleyen karar yok.</p>
+                            @endforelse
+                            @if ($week['decisions'] !== [])<button type="button" wire:click="$set('tab', 'ayarlar')" class="link-neutral mt-2 text-[13px]">Satış beyninde cevapla</button>@endif
+                        </div>
+                    </div>
+                </div>
+            @endif
             @if ($money !== null)
                 <div class="hero-panel grid-cols-3">
                     <div class="hero-tile hero-tile-accent"><span class="hero-label">Aylık gelir</span><span class="hero-value">{{ $n((int) $money['mrr']) }} ₺</span><span class="mt-2 text-xs opacity-75">{{ $n($money['customers']) }} aktif müşteri</span></div>
