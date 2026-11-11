@@ -3,7 +3,7 @@
 
     $n = fn (int $v): string => number_format($v, 0, ',', '.');
     $now = now('Europe/Istanbul');
-    $greeting = $now->hour < 12 ? 'Günaydın' : ($now->hour < 18 ? 'İyi günler' : 'İyi akşamlar');
+    $greeting = $now->hour < 5 ? 'İyi geceler' : ($now->hour < 12 ? 'Günaydın' : ($now->hour < 18 ? 'İyi günler' : 'İyi akşamlar'));
     $firstName = \Illuminate\Support\Str::before(trim((string) (auth()->user()?->name ?? '')).' ', ' ');
     $decisions = $box['decisions'];
     $withGoal = $portfolio['ahead'] + $portfolio['on_track'] + $portfolio['behind'];

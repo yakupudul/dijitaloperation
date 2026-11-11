@@ -24,7 +24,7 @@
     $deltaText = ['neutral' => 'text-gray-500', 'positive' => 'text-success-600 dark:text-success-400', 'negative' => 'text-error-600 dark:text-error-400'];
 
     $now = now('Europe/Istanbul')->locale(app()->getLocale());
-    $greeting = $now->hour < 12 ? 'Günaydın' : ($now->hour < 18 ? 'İyi günler' : 'İyi akşamlar');
+    $greeting = $now->hour < 5 ? 'İyi geceler' : ($now->hour < 12 ? 'Günaydın' : ($now->hour < 18 ? 'İyi günler' : 'İyi akşamlar'));
     $firstName = \Illuminate\Support\Str::before(trim((string) (auth()->user()?->name ?? '')).' ', ' ');
 
     // "Senden beklenenler": only the things that wait on the operator, each with one button.
