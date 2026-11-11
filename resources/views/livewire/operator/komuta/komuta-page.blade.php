@@ -29,14 +29,14 @@
 
     <header>
         <h1 class="page-title text-balance" data-komuta-heading>
-            {{ $greeting }}{{ $firstName !== '' ? ' '.$firstName : '' }}@if ($decisions > 0), <span class="highlight">{{ $n($decisions) }} karar</span> seni bekliyor @else, bugün senden beklenen karar yok @endif
+            {{ $greeting }}{{ $firstName !== '' ? ' '.$firstName : '' }}@if ($agenda['total'] > 0), bugün <span class="highlight">{{ $n($agenda['total']) }} satır</span> var @else, bugün bitti @endif
         </h1>
         <p class="page-sub mt-1.5! text-[15px]!">
             @if ($withGoal > 0)
                 Bu ay {{ $n($withGoal) }} markanın {{ $n($portfolio['ahead'] + $portfolio['on_track']) }} tanesi amacında{{ $portfolio['behind'] > 0 ? ', '.$n($portfolio['behind']).' tanesi geride' : '' }}.
                 <a href="{{ route('operator.portfolio') }}" wire:navigate class="link-neutral">Portföy</a>
             @else
-                Benzer işler tek grupta, en çok talep getirecek olan en üstte. Her iş geri alınabilir.
+                Günün listesi aşağıda. Her satır işin yapıldığı yeri açar.
             @endif
         </p>
     </header>
@@ -49,10 +49,48 @@
         </a>
     @endif
 
+    {{-- Tek gündem (Günlük Düzen 2.1): the one list of the day, at most seven lines; the rest stands behind "daha fazla". --}}
+    <section class="mt-6" data-komuta-agenda x-data="{ all: false }">
+        @if ($agenda['rows'] === [])
+            <div class="card px-5 py-6" data-agenda-done>
+                <p class="text-[17px] font-semibold tracking-[-0.01em] text-gray-900 dark:text-white">Bugün bitti.</p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Toplantın, cevap bekleyen kişin, onay bekleyen markan ve açık işin yok. Yeni bir şey gelirse burada görünür.</p>
+            </div>
+        @else
+            <ul class="card">
+                @foreach ($agenda['rows'] as $row)
+                    <li wire:key="agenda-{{ $row['key'] }}">
+                        <a href="{{ $row['url'] }}" wire:navigate class="card-row items-center gap-3 hover:bg-gray-50 dark:hover:bg-white/[0.02]" data-agenda-row="{{ $row['kind'] }}">
+                            <span class="w-[86px] shrink-0 text-[13px] text-gray-500 dark:text-gray-400">{{ ['meeting' => 'Toplantı', 'people' => 'Satış', 'brand' => 'Marka onayı', 'task' => 'Senin işin'][$row['kind']] }}</span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-[15px] font-medium text-gray-900 dark:text-white">@if ($row['when'])<span class="tabular-nums">{{ $row['when'] }}</span> · @endif{{ $row['title'] }}</span>
+                                @if ($row['line'] !== '')<span @class(['block truncate text-[13px]', 'text-error-600 dark:text-error-400' => $row['late'], 'text-gray-500 dark:text-gray-400' => ! $row['late']])>{{ $row['line'] }}</span>@endif
+                            </span>
+                            <span class="shrink-0 text-gray-400" aria-hidden="true">→</span>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
+            @if ($agenda['hidden'] > 0)
+                <p class="mt-2 px-1 text-[13px] text-gray-500" data-agenda-hidden>Listede {{ $n($agenda['hidden']) }} satır daha var; bunlar bitince sıradakiler gelir.</p>
+            @endif
+        @endif
+    </section>
+
     <div class="mt-7">
         <livewire:operator.repair.daily-send-strip lazy />
     </div>
 
+    {{-- Everything else Komuta used to show at once: one tap away, remembered per browser. --}}
+    <div class="mt-8" x-data="{ open: false, init() { try { this.open = localStorage.getItem('komuta-more') === '1' } catch (e) {} }, flip() { this.open = ! this.open; try { localStorage.setItem('komuta-more', this.open ? '1' : '0') } catch (e) {} } }" data-komuta-more-wrap>
+        <button type="button" @click="flip()" :aria-expanded="open" class="flex w-full items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left dark:border-gray-800 dark:bg-white/[0.03]" data-komuta-more-toggle>
+            <span class="min-w-0 flex-1">
+                <span class="block text-[15px] font-medium text-gray-900 dark:text-white">Daha fazla</span>
+                <span class="block truncate text-[13px] text-gray-500 dark:text-gray-400">{{ $decisions > 0 ? $n($decisions).' karar' : 'Karar kutusu boş' }}{{ $box['manual'] > 0 ? ', '.$n($box['manual']).' elle iş' : '' }}{{ $elsewhere['reviews'] > 0 ? ', '.$n($elsewhere['reviews']).' yorum' : '' }}, gelen kutusu ve bağlantılar</span>
+            </span>
+            <span class="shrink-0 text-[13px] text-gray-500" x-text="open ? 'Kapat' : 'Aç'">Aç</span>
+        </button>
+        <div x-show="open" x-cloak>
     <div class="mt-5">
         <livewire:operator.sales.today-card lazy />
     </div>
@@ -152,6 +190,9 @@
 
     <div class="mt-10">
         <livewire:operator.portfolio.epicrisis-questions lazy />
+    </div>
+
+        </div>
     </div>
 
     <p class="mt-10 text-[13px] text-gray-500">Haftalık sayılar, alarmlar ve dün gecenin işleri <a href="{{ route('operator.today') }}" wire:navigate class="link-neutral">Bugün özetinde</a>.</p>

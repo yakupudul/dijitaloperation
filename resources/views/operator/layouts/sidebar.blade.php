@@ -78,8 +78,10 @@
     </div>
 
     <div class="shrink-0 border-t border-gray-200 pb-3 pt-2.5 dark:border-gray-800" data-menu-pinned>
+        {{-- Günlük Düzen 2.4: the queue card left the menu; the top bar light opens Akış. --}}
         @auth
-            <livewire:operator.ai-live-indicator card />
+            {{-- Kept mounted, unseen: it still tells the operator when an AI job he started has finished. --}}
+            <div class="hidden"><livewire:operator.ai-live-indicator /></div>
         @endauth
         @foreach ($pinnedGroups as $menuGroup)
             <div class="mt-1.5" data-menu-group="{{ $menuGroup['title'] }}">

@@ -3,6 +3,7 @@
 namespace App\Services\Calendar;
 
 use App\Models\Brand;
+use App\Models\BrandSession;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpQueuedPost;
 use App\Models\Reminder;
@@ -10,6 +11,7 @@ use App\Models\SalesLead;
 use App\Models\Suggestion;
 use App\Services\Operator\KomutaReader;
 use App\Services\Site\SiteSuggestionTypes;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -55,7 +57,16 @@ final class CalendarFeed
     {
         $days = [];
         for ($d = $from->startOfDay(); $d->lte($to); $d = $d->addDay()) {
-            $days[$d->toDateString()] = ['own' => [], 'sales' => [], 'work' => ['done' => 0, 'planned' => 0, 'failed' => 0, 'brands' => 0]];
+            $days[$d->toDateString()] = ['own' => [], 'sales' => [], 'sessions' => [], 'work' => ['done' => 0, 'planned' => 0, 'failed' => 0, 'brands' => 0]];
+        }
+        try {
+            foreach ($this->sessions($from, $to) as $item) {
+                if (isset($days[$item['date']])) {
+                    $days[$item['date']]['sessions'][] = $item;
+                }
+            }
+        } catch (Throwable $error) {
+            report($error);
         }
         foreach ($this->own($from, $to, $userId) as $item) {
             if (isset($days[$item['date']])) {
@@ -82,6 +93,44 @@ final class CalendarFeed
         }
 
         return $days;
+    }
+
+    /**
+     * Ritim (Günlük Düzen 2.3): the monthly session of every brand in the new order has its day, spread evenly over
+     * the month's working days (Fridays stay free for the sales summary), so no week carries them all. The day is fixed
+     * by the brand's place in the list, not stored: a brand added later only shifts the days that have not come yet
+     * in the reader's eye, and a session already written shows as done on its day.
+     *
+     * @return list<array{date: string, brand_id: int, brand: string, done: bool, url: string}>
+     */
+    public function sessions(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        if (! SchemaState::hasTable('brand_sessions') || ! SchemaState::hasColumn('brands', 'new_order_at')) {
+            return [];
+        }
+        $brands = Brand::query()->operational()->whereNotNull('new_order_at')->orderBy('id')->get(['id', 'name']);
+        if ($brands->isEmpty()) {
+            return [];
+        }
+        $out = [];
+        for ($month = $from->startOfMonth(); $month->lte($to); $month = $month->addMonthNoOverflow()) {
+            $workdays = [];
+            for ($d = $month; $d->month === $month->month; $d = $d->addDay()) {
+                if (! in_array($d->dayOfWeekIso, [5, 6, 7], true)) {
+                    $workdays[] = $d->toDateString();
+                }
+            }
+            $written = BrandSession::query()->where('month', $month->format('Y-m'))->pluck('brand_id')->all();
+            foreach ($brands->values() as $i => $brand) {
+                $date = $workdays[(int) floor(($i + 0.5) * count($workdays) / $brands->count())];
+                if ($date >= $from->toDateString() && $date <= $to->toDateString()) {
+                    $out[] = ['date' => $date, 'brand_id' => (int) $brand->id, 'brand' => (string) $brand->name, 'done' => in_array($brand->id, $written, false),
+                        'url' => route('operator.brand', ['brand' => $brand->id])];
+                }
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -115,6 +164,7 @@ final class CalendarFeed
             'tasks' => $own->where('kind', 'task')->values()->all(),
             'meetings' => $own->where('kind', 'meeting')->values()->all(),
             'sales' => $this->sales($from, $to),
+            'sessions' => rescue(fn (): array => $this->sessions($from, $to), [], true),
             'brands' => $brands,
             'komuta' => $today ? $this->komuta() : null,
         ];

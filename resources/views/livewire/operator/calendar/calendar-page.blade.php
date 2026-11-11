@@ -21,7 +21,16 @@
     <header class="flex flex-wrap items-end justify-between gap-4">
         <div>
             <h1 class="page-title">Tak<span class="highlight">vim</span></h1>
-            <p class="page-sub">İşlerin, toplantıların, yazacağın adaylar ve markalarda yapılan her iş tek takvimde. Bir güne tıkla, o günün tamamı açılır.</p>
+            <p class="page-sub">Toplantıların, işlerin, yazacağın adaylar ve marka oturumların. Sistemin markalarda yaptığı işler günün köşesindeki noktanın arkasında; bir güne tıkla, o günün tamamı açılır.</p>
+            @php
+                $load = ['meeting' => 0, 'task' => 0, 'session' => 0];
+                foreach ($agenda as $cell) {
+                    foreach ($cell['own'] as $item) { if (! $item['done']) { $load[$item['kind'] === 'meeting' ? 'meeting' : 'task']++; } }
+                    foreach ($cell['sessions'] as $item) { if (! $item['done']) { $load['session']++; } }
+                }
+                $loadLine = implode(', ', array_filter([$load['meeting'] > 0 ? $load['meeting'].' toplantı' : null, $load['session'] > 0 ? $load['session'].' marka oturumu' : null, $load['task'] > 0 ? $load['task'].' iş' : null]));
+            @endphp
+            <p class="mt-1 text-sm text-gray-700 dark:text-gray-300" data-calendar-load>{{ $loadLine !== '' ? 'Önümüzdeki 7 gün: '.$loadLine.'.' : 'Önümüzdeki 7 gün boş.' }}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
             <button type="button" wire:click="showFeed" class="btn-quiet" data-calendar-feed-toggle>Google Takvim'e ekle</button>
@@ -133,16 +142,14 @@
                                 @if ($cell['sales'] !== [])
                                     <p class="truncate text-[12px] leading-snug text-gray-800 dark:text-gray-200">Satış: {{ count($cell['sales']) }} kişi</p>
                                 @endif
-                                @if ($isToday && $komutaToday)
-                                    <p class="truncate text-[12px] leading-snug text-gray-800 dark:text-gray-200">Komuta: {{ $komutaToday }} karar</p>
-                                @endif
-                                @if ($cell['work']['failed'] > 0)
-                                    <p class="truncate text-[11.5px] text-error-600">{{ $cell['work']['failed'] }} hata</p>
-                                @endif
-                                @if ($line)
-                                    <p class="truncate text-[11.5px] text-gray-500">{{ $line }}</p>
-                                @endif
+                                @foreach ($cell['sessions'] as $session)
+                                    <p class="truncate text-[12px] leading-snug {{ $session['done'] ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200' }}" data-calendar-session>Oturum: {{ $session['brand'] }}</p>
+                                @endforeach
                             </div>
+                            {{-- Günlük Düzen 2.2: what the system did that day is one small dot; the day window lists it. --}}
+                            @if ($line)
+                                <span class="absolute right-2 top-2.5 h-1.5 w-1.5 rounded-full {{ $cell['work']['failed'] > 0 ? 'bg-error-500' : 'bg-gray-300 dark:bg-gray-600' }}" title="{{ $line }}{{ $cell['work']['failed'] > 0 ? ' · '.$cell['work']['failed'].' hata' : '' }}" data-calendar-dot></span>
+                            @endif
                         </button>
                     @endforeach
                 </div>
@@ -159,10 +166,8 @@
                         @empty
                         @endforelse
                         @if ($cell['sales'] !== [])<p class="mt-1 text-[13px] text-gray-800 dark:text-gray-200">Satış: {{ count($cell['sales']) }} kişiye yazılacak</p>@endif
-                        @if ($date === $today && $komutaToday)<p class="mt-1 text-[13px] text-gray-800 dark:text-gray-200">Komuta: {{ $komutaToday }} karar</p>@endif
-                        @if ($cell['work']['failed'] > 0)<p class="mt-1 text-xs text-error-600">{{ $cell['work']['failed'] }} hata</p>@endif
-                        @if ($line)<p class="mt-1 text-xs text-gray-500">{{ $line }}</p>@endif
-                        @if ($cell['own'] === [] && $cell['sales'] === [] && ! $line)<p class="mt-1 text-xs text-gray-400">Boş</p>@endif
+                        @foreach ($cell['sessions'] as $session)<p class="mt-1 text-[13px] {{ $session['done'] ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200' }}">Oturum: {{ $session['brand'] }}</p>@endforeach
+                        @if ($cell['own'] === [] && $cell['sales'] === [] && $cell['sessions'] === [])<p class="mt-1 text-xs text-gray-400">Boş</p>@endif
                     </button>
                 @endforeach
             </section>
@@ -276,6 +281,20 @@
                             @endforelse
                         </ul>
                     </section>
+
+                    @if (($open['sessions'] ?? []) !== [])
+                        <section data-calendar-sessions>
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Marka oturumları</h3>
+                            <ul class="mt-2 space-y-1">
+                                @foreach ($open['sessions'] as $session)
+                                    <li class="flex items-center justify-between gap-2 px-1.5 py-1 text-[13px]">
+                                        <a href="{{ $session['url'] }}" wire:navigate class="truncate text-gray-800 hover:underline dark:text-gray-200">{{ $session['brand'] }}</a>
+                                        <span class="shrink-0 text-xs {{ $session['done'] ? 'text-success-600' : 'text-gray-500' }}">{{ $session['done'] ? 'yazıldı' : 'bu ayın oturumu' }}</span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </section>
+                    @endif
 
                     {{-- 3. The brands' work, one line per brand. --}}
                     <section data-calendar-brands>

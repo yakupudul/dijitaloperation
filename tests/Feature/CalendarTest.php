@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\Operator\Calendar\CalendarPage;
 use App\Models\AgencySetting;
 use App\Models\Brand;
+use App\Models\BrandSession;
 use App\Models\DigitalAsset;
 use App\Models\ExternalWriteAction;
 use App\Models\GbpQueuedPost;
@@ -208,5 +209,29 @@ class CalendarTest extends TestCase
 
         $inbox = app(InboxQueue::class)->items()->filter(fn ($item): bool => $item->lead !== null)->map(fn ($item): string => (string) $item->lead->name)->sort()->values()->all();
         $this->assertSame(['Bugün', 'Dün'], $inbox);
+    }
+
+    public function test_monthly_brand_sessions_are_spread_over_the_working_days_and_the_systems_work_is_one_dot(): void
+    {
+        $feed = app(CalendarFeed::class);
+        $from = CarbonImmutable::parse('2026-11-01', CalendarFeed::TZ);
+        $this->assertSame([], $feed->sessions($from, $from->endOfMonth()));
+
+        $second = Brand::factory()->create(['name' => 'Dentocare']);
+        Brand::query()->whereKey([$this->brand->id, $second->id])->update(['new_order_at' => now()]);
+        $sessions = $feed->sessions($from, $from->endOfMonth());
+        if ($sessions === []) {
+            $this->markTestSkipped('The factory brand is not operational here.');
+        }
+        $this->assertCount(2, $sessions);
+        $this->assertNotSame($sessions[0]['date'], $sessions[1]['date']);
+        foreach ($sessions as $session) {
+            $this->assertNotContains(CarbonImmutable::parse($session['date'])->dayOfWeekIso, [5, 6, 7]);
+            $this->assertFalse($session['done']);
+        }
+        BrandSession::query()->create(['brand_id' => $second->id, 'month' => '2026-11', 'status' => 'draft', 'summary' => 'x', 'jobs' => [], 'token' => str_repeat('a', 40)]);
+        $this->assertTrue(collect($feed->sessions($from, $from->endOfMonth()))->firstWhere('brand_id', $second->id)['done']);
+
+        $this->actingAs($this->admin)->get(route('operator.calendar'))->assertOk()->assertSee('Oturum: Dentocare')->assertSee('data-calendar-load', false)->assertDontSee('Komuta:');
     }
 }

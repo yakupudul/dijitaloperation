@@ -16,8 +16,10 @@ use App\Models\SalesLead;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\WorkBatch;
+use App\Services\Brand\Findings;
 use App\Services\Goals\BrandTargets;
 use App\Services\Goals\TargetImpact;
+use App\Services\Operator\Agenda;
 use App\Services\Operator\KomutaReader;
 use App\Services\Operator\PortfolioReader;
 use App\Services\Repair\RepairDesk;
@@ -280,5 +282,30 @@ final class KomutaTest extends SiteTestCase
         $rows->each(fn (Suggestion $s) => $s->fresh()->forceFill(['status' => Suggestion::OPEN])->save());
         Livewire::test(KomutaPage::class)->call('approveItem', 'gbpname:'.$this->brand->id)->assertSee('2 profilin adı düzeltilecek');
         $this->assertSame([Suggestion::APPROVED, Suggestion::APPROVED], $rows->map(fn (Suggestion $s): string => $s->fresh()->status)->all());
+    }
+
+    public function test_komuta_opens_with_the_one_list_of_the_day_and_says_when_it_is_done(): void
+    {
+        Livewire::test(KomutaPage::class)->assertSeeHtml('data-agenda-done')->assertSee('bugün bitti')->assertSeeHtml('data-komuta-more-toggle');
+
+        Reminder::query()->create(['user_id' => $this->admin->id, 'kind' => 'meeting', 'title' => 'Eyüp Bey ile görüşme', 'remind_at' => now()->addHours(2)]);
+        Reminder::query()->create(['user_id' => $this->admin->id, 'kind' => 'task', 'title' => 'Vergi levhasını gönder', 'remind_at' => null]);
+        Reminder::query()->create(['user_id' => $this->admin->id, 'kind' => 'task', 'title' => 'Bitmiş iş', 'done_at' => now()]);
+        app(Findings::class)->save($this->brand, ['title' => 'Bir bulgu', 'evidence' => '10 tık', 'area' => 'Web sitesi']);
+        app(Findings::class)->save($this->brand, ['title' => 'İkinci bulgu', 'evidence' => '20 tık', 'area' => 'Web sitesi']);
+
+        $agenda = app(Agenda::class)->today($this->admin->id);
+        $this->assertSame(['meeting', 'brand', 'task'], array_column($agenda['rows'], 'kind'));
+        $this->assertSame('2 bulgu çözülmeyi bekliyor', $agenda['rows'][1]['line']);
+        $this->assertSame('11:00', $agenda['rows'][0]['when']);
+
+        for ($i = 0; $i < 8; $i++) {
+            Reminder::query()->create(['user_id' => $this->admin->id, 'kind' => 'task', 'title' => 'İş '.$i, 'remind_at' => null]);
+        }
+        $agenda = app(Agenda::class)->today($this->admin->id);
+        $this->assertCount(7, $agenda['rows']);
+        $this->assertSame(4, $agenda['hidden']);
+
+        Livewire::test(KomutaPage::class)->assertSee('Eyüp Bey ile görüşme')->assertSee('11 satır')->assertSee('4 satır daha')->assertDontSee('Bitmiş iş')->assertDontSeeHtml('data-agenda-done');
     }
 }

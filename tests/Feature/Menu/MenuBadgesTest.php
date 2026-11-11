@@ -53,8 +53,8 @@ class MenuBadgesTest extends TestCase
         $this->assertStringContainsString('data-menu-count="4"', $html);
         $this->assertStringContainsString('data-menu-badge="dot"', $html);
         $this->assertStringContainsString('data-menu-pinned', $html);
-        $this->assertStringContainsString('data-ai-live-card', $html);
-        $this->assertStringContainsString('Claude hazır', $html);
+        $this->assertStringNotContainsString('data-ai-live-card', $html);
+        $this->assertStringContainsString('data-flow-light="ok"', $html);
         $this->assertSame(['Günüm', 'Moximu', 'Müşteri işleri', 'Kanallar', 'Sistem'], array_column(OperatorMenu::groups(), 'title'));
         $this->assertTrue(collect(OperatorMenu::groups())->last()['pinned']);
     }

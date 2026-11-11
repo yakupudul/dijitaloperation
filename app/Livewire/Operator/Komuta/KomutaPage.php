@@ -8,6 +8,7 @@ use App\Models\Suggestion;
 use App\Models\User;
 use App\Services\Gbp\GbpSuggestions;
 use App\Services\Goals\BrandTargets;
+use App\Services\Operator\Agenda;
 use App\Services\Operator\KomutaReader;
 use App\Services\Operator\TodayCockpitReader;
 use App\Services\Repair\RepairDesk;
@@ -132,7 +133,7 @@ final class KomutaPage extends Component
         $this->say($target->brand?->name.' için amaç onaylandı: ayda '.$target->fresh()->monthly_leads.' talep.');
     }
 
-    public function render(KomutaReader $komuta, TodayCockpitReader $cockpit): View
+    public function render(KomutaReader $komuta, TodayCockpitReader $cockpit, Agenda $agenda): View
     {
         $box = $komuta->box();
         $alarms = ['loss' => 0, 'items' => []];
@@ -145,6 +146,7 @@ final class KomutaPage extends Component
 
         return view('livewire.operator.komuta.komuta-page', [
             'box' => $box,
+            'agenda' => $agenda->today((int) auth()->id()),
             'elsewhere' => $komuta->elsewhere(),
             'loss' => collect($alarms['items'])->where('tone', 'critical')->values(),
             'portfolio' => $portfolio,
