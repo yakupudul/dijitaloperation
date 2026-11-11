@@ -6,6 +6,7 @@ use App\Enums\CustomerStatus;
 use App\Enums\DigitalAssetStatus;
 use App\Livewire\Operator\Portfolio\BrandPagePanel;
 use App\Livewire\Operator\Portfolio\BrandShow;
+use App\Models\Agreement;
 use App\Models\Brand;
 use App\Models\BrandOffering;
 use App\Models\CoreAssetBinding;
@@ -355,6 +356,27 @@ final class BrandOverviewTest extends TestCase
     }
 
     /** @return Collection<string, array<string, mixed>> the period numbers the channel cards show */
+    public function test_musteri_ayrildi_stops_the_work_ends_the_agreement_and_lists_the_accesses_to_give_back(): void
+    {
+        DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_ads']);
+        $agreement = Agreement::query()->create(['brand_id' => $this->brand->id, 'customer_id' => $this->brand->customer_id, 'kind' => 'monthly', 'status' => 'active', 'fee' => 14000, 'starts_on' => now()->subMonths(3)->toDateString()]);
+
+        $page = Livewire::withQueryParams(['tab' => 'ayarlar'])->test(BrandShow::class, ['brand' => (string) $this->brand->id])
+            ->assertSeeHtml('data-brand-leave-button')->assertSee('1 anlaşma bugün biter')->assertDontSeeHtml('data-brand-release');
+
+        $page->call('customerLeft')->assertSeeHtml('data-brand-back-button')->assertSeeHtml('data-brand-release')->assertSee('Google Ads')
+            ->assertDontSeeHtml('data-brand-stop-button')->assertSee('Ayrıldı');
+        $this->assertSame(CustomerStatus::Archived, $this->brand->customer->fresh()->status);
+        $this->assertFalse($this->brand->fresh()->isOperational());
+        $this->assertSame(0, Brand::query()->operational()->whereKey($this->brand->id)->count(), 'no scheduled work finds a departed brand');
+        $this->assertSame('ended', $agreement->fresh()->status);
+        $this->assertSame(now('Europe/Istanbul')->toDateString(), $agreement->fresh()->ends_on->toDateString());
+
+        $page->call('customerBack')->assertSeeHtml('data-brand-stop-button');
+        $this->assertSame(CustomerStatus::Active, $this->brand->customer->fresh()->status);
+        $this->assertSame('ended', $agreement->fresh()->status);
+    }
+
     public function test_marka_ayarlari_is_one_page_and_markayi_durdur_stops_and_starts_the_service(): void
     {
         Brand::factory()->create(['customer_id' => $this->brand->customer_id, 'name' => 'Panorama Kızılay']);

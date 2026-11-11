@@ -21,6 +21,7 @@ use App\Models\OperatorFile;
 use App\Models\ResourceAutomation;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Services\Access\Departure;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandJourney;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
@@ -176,6 +177,25 @@ class BrandShow extends Component
         DemoState::flash($start
             ? $brand->name.' yeniden başladı; durmuş veri çekme ve işler birkaç dakika içinde sürer.'
             : $brand->name.' durduruldu; otomatik iş, veri çekme, AI ve gönderim durdu. Hesaplar bağlı kaldı.');
+    }
+
+    /** Müşteri ayrılma akışı (Bağlantı Düzeni 4.4): one step; the customer is archived and its agreements end today. */
+    public function customerLeft(Departure $departure): void
+    {
+        $brand = Brand::query()->with('customer')->findOrFail((int) $this->brand);
+        abort_if($brand->customer === null, 404);
+        abort_unless(CustomersIndex::canToggle($brand->customer, auth()->user()), 403);
+        $ended = $departure->leave($brand->customer);
+        DemoState::flash($brand->customer->name.' ayrıldı olarak işaretlendi; otomatik iş, veri çekme ve gönderim durdu'.($ended > 0 ? ', '.$ended.' anlaşma bugün bitti' : '').'. Veriler duruyor.');
+    }
+
+    public function customerBack(Departure $departure): void
+    {
+        $brand = Brand::query()->with('customer')->findOrFail((int) $this->brand);
+        abort_if($brand->customer === null, 404);
+        abort_unless(CustomersIndex::canToggle($brand->customer, auth()->user()), 403);
+        $departure->comeBack($brand->customer);
+        DemoState::flash($brand->name.' yeniden başladı. Biten anlaşma kapalı kaldı; yeni dönem için yeni anlaşma yaz.');
     }
 
     /** Özet channel filter; the same channel again (or an unknown one) clears it. */
@@ -575,6 +595,7 @@ class BrandShow extends Component
                 'can' => $customer !== null && CustomersIndex::canToggle($customer, auth()->user()),
                 'siblings' => $customer === null ? [] : Brand::query()->where('customer_id', $customer->id)->whereKeyNot($brand->id)->orderBy('name')->pluck('name')->all(),
             ],
+            'leave' => app(Departure::class)->plan($brand),
             'services' => $services,
             'responsible' => $brand->responsibleUsers->pluck('name')->all(),
             'context' => $this->contextRows($brand, $context instanceof BrandIntelligenceContext ? $context : null),

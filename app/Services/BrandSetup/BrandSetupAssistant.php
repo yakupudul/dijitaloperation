@@ -85,7 +85,7 @@ final class BrandSetupAssistant
         return [];
     }
 
-    public function queue(Brand $brand, string $websiteUrl, ?User $actor): BrandSetupProposal
+    public function queue(Brand $brand, string $websiteUrl, ?User $actor, bool $auto = false): BrandSetupProposal
     {
         app(ServiceScope::class)->ensureBrandServed($brand, 'websiteUrl');
         $host = BrandSetupMatcher::host($websiteUrl);
@@ -107,6 +107,7 @@ final class BrandSetupAssistant
             'status' => BrandSetupProposal::STATUS_QUEUED,
             'website_url' => $websiteUrl,
             'created_by' => $actor?->id,
+            'summary' => $auto ? ['auto' => true] : null,
         ]);
         dispatch(new BuildBrandSetupProposalJob($proposal->id))->afterCommit();
 
@@ -125,13 +126,15 @@ final class BrandSetupAssistant
         $proposal->forceFill(['status' => BrandSetupProposal::STATUS_BUILDING])->save();
         try {
             $brand = $proposal->brand;
+            // Yeni marka sihirbazı: the proposal applies its own ticks when it is ready (QuickBrand::finish).
+            $auto = data_get($proposal->summary, 'auto') === true ? ['auto' => true] : [];
             self::step($proposal, 'accounts');
             $items = $this->matcher->propose($brand, (string) $proposal->website_url);
             self::step($proposal, 'services');
             $suggestion = $this->services->suggest($brand, (string) $proposal->website_url, $items);
             if ($suggestion['status'] === 'queued') {
                 // Waiting for Claude (MCP queue): the proposal stays "building" (not stuck); the job runs again with the answer.
-                $proposal->forceFill(['items' => $items, 'summary' => ['waiting' => 'claude']])->save();
+                $proposal->forceFill(['items' => $items, 'summary' => ['waiting' => 'claude'] + $auto])->save();
                 Cache::put(self::progressKey((int) $proposal->id), ['step' => 'services', 'at' => now()->toIso8601String()], now()->addDays(5));
 
                 return $proposal;
@@ -143,9 +146,10 @@ final class BrandSetupAssistant
                 'items' => $items,
                 'services' => $suggestion['services'],
                 'services_status' => $suggestion['status'],
-                'summary' => $summary,
+                'summary' => $summary + $auto,
             ])->save();
             Cache::forget(self::progressKey((int) $proposal->id));
+            app(QuickBrand::class)->finish($proposal);
         } catch (Throwable $exception) {
             $proposal->forceFill(['status' => BrandSetupProposal::STATUS_FAILED, 'error_summary' => mb_substr($exception->getMessage(), 0, 500)])->save();
 

@@ -90,6 +90,41 @@
             $channels = \App\Services\DataStatus\ConnectionMap::CHANNELS;
             $dot = ['ok' => 'bg-success-500', 'warn' => 'bg-warning-500', 'bad' => 'bg-error-500', 'muted' => 'bg-gray-300 dark:bg-gray-600'];
         @endphp
+        {{-- Yeni marka sihirbazı (Bağlantı Düzeni 4.3): the domain is enough. --}}
+        <section data-new-brand>
+            <div class="section-head"><h2 class="section-title">Yeni marka</h2></div>
+            <div class="card">
+                <form wire:submit="newBrand" class="flex flex-wrap items-end gap-3 p-5">
+                    <label class="min-w-[220px] flex-1">
+                        <span class="mb-1 block text-[13px] text-gray-500">Alan adı</span>
+                        <input type="text" wire:model="newDomain" placeholder="ornek.com.tr" autocomplete="off" class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    </label>
+                    <label class="min-w-[180px] flex-1">
+                        <span class="mb-1 block text-[13px] text-gray-500">Marka adı (boş kalırsa alan adından)</span>
+                        <input type="text" wire:model="newName" autocomplete="off" class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:border-gray-900 focus:ring-0 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    </label>
+                    <button type="submit" class="btn-dark" wire:loading.attr="disabled" wire:target="newBrand" data-new-brand-button>Markayı kur</button>
+                    <p class="basis-full text-[13px] text-gray-500">Bağlı hesaplarda bu alan adıyla eşleşenler kendiliğinden bağlanır. Bulunamayan kanallar için erişim bağlantısı hazırlanır; müşteriye sen gönderirsin.</p>
+                    @error('domain')<p class="basis-full text-[13px] text-error-600" data-new-brand-error>{{ $message }}</p>@enderror
+                </form>
+                @if ($wizard !== [])
+                    <ul class="divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/10 dark:border-white/10" data-new-brand-rows @if (collect($wizard)->contains('state', 'wait')) wire:poll.10s @endif>
+                        @foreach ($wizard as $w)
+                            <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
+                                <span @class(['h-2 w-2 shrink-0 rounded-full', 'bg-success-500' => $w['state'] === 'done', 'bg-warning-500' => $w['state'] === 'wait', 'bg-error-500' => $w['state'] === 'bad'])></span>
+                                <a href="{{ route('operator.brand', ['brand' => $w['brand_id']]) }}" wire:navigate class="text-sm font-medium text-gray-900 hover:underline dark:text-white">{{ $w['brand'] }}</a>
+                                <span class="min-w-0 flex-1 text-[13px] text-gray-500">{{ $w['line'] }}</span>
+                                @if ($w['link'])
+                                    <button type="button" wire:click="$set('accessBrand', {{ $w['brand_id'] }})" class="link-neutral text-[13px]">Erişim bağlantısı</button>
+                                @endif
+                                <a href="{{ route('operator.brand.setup', ['brand' => $w['brand_id']]) }}" wire:navigate class="link-neutral text-[13px]">Otomatik kur</a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
+        </section>
+
         <section data-connection-map x-data="{ open: null }">
             <div class="section-head items-center">
                 <h2 class="section-title">{{ $mapBrands }} marka, {{ count($channels) }} kanal</h2>

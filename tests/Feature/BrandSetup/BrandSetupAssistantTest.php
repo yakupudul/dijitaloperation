@@ -4,7 +4,10 @@ namespace Tests\Feature\BrandSetup;
 
 use App\Ai\Agents\BrandSetupAgent;
 use App\Jobs\Site\RunSiteOperationJob;
+use App\Livewire\Operator\Integrations\ConnectionHealthPage;
 use App\Livewire\Operator\Portfolio\BrandSetupPage;
+use App\Models\AccessLink;
+use App\Models\AgencySetting;
 use App\Models\AiTask;
 use App\Models\Brand;
 use App\Models\BrandOffering;
@@ -18,6 +21,7 @@ use App\Models\DigitalAsset;
 use App\Models\ServiceCatalogItem;
 use App\Models\ServiceCategory;
 use App\Models\User;
+use App\Services\Access\AccessLinks;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\BrandIntelligence\BrandOfferingService;
 use App\Services\BrandSetup\BrandSetupAssistant;
@@ -100,6 +104,32 @@ final class BrandSetupAssistantTest extends TestCase
         $this->assertCount(1, $ads, 'manager and unrelated accounts are not proposed');
         $this->assertTrue($ads->first()['selected'], 'account name contains the domain root');
         $this->assertSame(0, $items->where('capability', 'search_console')->where('selected', true)->count() - 1, 'only one Search Console property ticked');
+    }
+
+    public function test_yeni_marka_sihirbazi_opens_the_brand_links_what_it_found_and_prepares_the_access_link(): void
+    {
+        $this->resources();
+        AgencySetting::query()->firstOrCreate([], ['agency_name' => 'Moximu']);
+        app(AccessLinks::class)->saveIdentities('ajans@example.com', '123456789012345');
+        BrandSetupAgent::fake([['brand_summary' => 'Diş kliniği.', 'sector_code' => 'saglik', 'services' => [], 'prompt_version' => BrandSetupAgent::PROMPT_VERSION]]);
+
+        $page = Livewire::test(ConnectionHealthPage::class)->set('view', 'harita')
+            ->set('newDomain', 'yok')->call('newBrand')->assertSeeHtml('data-new-brand-error');
+        $this->assertSame(1, Brand::query()->count());
+
+        $page->set('newDomain', 'www.adadent.com.tr')->call('newBrand')->assertSee('Adadent açıldı')->assertSeeHtml('data-new-brand-rows');
+        $brand = Brand::query()->latest('id')->firstOrFail();
+        $this->assertSame('Adadent', $brand->name);
+        $this->assertTrue($brand->isOperational());
+        $proposal = BrandSetupProposal::query()->where('brand_id', $brand->id)->firstOrFail();
+        $this->assertSame(BrandSetupProposal::STATUS_APPLIED, $proposal->status, (string) $proposal->error_summary);
+        $website = DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->firstOrFail();
+        $this->assertTrue(CoreAssetBinding::query()->where('digital_asset_id', $website->id)->where('status', CoreAssetBinding::STATUS_ACTIVE)->exists(), 'the domain match is linked without a second screen');
+        $link = AccessLink::query()->where('brand_id', $brand->id)->firstOrFail();
+        $this->assertContains('meta_ads', $link->asked, 'no Meta account was found: asked from the customer');
+        $this->assertNotContains('search_console', $link->asked);
+
+        $page->set('newDomain', 'adadent.com.tr')->call('newBrand')->assertSee('zaten Adadent markasında');
     }
 
     public function test_full_flow_builds_proposal_and_one_click_approval_applies_it(): void

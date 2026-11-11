@@ -23,7 +23,7 @@
                         @if ($operational)
                             <x-ta.pill tone="ok" data-brand-state="active">Aktif</x-ta.pill>
                         @else
-                            <x-ta.pill tone="info" data-brand-state="passive" title="{{ \App\Support\ServiceScope::NOT_SERVED }}">Pasif</x-ta.pill>
+                            <x-ta.pill tone="info" data-brand-state="passive" title="{{ \App\Support\ServiceScope::NOT_SERVED }}">{{ $brandModel->customer?->status === \App\Enums\CustomerStatus::Archived ? 'Ayrıldı' : 'Pasif' }}</x-ta.pill>
                         @endif
                     </div>
                     <p class="page-sub flex flex-wrap items-baseline gap-x-3 gap-y-0.5 break-words">
@@ -114,6 +114,7 @@
             </section>
 
             {{-- Markayı durdur: the customer goes passive (service runs per customer); accounts stay bound. --}}
+            @if (! $leave['left'])
             <section data-brand-stop>
                 <div class="section-head"><h2 class="section-title">{{ $stop['running'] ? 'Markayı durdur' : 'Marka durduruldu' }}</h2></div>
                 <div class="card flex flex-wrap items-center gap-4 p-5">
@@ -133,6 +134,49 @@
                         @else
                             <button type="button" wire:click="toggleService" class="btn-dark" data-brand-start-button>Yeniden başlat</button>
                         @endif
+                    @endif
+                </div>
+            </section>
+            @endif
+
+            {{-- Müşteri ayrıldı (Bağlantı Düzeni 4.4): one step; work stops, agreements end, the accesses to give back are listed. --}}
+            <section data-brand-leave>
+                <div class="section-head"><h2 class="section-title">{{ $leave['left'] ? 'Müşteri ayrıldı' : 'Müşteri ayrılıyorsa' }}</h2></div>
+                <div class="card">
+                    <div class="flex flex-wrap items-center gap-4 p-5">
+                        <div class="min-w-0 flex-1">
+                            @if ($leave['left'])
+                                <p class="text-sm text-gray-900 dark:text-white">Bu müşteri için otomatik iş, veri çekme, AI ve gönderim çalışmıyor; anlaşması kapandı. Veriler ve geçmiş duruyor.</p>
+                            @else
+                                <p class="text-sm text-gray-900 dark:text-white">Tek adımda: otomatik işler durur, {{ $leave['agreements'] > 0 ? $leave['agreements'].' anlaşma bugün biter' : 'açık anlaşma yok' }}, bırakılacak erişimler listelenir. Hiçbir veri silinmez.</p>
+                            @endif
+                            @if (count($leave['brands']) > 1)
+                                <p class="mt-1 text-[13px] text-gray-500">Müşterinin markaları birlikte: {{ implode(', ', $leave['brands']) }}.</p>
+                            @endif
+                        </div>
+                        @if ($stop['can'])
+                            @if ($leave['left'])
+                                <button type="button" wire:click="customerBack" class="btn" data-brand-back-button>Geri al</button>
+                            @else
+                                <button type="button" wire:click="customerLeft" wire:confirm="{{ $brandModel->customer?->name }} ayrıldı olarak işaretlensin mi? Otomatik işler durur, anlaşma bugün biter. Veriler silinmez." class="btn" data-brand-leave-button>Müşteri ayrıldı</button>
+                            @endif
+                        @endif
+                    </div>
+                    @if ($leave['left'] && $leave['release'] !== [])
+                        <div class="border-t border-gray-100 px-5 py-3 text-[13px] font-medium text-gray-900 dark:border-white/10 dark:text-white">Bırakılacak erişimler</div>
+                        <ul class="divide-y divide-gray-100 dark:divide-white/10" data-brand-release>
+                            @foreach ($leave['release'] as $r)
+                                <li class="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="text-sm text-gray-900 dark:text-white">{{ $r['name'] }}@if (count($leave['brands']) > 1) <span class="text-gray-500">({{ $r['brand'] }})</span>@endif</p>
+                                        <p class="text-[13px] text-gray-500">{{ $r['how'] }}</p>
+                                    </div>
+                                    @if ($r['where'])
+                                        <a href="{{ $r['where'] }}" target="_blank" rel="noopener" class="link-neutral text-[13px]">Aç</a>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
                     @endif
                 </div>
             </section>

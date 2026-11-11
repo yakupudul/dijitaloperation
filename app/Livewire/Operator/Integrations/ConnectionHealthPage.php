@@ -3,7 +3,10 @@
 namespace App\Livewire\Operator\Integrations;
 
 use App\Livewire\Concerns\AdminOnly;
+use App\Models\AccessLink;
 use App\Models\Brand;
+use App\Models\BrandSetupProposal;
+use App\Services\BrandSetup\QuickBrand;
 use App\Services\DataStatus\ConnectionHealth;
 use App\Services\DataStatus\ConnectionMap;
 use App\Services\DataStatus\ProviderWatch;
@@ -38,6 +41,46 @@ final class ConnectionHealthPage extends Component
     /** Harita: the brand whose access link panel is open (Bağlantı Düzeni 4.1). */
     public ?int $accessBrand = null;
 
+    /** Harita › Yeni marka (Bağlantı Düzeni 4.3): the domain, and a name only when the domain does not say it. */
+    public string $newDomain = '';
+
+    public string $newName = '';
+
+    public function newBrand(QuickBrand $quick): void
+    {
+        $this->adminOnly();
+        $brand = $quick->start($this->newDomain, $this->newName, auth()->user());
+        $this->reset('newDomain', 'newName');
+        $this->message = $brand->name.' açıldı. Hesaplar taranıyor; bulunanlar kendiliğinden bağlanır, eksikler için erişim bağlantısı hazırlanır.';
+    }
+
+    /**
+     * The wizard's brands of the last three days and where each stands.
+     *
+     * @return list<array{brand_id: int, brand: string, state: string, line: string, link: bool}>
+     */
+    private function wizard(): array
+    {
+        $links = AccessLink::query()->pluck('asked', 'brand_id');
+
+        return BrandSetupProposal::query()->with('brand:id,name')->where('summary->auto', true)->where('created_at', '>=', now()->subDays(3))->orderByDesc('id')->limit(5)->get()
+            ->filter(fn (BrandSetupProposal $p): bool => $p->brand !== null)
+            ->map(function (BrandSetupProposal $p) use ($links): array {
+                $done = count(array_filter((array) $p->apply_result, fn ($r): bool => (bool) ($r['ok'] ?? false)));
+                $asked = count((array) ($links[$p->brand_id] ?? []));
+
+                return ['brand_id' => (int) $p->brand_id, 'brand' => (string) $p->brand->name, 'link' => $asked > 0,
+                    'state' => match (true) {
+                        $p->isPending() => 'wait', $p->status === BrandSetupProposal::STATUS_APPLIED => 'done', default => 'bad'
+                    },
+                    'line' => match (true) {
+                        $p->isPending() => 'Hesaplar taranıyor',
+                        $p->status === BrandSetupProposal::STATUS_APPLIED => $done.' adım uygulandı'.($asked > 0 ? ', '.$asked.' kanal için erişim bağlantısı hazır' : ''),
+                        default => 'Tarama tamamlanamadı; marka sayfasındaki Otomatik kur ile yeniden dene',
+                    }];
+            })->values()->all();
+    }
+
     public function repairNow(ConnectionHealth $health): void
     {
         $done = $health->repair(auth()->user(), manual: true);
@@ -63,6 +106,7 @@ final class ConnectionHealthPage extends Component
             'map' => $this->onlyGaps ? array_values(array_filter($map, fn (array $row): bool => in_array($row['worst'], ['warn', 'bad'], true))) : $map,
             'mapTotals' => ConnectionMap::totals($map),
             'mapBrands' => count($map),
+            'wizard' => $this->view === 'harita' ? $this->wizard() : [],
             'levelBrands' => $this->view === 'yetkiler' ? Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'logo_url', 'write_levels', 'created_at']) : collect(),
             'watch' => $watch = app(ProviderWatch::class)->rows(),
             'watchDue' => count(array_filter($watch, fn (array $row): bool => in_array($row['tone'], ['warn', 'bad'], true))),
