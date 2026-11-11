@@ -22,9 +22,9 @@ use App\Services\Sales\ReferralRewards;
 use App\Services\Sales\SalesBrain;
 use App\Services\Sales\SalesLeads;
 use App\Services\Sales\SalesMonthReport;
-use App\Services\Sales\SalesTidy;
 use App\Services\Sales\SalesReplyWriter;
 use App\Services\Sales\SalesShare;
+use App\Services\Sales\SalesTidy;
 use App\Services\Sales\StandingRules;
 use App\Support\Roles;
 use App\Support\WhatsApp\MessageText;
@@ -517,7 +517,7 @@ final class SalesPage extends Component
         $offers = SalesLead::query()->open()->relevant()->realOffers();
 
         return ['rows' => $rows, 'strip' => [
-            'mrr' => $agreements->mrr(), 'offers' => (int) (clone $offers)->sum('offer_amount'), 'won_month' => $agreements->wonThisMonth(),
+            'mrr' => $agreements->mrr(), 'offers' => (int) (clone $offers)->sum('offer_amount'), 'won_month' => $agreements->wonThisMonth(), 'won_split' => $agreements->wonThisMonthSplit(),
             'overdue' => $overdueCount, 'overdue_sum' => $overdueSum,
         ]];
     }

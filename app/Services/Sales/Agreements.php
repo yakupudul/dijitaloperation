@@ -185,6 +185,19 @@ final class Agreements
     }
 
     /**
+     * Satış Düzeni 1.9: this month's wins split by how they are paid, so a one-time job is never read as monthly income.
+     *
+     * @return array{monthly: int, one_time: int}
+     */
+    public function wonThisMonthSplit(): array
+    {
+        $from = CarbonImmutable::now(self::TZ)->startOfMonth()->utc();
+        $won = fn () => SalesOpportunity::query()->where('status', 'won')->where('won_at', '>=', $from);
+
+        return ['monthly' => (int) $won()->whereIn('billing', ['monthly', 'term'])->sum('amount'), 'one_time' => (int) $won()->whereNotIn('billing', ['monthly', 'term'])->sum('amount')];
+    }
+
+    /**
      * What a brand's card shows: the active agreement, the last months' ticks, what is late, what ends soon.
      *
      * @return array{agreement: ?Agreement, payments: Collection<int, AgreementPayment>, one_time: Collection<int, Agreement>, overdue: int, late_days: int, next_due: ?CarbonImmutable, risks: list<array{key: string, label: string}>}

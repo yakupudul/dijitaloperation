@@ -128,7 +128,7 @@
                     <div class="hero-panel mt-3 grid-cols-2 lg:grid-cols-4" data-sales-customer-strip>
                         <div class="hero-tile hero-tile-accent"><span class="hero-label">Aylık gelir</span><span class="hero-value">{{ $n($customerStrip['mrr']) }} ₺</span><span class="mt-2 text-xs opacity-75">{{ $n(count($customerRows)) }} marka</span></div>
                         <div class="hero-tile"><span class="hero-label">Teklifte</span><span class="hero-value">{{ $n($customerStrip['offers']) }} ₺</span><span class="mt-2 text-xs text-white/60">aylık, karar bekliyor</span></div>
-                        <div class="hero-tile"><span class="hero-label">Bu ay kazanılan</span><span class="hero-value">{{ $n($customerStrip['won_month']) }} ₺</span><span class="mt-2 text-xs text-white/60">kazanılan fırsatlar</span></div>
+                        <div class="hero-tile" data-sales-won-tile><span class="hero-label">Bu ay eklenen aylık gelir</span><span class="hero-value">{{ $n($customerStrip['won_split']['monthly']) }} ₺</span><span class="mt-2 text-xs text-white/60">{{ $customerStrip['won_split']['one_time'] > 0 ? 'ayrıca '.$n($customerStrip['won_split']['one_time']).' ₺ tek seferlik iş' : 'bu ay kazanılan aylık işler' }}</span></div>
                         <div class="hero-tile" data-sales-overdue-tile><span class="hero-label">Gecikmiş tahsilat</span><span class="hero-value">{{ $customerStrip['overdue'] > 0 ? $n($customerStrip['overdue_sum']).' ₺' : '—' }}</span><span class="mt-2 text-xs text-white/60">{{ $customerStrip['overdue'] > 0 ? $customerStrip['overdue'].' ay gecikmiş' : 'geciken ödeme yok' }}</span></div>
                     </div>
                 @endif
