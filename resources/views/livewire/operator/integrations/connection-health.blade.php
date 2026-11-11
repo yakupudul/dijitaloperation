@@ -119,6 +119,13 @@
                                 @endif
                             </div>
                         @endforeach
+                        @if ($accessBrand === $row['brand_id'] || collect($row['cells'])->except('site')->contains(fn (array $c): bool => $c['tone'] !== 'ok'))
+                            @if ($accessBrand === $row['brand_id'])
+                                <livewire:operator.integrations.access-link-panel :brand-id="$row['brand_id']" :key="'access-'.$row['brand_id']" />
+                            @else
+                                <button type="button" wire:click="$set('accessBrand', {{ $row['brand_id'] }})" class="mt-2 text-[12px] text-gray-500 underline decoration-gray-300 underline-offset-2 hover:text-gray-900 dark:hover:text-white" data-access-link-open>Müşteriden erişim iste</button>
+                            @endif
+                        @endif
                     </div>
                 @empty
                     <x-ta.empty-state size="sm" title="Sorunlu marka yok" message="Her markanın bütün kanalları çalışıyor." />

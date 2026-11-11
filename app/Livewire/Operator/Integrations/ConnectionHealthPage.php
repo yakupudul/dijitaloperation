@@ -34,6 +34,9 @@ final class ConnectionHealthPage extends Component
     #[Url(as: 'sorunlu')]
     public bool $onlyGaps = false;
 
+    /** Harita: the brand whose access link panel is open (Bağlantı Düzeni 4.1). */
+    public ?int $accessBrand = null;
+
     public function repairNow(ConnectionHealth $health): void
     {
         $done = $health->repair(auth()->user(), manual: true);

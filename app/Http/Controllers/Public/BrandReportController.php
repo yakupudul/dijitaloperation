@@ -19,6 +19,6 @@ final class BrandReportController extends Controller
         abort_unless(preg_match('/^[A-Za-z0-9]{48}$/', $token) === 1, 404);
         $session = BrandSession::query()->with('brand:id,name')->where('token', $token)->firstOrFail();
 
-        return view('public.brand-report', ['session' => $session, 'agency' => (string) (AgencySetting::query()->value('agency_name') ?: 'Moximu')]);
+        return view('public.brand-report', ['session' => $session, 'agency' => str_contains(mb_strtolower($name = (string) AgencySetting::query()->value('agency_name')), 'moxdop') || $name === '' ? 'Moximu' : $name]);
     }
 }
