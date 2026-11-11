@@ -161,12 +161,17 @@ final class SalesReplyWriter
         $now = CarbonImmutable::now('Europe/Istanbul')->locale('tr');
         $conversation = [];
         $quoted = [];
+        $analysisSentAt = null;
         foreach (app(SalesLeads::class)->timeline($lead, 120)->reverse()->values() as $row) {
             if (! in_array($row['kind'], ['message_in', 'message_out'], true) || trim($row['body']) === '') {
                 continue;
             }
             $conversation[] = ['dir' => $row['kind'] === 'message_in' ? 'in' : 'out', 'at' => $row['at']->timezone('Europe/Istanbul')->format('d.m.Y H:i'),
                 'text' => mb_substr($row['body'], 0, 3000)];
+            // Our own message that already carried the analysis ("…inceledik" or numbered bold findings).
+            if ($row['kind'] === 'message_out' && (preg_match('/inceledi[km]/iu', $row['body']) === 1 || preg_match_all('/^\s*\d+[.)]\s*\*/mu', $row['body']) >= 2)) {
+                $analysisSentAt = $row['at']->timezone('Europe/Istanbul')->format('d.m.Y H:i');
+            }
             if ($row['kind'] === 'message_out' && preg_match_all('/\d{1,3}(?:[.\s]\d{3})+\s*(?:TL|₺)/iu', $row['body'], $m)) {
                 array_push($quoted, ...$m[0]);
             }
@@ -209,6 +214,11 @@ final class SalesReplyWriter
             'quoted_prices' => array_values(array_unique($quoted)),
             // Yeni aday araştırması: what Claude found on the web (site, Instagram, Google harita kaydı).
             'research' => $lead->research_status === 'ready' ? $lead->research : null,
+            // Satış Düzeni 1.2: what the draft must not contradict. An analysis already sent means we know who they are;
+            // an unsure research is said to the operator first.
+            'analysis_sent_at' => $analysisSentAt,
+            'research_unsure' => $lead->research_status === 'ready' && data_get($lead->research, 'confidence') === 'low'
+                ? (filled($lead->research_note) ? (string) $lead->research_note : 'Araştırma bu kişinin hangi işletme olduğundan emin değil.') : null,
             'site_scan' => $lead->site_scan ?? null,
             'findings' => array_values(array_filter((array) ($lead->findings ?? []), 'is_array')),
             'site_read' => $lead->website_host === null ? 'no_site' : ($lead->findings_status === 'failed' ? 'could_not_read' : ($lead->findings_status === 'ready' ? 'read' : 'not_yet')),

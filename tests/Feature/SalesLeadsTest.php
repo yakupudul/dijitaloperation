@@ -496,4 +496,25 @@ class SalesLeadsTest extends TestCase
         $component->call('revokePhoneSync', $line->id)->assertHasNoErrors();
         $this->assertFalse(app(PhoneBackupSync::class)->enabled($line->fresh()));
     }
+
+    public function test_the_draft_is_told_when_the_analysis_was_already_sent_and_when_the_research_is_unsure(): void
+    {
+        $this->actingAs($this->admin);
+        $leads = app(SalesLeads::class);
+        $lead = $leads->quickAdd(['name' => 'Savaş Kapçak', 'phone' => '0533 500 03 77'], $this->admin);
+        $payload = app(SalesReplyWriter::class)->payload($lead->fresh());
+        $this->assertNull($payload['analysis_sent_at']);
+        $this->assertNull($payload['research_unsure']);
+
+        $leads->event($lead, 'message_out', "Savaş Bey merhaba, web sitenizi ve Google harita kaydınızı inceledik.\n1. *Site tek sayfa:* ...\n2. *Harita kaydı eksik:* ...", now()->subDay());
+        $leads->event($lead, 'message_in', 'Teşekkürler, bakacağım.', now()->subHours(2));
+        $lead->forceFill(['research_status' => 'ready', 'research' => ['confidence' => 'low', 'note' => 'İki ayrı işletme çıktı.'], 'research_note' => 'Claude emin değil: iki ayrı işletme çıktı.'])->save();
+
+        $payload = app(SalesReplyWriter::class)->payload($lead->fresh());
+        $this->assertNotNull($payload['analysis_sent_at']);
+        $this->assertSame('Claude emin değil: iki ayrı işletme çıktı.', $payload['research_unsure']);
+        $prompt = (string) file_get_contents(resource_path('prompts/sales-reply.md'));
+        $this->assertStringContainsString('analysis_sent_at doluysa', $prompt);
+        $this->assertStringContainsString('research_unsure doluysa', $prompt);
+    }
 }
