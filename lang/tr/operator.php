@@ -158,7 +158,7 @@ return [
     'notifications' => [
         'title' => 'Bildirimler',
         'unread' => 'okunmamış',
-        'empty' => 'Henüz bildirim yok. Kritik bulgular, görevler ve entegrasyon sorunları burada görünür.',
+        'empty' => 'Açık iş yok. Çözülmemiş bir uyarı ya da yeni bir haber olduğunda burada görünür.',
         'mark_all' => 'Tümünü okundu işaretle',
         'mark_read' => 'Okundu işaretle',
         'preferences' => 'Bildirim tercihleri',

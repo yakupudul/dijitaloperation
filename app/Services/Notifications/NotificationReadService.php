@@ -46,6 +46,41 @@ final class NotificationReadService
             ->all();
     }
 
+    /** An unread note older than this is no longer open work; it leaves the bell by itself. */
+    public const int NOTE_DAYS = 7;
+
+    /**
+     * Kendini temizleyen zil (Günlük Düzen 3.3): only what is still open. A system alert stays while its condition is
+     * active, read or not, and leaves when it is resolved; any other note stays until it is opened, a week at most.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function open(User $user, int $limit = 8): array
+    {
+        $rows = $this->openQuery($user)->with(['domainEvent', 'brand:id,name', 'customer:id,name'])->orderByDesc('created_at')->orderByDesc('id')->limit(max(1, $limit) * 6)->get();
+
+        return $this->oneRowPerAlert($rows)->take($limit)->map(fn (UserNotification $row): array => $this->toPresentation($row))->values()->all();
+    }
+
+    /** The bell's number: open notes plus active alert conditions, each once. */
+    public function openCount(User $user): int
+    {
+        $others = (int) $this->openQuery($user)->where('subject_kind', '!=', self::ALERT)->count();
+        $alerts = (int) $this->openQuery($user)->where('subject_kind', self::ALERT)
+            ->whereIn('subject_id', OperationalAlert::query()->whereIn('state', self::ACTIVE_ALERT_STATES)->select('id'))
+            ->distinct()->count('subject_id');
+
+        return $others + $alerts;
+    }
+
+    /** @return Builder<UserNotification> */
+    private function openQuery(User $user): Builder
+    {
+        return $this->inServiceScope(UserNotification::query())->where('recipient_user_id', $user->id)->whereNull('archived_at')
+            ->where(fn (Builder $q) => $q->where('subject_kind', self::ALERT)
+                ->orWhere(fn (Builder $note) => $note->whereNull('read_at')->where('created_at', '>=', now()->subDays(self::NOTE_DAYS))));
+    }
+
     /**
      * Unread rows; a system alert counts once however many rows it has, and not at all once it is resolved.
      */

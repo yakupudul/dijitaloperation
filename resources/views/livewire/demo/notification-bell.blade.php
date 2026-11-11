@@ -22,9 +22,7 @@
     >
         <div class="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-800">
             <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ __('operator.notifications.title') }}</p>
-            @if ($unreadCount > 0)
-                <button type="button" wire:click="markAllRead" class="link-neutral text-xs">{{ __('operator.notifications.mark_all') }}</button>
-            @endif
+            <span class="text-xs text-gray-500" data-bell-open>{{ $unreadCount > 0 ? $unreadCount.' açık' : '' }}</span>
         </div>
         @if ($notice !== '')
             <p class="border-b border-gray-200 px-4 py-2 text-xs text-gray-600 dark:border-gray-800 dark:text-gray-300">{{ $notice }}</p>
@@ -32,8 +30,7 @@
         <ul class="max-h-[28rem] divide-y divide-gray-200 overflow-y-auto dark:divide-gray-800">
             @if (count($items) > 0)
                 @foreach ($items as $item)
-                    <li class="relative px-4 py-3 text-sm {{ ! empty($item['is_unread']) ? 'bg-gray-50 dark:bg-white/[0.03]' : '' }}">
-                        @if (! empty($item['is_unread']))<span class="absolute left-1.5 top-[1.15rem] h-1.5 w-1.5 rounded-full bg-gray-900 dark:bg-white" aria-hidden="true"></span>@endif
+                    <li class="relative px-4 py-3 text-sm" data-bell-row>
                         @if (! empty($item['url']))
                             <a href="{{ $item['url'] }}" wire:click.prevent="openNotification('{{ $item['id'] }}')" class="font-medium text-gray-900 hover:underline dark:text-white">{{ $item['title'] ?? __('operator.notifications.item') }}</a>
                         @else
@@ -55,8 +52,9 @@
                             </div>
                         @endif
                         <p class="mt-1 text-xs text-gray-500">{{ $item['when'] ?? '' }}@if (($item['repeat_label'] ?? '') !== '') <span class="ml-1 text-warning-700 dark:text-warning-400">{{ $item['repeat_label'] }}</span>@endif</p>
-                        @if (! empty($item['is_unread']))
-                            <button type="button" wire:click="markRead('{{ $item['id'] }}')" class="link-neutral mt-2 text-xs">{{ __('operator.notifications.mark_read') }}</button>
+                        {{-- Günlük Düzen 3.3: no "Okundu". An alert leaves when it is resolved, a note when it is opened; a note with nowhere to open closes here. --}}
+                        @if (empty($item['url']) && ($item['subject_kind'] ?? '') !== 'operational_alert')
+                            <button type="button" wire:click="markRead('{{ $item['id'] }}')" class="link-neutral mt-2 text-xs" data-bell-close>Kapat</button>
                         @endif
                     </li>
                 @endforeach

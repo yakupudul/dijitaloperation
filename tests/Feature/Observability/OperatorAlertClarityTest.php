@@ -178,9 +178,14 @@ final class OperatorAlertClarityTest extends TestCase
         // Read, resolved, back within the quiet period: same row, updated, stays read.
         $row = UserNotification::query()->sole();
         $row->forceFill(['read_at' => now()])->save();
+        // Kendini temizleyen zil (Günlük Düzen 3.3): a read alert stays in the bell while its condition is active.
+        $this->assertSame(1, $reads->openCount($this->admin));
+        $this->assertCount(1, $reads->open($this->admin));
         $lifecycle = app(OperationalAlertLifecycleService::class);
         $lifecycle->resolveIfActive('worker_heartbeat_missing', 'SYSTEM', 'dataset:stale');
         $this->assertSame([], $reads->forUser($this->admin), 'a resolved condition leaves the bell');
+        $this->assertSame(0, $reads->openCount($this->admin));
+        $this->assertSame([], $reads->open($this->admin));
         $this->travel(3)->hours();
         $this->observe('worker_heartbeat_missing', 'dataset:stale', ['stale_or_blocked_count' => 3]);
         $this->assertSame(1, UserNotification::query()->whereNull('archived_at')->count());

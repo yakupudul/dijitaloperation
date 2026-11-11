@@ -223,6 +223,13 @@ class ActivityNotificationServicesTest extends TestCase
         ]);
         $this->assertNotSame($event->id, $second->id);
         $this->assertSame(1, $reads->unreadCount($this->assignee));
+        // Kendini temizleyen zil (Günlük Düzen 3.3): only the note not opened yet is in the bell, and a week at most.
+        $this->assertSame(1, $reads->openCount($this->assignee));
+        $this->assertSame([$second->id], array_column($reads->open($this->assignee), 'domain_event_id'));
+        $this->travel(8)->days();
+        $this->assertSame(0, $reads->openCount($this->assignee));
+        $this->assertSame([], $reads->open($this->assignee));
+        $this->travelBack();
 
         $marked = $ui->markAllRead($this->assignee);
         $this->assertTrue($marked['ok']);

@@ -157,8 +157,9 @@ class NotificationBell extends Component
         $reads = app(NotificationReadService::class);
 
         return view('livewire.demo.notification-bell', [
-            'unreadCount' => $reads->unreadCount($user),
-            'items' => array_map(fn (array $item): array => self::present($item), $reads->forUser($user, unreadOnly: false, limit: 8)),
+            // Günlük Düzen 3.3: the bell holds only what is still open, and its number is that count.
+            'unreadCount' => $reads->openCount($user),
+            'items' => array_map(fn (array $item): array => self::present($item), $reads->open($user, 8)),
             'demoItems' => [],
         ]);
     }
