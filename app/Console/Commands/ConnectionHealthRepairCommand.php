@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Services\Assistant\PushNotifier;
 use App\Services\DataStatus\ConnectionHealth;
+use App\Services\DataStatus\ProviderWatch;
 use App\Support\Roles;
 use Illuminate\Console\Command;
 
@@ -17,7 +19,7 @@ final class ConnectionHealthRepairCommand extends Command
 
     protected $description = 'Restart collection of late accounts and crawl sites that are not crawled.';
 
-    public function handle(ConnectionHealth $health): int
+    public function handle(ConnectionHealth $health, ProviderWatch $watch, PushNotifier $push): int
     {
         $admin = User::query()->role(Roles::ADMIN)->where('is_active', true)->orderBy('id')->first();
         if ($admin === null) {
@@ -29,6 +31,9 @@ final class ConnectionHealthRepairCommand extends Command
         $summary = $health->summary();
         $this->line(sprintf('%d hesabın veri çekimi, %d site taraması başlatıldı (%d başlatılamadı). Senin işin: %d satır.',
             $done['collections'], $done['crawls'], $done['failed'], $summary['operator']));
+
+        // Sağlayıcı nöbeti (Bağlantı Düzeni 4.2 / 4.5): an authorization or an API version about to end is told before it breaks.
+        $this->line('Sağlayıcı nöbeti: '.$watch->notify($push).' uyarı gönderildi.');
 
         return self::SUCCESS;
     }

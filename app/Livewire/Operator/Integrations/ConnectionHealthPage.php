@@ -6,6 +6,7 @@ use App\Livewire\Concerns\AdminOnly;
 use App\Models\Brand;
 use App\Services\DataStatus\ConnectionHealth;
 use App\Services\DataStatus\ConnectionMap;
+use App\Services\DataStatus\ProviderWatch;
 use App\Support\WriteLevels;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Layout;
@@ -63,6 +64,8 @@ final class ConnectionHealthPage extends Component
             'mapTotals' => ConnectionMap::totals($map),
             'mapBrands' => count($map),
             'levelBrands' => $this->view === 'yetkiler' ? Brand::query()->operational()->orderBy('name')->get(['id', 'name', 'logo_url', 'write_levels', 'created_at']) : collect(),
+            'watch' => $watch = app(ProviderWatch::class)->rows(),
+            'watchDue' => count(array_filter($watch, fn (array $row): bool => in_array($row['tone'], ['warn', 'bad'], true))),
             'summary' => $health->summary($issues),
             'groups' => collect($issues)->filter(ConnectionHealth::isGap(...))->groupBy('brand')->sortKeys()->all(),
             'passive' => collect($issues)->reject(ConnectionHealth::isGap(...))->sortBy('brand')->values()->all(),

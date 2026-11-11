@@ -11,16 +11,38 @@
     </header>
 
     <nav class="-mt-4 flex flex-wrap items-center gap-2" aria-label="Görünüm" data-connection-views>
-        <button type="button" wire:click="$set('view', 'eksikler')" @class(['seg', 'seg-active' => ! in_array($view, ['harita', 'yetkiler'], true)])>Eksikler <span class="tabular-nums {{ ! in_array($view, ['harita', 'yetkiler'], true) ? 'text-accent' : 'text-gray-400' }}">{{ $summary['operator'] + $summary['system'] }}</span></button>
+        <button type="button" wire:click="$set('view', 'eksikler')" @class(['seg', 'seg-active' => ! in_array($view, ['harita', 'yetkiler', 'nobet'], true)])>Eksikler <span class="tabular-nums {{ ! in_array($view, ['harita', 'yetkiler', 'nobet'], true) ? 'text-accent' : 'text-gray-400' }}">{{ $summary['operator'] + $summary['system'] }}</span></button>
         <button type="button" wire:click="$set('view', 'harita')" @class(['seg', 'seg-active' => $view === 'harita'])>Harita</button>
         <button type="button" wire:click="$set('view', 'yetkiler')" @class(['seg', 'seg-active' => $view === 'yetkiler'])>Yetkiler</button>
+        <button type="button" wire:click="$set('view', 'nobet')" @class(['seg', 'seg-active' => $view === 'nobet'])>Nöbet @if ($watchDue > 0)<span class="tabular-nums {{ $view === 'nobet' ? 'text-accent' : 'text-gray-400' }}">{{ $watchDue }}</span>@endif</button>
     </nav>
 
     @if ($message !== '')
         <p class="card -mt-4 px-4 py-3 text-sm text-gray-700 dark:text-gray-300" role="status">{{ $message }}</p>
     @endif
 
-    @if ($view === 'yetkiler')
+    @if ($view === 'nobet')
+        @php $watchDot = ['ok' => 'bg-success-500', 'warn' => 'bg-warning-500', 'bad' => 'bg-error-500', 'muted' => 'bg-gray-300 dark:bg-gray-600']; @endphp
+        <section data-provider-watch>
+            <div class="section-head items-center"><h2 class="section-title">Kendiliğinden biten şeyler</h2></div>
+            <p class="-mt-2 mb-3 max-w-[70ch] text-[13px] text-gray-500 dark:text-gray-400">Bir yetkinin süresi ve sağlayıcının kapattığı bir API sürümü, kimse dokunmadan bağlantıyı koparır. Yetki bitmeden {{ \App\Services\DataStatus\ProviderWatch::AUTH_DAYS }} gün, sürüm kapanmadan {{ \App\Services\DataStatus\ProviderWatch::VERSION_DAYS }} gün önce telefonuna bildirim gelir.</p>
+            <div class="card divide-y divide-gray-100 dark:divide-gray-800">
+                @foreach (['auth' => 'Yetkiler', 'version' => 'API sürümleri'] as $kind => $heading)
+                    @foreach (collect($watch)->where('kind', $kind) as $row)
+                        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3" data-watch-row="{{ $row['tone'] }}">
+                            <span class="h-2 w-2 shrink-0 rounded-full {{ $watchDot[$row['tone']] }}" aria-hidden="true"></span>
+                            <div class="min-w-0 flex-1 basis-64">
+                                <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $row['name'] }}</p>
+                                <p class="text-[13px] text-gray-500 dark:text-gray-400">{{ $row['detail'] }}</p>
+                            </div>
+                            @if ($row['url'] !== null)<a href="{{ $row['url'] }}" wire:navigate class="btn">{{ $row['action'] }}</a>@endif
+                        </div>
+                    @endforeach
+                @endforeach
+            </div>
+            <p class="mt-3 text-[12px] text-gray-400">Sürüm tarihleri sağlayıcıların kendi sayfalarından, son kontrol {{ \Carbon\CarbonImmutable::parse((string) config('provider-watch.checked_on'))->locale('tr')->isoFormat('D MMMM YYYY') }}.</p>
+        </section>
+    @elseif ($view === 'yetkiler')
         @php $levelChannels = \App\Support\WriteLevels::CHANNELS; $levelLabels = \App\Support\WriteLevels::LABELS; @endphp
         <section data-write-levels>
             <div class="section-head items-center">
