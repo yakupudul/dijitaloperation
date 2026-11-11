@@ -850,7 +850,7 @@ final class SalesLeads
             return;
         }
         $day = ($lead->research_at ?? $lead->findings_at ?? now())->timezone('Europe/Istanbul')->format('d.m.Y');
-        $areas = ['site' => 'Web sitesi', 'web' => 'Web sitesi', 'maps' => 'İşletme Profili', 'gbp' => 'İşletme Profili', 'google' => 'İşletme Profili', 'instagram' => 'Diğer', 'ads' => 'Google Ads'];
+        $areas = ['site' => 'Web sitesi', 'web' => 'Web sitesi', 'maps' => 'İşletme Profili', 'gbp' => 'İşletme Profili', 'google' => 'İşletme Profili', 'instagram' => 'Diğer', 'ads' => 'Google Ads', 'kıyas' => 'İşletme Profili'];
         $rows = [];
         foreach ((array) ($lead->research['findings'] ?? []) as $finding) {
             if (is_array($finding) && filled($finding['title'] ?? null)) {
