@@ -46,11 +46,12 @@ final class ClosingSteps
             ['key' => 'contract', 'done' => $signed, 'note' => match (true) {
                 $agreement === null => 'Önce anlaşma şartlarını gir',
                 $signed => $day($agreement->contract_on),
-                default => 'İmza bekleniyor',
+                default => $link === null ? 'İmza bekleniyor' : 'İmza bekleniyor, bağlantıdan onaylanır',
             }],
             ['key' => 'payment', 'done' => $paid !== null, 'note' => match (true) {
                 $agreement === null => 'Önce anlaşma şartlarını gir',
                 $paid !== null => $day($paid->paid_on),
+                ($link?->start['paid_at'] ?? null) !== null => 'Müşteri ödedim dedi, hesabında görünce işaretle',
                 default => $agreement->feeLabel().' bekleniyor',
             }],
             ['key' => 'access', 'done' => $asked > 0 && $given >= $asked, 'note' => match (true) {

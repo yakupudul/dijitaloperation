@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Livewire\Operator\Integrations\AccessLinkPanel;
 use App\Livewire\Operator\Integrations\ConnectionHealthPage;
+use App\Livewire\Operator\Sales\StartLinkSettings;
 use App\Models\AccessLink;
 use App\Models\AgencySetting;
+use App\Models\Agreement;
 use App\Models\Brand;
 use App\Models\User;
 use App\Services\Access\AccessLinks;
@@ -90,5 +92,37 @@ class AccessLinkTest extends TestCase
         $this->assertSame('E-posta adresi', $item['identity_label']);
         $this->assertSame('meta@example.com', $item['identity']);
         $this->assertStringContainsString('Kişi davet et', $item['steps'][1]);
+    }
+
+    public function test_the_link_starts_the_work_details_contract_and_payment_before_the_accesses(): void
+    {
+        $links = app(AccessLinks::class);
+        $links->saveIdentities('ajans@example.com', '');
+        $link = $links->ask($this->brand, ['search_console'], $this->admin);
+        $this->get('/erisim/'.$link->token)->assertOk()->assertDontSee('Hizmet sözleşmesi');
+
+        $agreement = Agreement::query()->create(['brand_id' => $this->brand->id, 'customer_id' => $this->brand->customer_id, 'kind' => 'monthly', 'status' => 'active', 'fee' => 14000, 'due_day' => 5, 'starts_on' => '2026-11-15', 'services' => ['Klinik SEO', 'İşletme Profili']]);
+        Livewire::test(StartLinkSettings::class)->set('holder', 'Yakup Udul')->set('iban', 'TR12 3456')->call('save')->assertHasErrors('iban')
+            ->set('iban', 'tr33 0006 1005 1978 6457 8413 26')->call('save')->assertHasNoErrors();
+        $this->assertStringContainsString('tek bir sayfa', $links->message($link));
+
+        auth()->logout();
+        $url = '/erisim/'.$link->token;
+        $this->get($url)->assertOk()->assertSee('çalışmaya başlıyoruz')->assertSee('14.000 TL + KDV')->assertSee('Klinik SEO, İşletme Profili')->assertSee('TR33 0006 1005')
+            ->assertSee('16.800 TL')->assertSee('önce fatura bilgilerinizi')->assertDontSee('Ödemeyi yaptım');
+
+        $this->post($url, ['step' => 'accept', 'accept' => 1])->assertRedirect();
+        $this->assertNull($agreement->fresh()->contract_on, 'no acceptance without the billing details');
+
+        $this->post($url, ['step' => 'party', 'party' => ['title' => 'Örnek Sağlık Ltd. Şti.', 'tax_office' => 'Manisa', 'tax_no' => '1234567890']])->assertRedirect();
+        $this->get($url)->assertSee('Örnek Sağlık Ltd. Şti.')->assertSee('Sözleşmeyi okudum');
+        $this->post($url, ['step' => 'accept', 'accept' => 1])->assertRedirect();
+        $this->assertNotNull($agreement->fresh()->contract_on);
+        $this->assertStringContainsString('Örnek Sağlık Ltd. Şti.', $link->fresh()->start['accepted_text']);
+
+        $this->get($url)->assertSee('tarihinde onayladınız')->assertSee('Ödemeyi yaptım');
+        $this->post($url, ['step' => 'paid'])->assertRedirect();
+        $this->get($url)->assertSee('hesabı kontrol ediyoruz')->assertSee('Kullanıcılar ve izinler');
+        $this->assertNotNull($link->fresh()->start['paid_at']);
     }
 }

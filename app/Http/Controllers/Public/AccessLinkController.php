@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AccessLink;
 use App\Models\AgencySetting;
 use App\Services\Access\AccessLinks;
+use App\Services\Access\StartLink;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,20 +17,25 @@ use Illuminate\Http\Request;
  */
 final class AccessLinkController extends Controller
 {
-    public function show(string $token, AccessLinks $links): View
+    public function show(string $token, AccessLinks $links, StartLink $start): View
     {
         $link = $this->link($token);
         if (! auth()->check()) {
             $links->opened($link);
         }
 
-        return view('public.access-link', ['link' => $link, 'items' => $links->items($link), 'agency' => str_contains(mb_strtolower($name = (string) AgencySetting::query()->value('agency_name')), 'moxdop') || $name === '' ? 'Moximu' : $name]);
+        return view('public.access-link', ['link' => $link, 'items' => $links->items($link), 'start' => $start->of($link), 'agency' => str_contains(mb_strtolower($name = (string) AgencySetting::query()->value('agency_name')), 'moxdop') || $name === '' ? 'Moximu' : $name]);
     }
 
-    public function store(Request $request, string $token, AccessLinks $links): RedirectResponse
+    public function store(Request $request, string $token, AccessLinks $links, StartLink $start): RedirectResponse
     {
         $link = $this->link($token);
-        $links->mark($link, (string) $request->input('channel'));
+        match ((string) $request->input('step')) {
+            'party' => $start->saveParty($link, (array) $request->input('party', [])),
+            'accept' => $request->boolean('accept') ? $start->accept($link, $request->ip()) : null,
+            'paid' => $start->paid($link),
+            default => $links->mark($link, (string) $request->input('channel')),
+        };
 
         return redirect()->route('access-link', ['token' => $token]);
     }

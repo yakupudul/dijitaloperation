@@ -18,7 +18,7 @@ class AccessLink extends Model
 
     protected function casts(): array
     {
-        return ['asked' => 'array', 'done' => 'array', 'opened_at' => 'datetime'];
+        return ['asked' => 'array', 'done' => 'array', 'start' => 'array', 'opened_at' => 'datetime'];
     }
 
     /** @return BelongsTo<Brand, $this> */

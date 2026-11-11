@@ -31,5 +31,7 @@
         </div>
     </div>
 
+    <livewire:operator.sales.start-link-settings />
+
     @include('livewire.operator.sales.partials.rewards')
 </section>

@@ -162,6 +162,10 @@ final class AccessLinks
     /** The ready message the operator sends with the link (he sends it himself). */
     public function message(AccessLink $link): string
     {
+        if (app(StartLink::class)->of($link) !== null) {
+            return 'Merhaba, başlangıç için tek bir sayfa hazırladım: fatura bilgileriniz, sözleşme onayı, ilk ödeme ve hesap erişimleri aynı yerde, toplam on dakika sürer: '
+                .route('access-link', ['token' => $link->token]);
+        }
         $names = collect((array) $link->asked)->map(fn (string $c): string => self::CHANNELS[$c]['name'] ?? $c)->join(', ', ' ve ');
 
         return 'Merhaba, çalışmaya devam edebilmemiz için '.$names.' erişimine ihtiyacımız var. Aşağıdaki sayfada her biri için yapılacak üç adım yazıyor, toplam birkaç dakika sürer: '
