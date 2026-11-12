@@ -67,11 +67,13 @@ final class SystemBackup
                 }
             }
             $drive = app(DriveBackupCopy::class);
+            $onDrive = false;
             if ($drive->configured()) {
                 try {
                     $drive->put($path);
                     $drive->prune();
                     $remote = true;
+                    $onDrive = true;
                 } catch (Throwable $exception) {
                     DB::table('system_backups')->where('id', $id)->update(['error' => mb_substr('Drive kopyası alınamadı: '.$exception->getMessage(), 0, 1000)]);
                 }
@@ -81,7 +83,9 @@ final class SystemBackup
                 $remote = Storage::disk((string) config('moxdop-backup.remote_disk'))->writeStream('moxdop-backups/'.basename($path), $stream);
                 is_resource($stream) && fclose($stream);
             }
-            $this->prune($dir);
+            // Yedekler Drive'da (yakup 2026-11-13): once this backup is on Drive with the same size, the server keeps
+            // only this newest one; while Drive is not linked or its copy failed, the usual `keep` copies stay.
+            $this->prune($dir, 0, $onDrive ? 1 : null);
             DB::table('system_backups')->where('id', $id)->update(['status' => 'succeeded', 'path' => $path, 'bytes' => $bytes, 'remote_copied' => (bool) $remote, 'finished_at' => now(), 'updated_at' => now()]);
 
             return ['status' => 'succeeded', 'path' => $path, 'bytes' => $bytes, 'error' => null];
@@ -428,11 +432,18 @@ final class SystemBackup
         return $files;
     }
 
-    /** Keeps the newest `keep` backups (minus $room, the places a backup about to be written needs). */
-    private function prune(string $dir, int $room = 0): void
+    /** Keeps the newest `keep` backups (minus $room, the places a backup about to be written needs); $keep overrides it. */
+    private function prune(string $dir, int $room = 0, ?int $keep = null): void
     {
         $files = glob($dir.'/moxdop-*.gz') ?: [];
         rsort($files);
+        if ($keep !== null) {
+            foreach (array_slice($files, max(1, $keep)) as $old) {
+                @unlink($old);
+            }
+
+            return;
+        }
         foreach (array_slice($files, max(1, (int) config('moxdop-backup.keep', 7) - $room)) as $old) {
             @unlink($old);
         }

@@ -16,6 +16,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -142,5 +143,52 @@ final class GoogleWorkspaceTest extends TestCase
         Http::assertSent(fn (Request $r): bool => $r->method() === 'DELETE' && str_ends_with($r->url(), '/files/f1'));
         Http::assertNotSent(fn (Request $r): bool => $r->method() === 'DELETE' && str_ends_with($r->url(), '/files/x'));
         $this->assertSame('Google Drive › MoxDOP yedekleri', app(SystemBackup::class)->status()['remote_target']);
+    }
+
+    public function test_once_the_backup_is_on_drive_the_server_keeps_only_the_newest_one(): void
+    {
+        $this->onlyOnSqlite('backs up a SQLite file');
+        $this->google([GoogleWorkspace::DRIVE]);
+        AgencySetting::query()->create([]);
+        $dir = sys_get_temp_dir().'/moxdop-drive-keep-'.uniqid();
+        @mkdir($dir, 0700, true);
+        foreach (['20261110', '20261111'] as $day) {
+            file_put_contents($dir.'/moxdop-'.$day.'-033000-000000-sqlite.sqlite.gz', 'eski');
+        }
+        $source = $dir.'-source.sqlite';
+        file_put_contents($source, "SQLite format 3\0".str_repeat('page data ', 200));
+        config(['moxdop-backup.directory' => $dir, 'moxdop-backup.keep' => 7, 'moxdop-backup.remote_disk' => null,
+            'database.connections.sqlite.database' => $source]);
+        $driveTakes = true;
+        Http::fake(function (Request $request) use ($dir, &$driveTakes) {
+            $url = $request->url();
+            $files = glob($dir.'/moxdop-*.gz') ?: [];
+            rsort($files);
+
+            return match (true) {
+                $request->method() === 'POST' && str_contains($url, '/upload/') => Http::response('', 200, ['Location' => 'https://www.googleapis.com/upload/session/abc']),
+                $request->method() === 'POST' => Http::response(['id' => 'folder-1'], 200),
+                $request->method() === 'PUT' => $driveTakes
+                    ? Http::response(['id' => 'file-9', 'size' => (string) filesize($files[0])], 200)
+                    : Http::response(['error' => ['message' => 'quota']], 403),
+                $request->method() === 'GET' => Http::response(['files' => []], 200),
+                default => Http::response('', 204),
+            };
+        });
+
+        $driveTakes = false;
+        $this->travelTo('2026-11-12 03:30:00');
+        $this->assertSame('succeeded', app(SystemBackup::class)->run()['status']);
+        $this->assertCount(3, glob($dir.'/moxdop-*.gz'), 'Drive refused the copy: the older local backups stay');
+
+        $driveTakes = true;
+        $this->travelTo('2026-11-13 03:30:00');
+        $result = app(SystemBackup::class)->run();
+        @unlink($source);
+
+        $this->assertSame('succeeded', $result['status']);
+        $this->assertSame([$result['path']], glob($dir.'/moxdop-*.gz'), 'on Drive: only the newest backup stays on the server');
+        $this->assertTrue(app(SystemBackup::class)->status()['remote']);
+        File::deleteDirectory($dir);
     }
 }

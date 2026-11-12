@@ -2410,7 +2410,7 @@ Beş bağımsız Livewire bileşeni (`App\Livewire\Operator\Website\V2\{Competit
   - Below 6% or 3 GB free, collection jobs wait 10 minutes without spending an attempt, so the database never fills and stops.
   - Below 15% the watchdog sends a phone alert.
   - Thresholds come from `MOXDOP_DISK_*`.
-- **Empty dimension values:** an empty text dimension in the natural key (GA4 unknown region / city / category, Meta breakdowns) is stored as `(empty)` instead of failing the whole batch. Previously GA4 geo, ecommerce and technology batches failed with "missing natural key". Landing page keeps its explicit empty-string allowance.
+- **Empty dimension values:** an empty text dimension in the natural key (GA4 unknown region / city / category, Meta breakdowns) is stored as `(empty)` instead of failing the whole batch. Previously GA4 geo, ecommerce and technology batches failed with "missing natural key". Landing page keeps its explicit empty-string allowance. The GA4 campaign name (`sessionCampaignName` in `ga4_campaign_daily` / `ga4_event_campaign_daily`) was an `identity` column in the base contract, so one empty name stopped the whole account (Arısoy, 2026-11-12); the GA4 overlay now declares it a dimension, and the stopped account is re-admitted by the daily retry.
 
 ## 2026-10-09 — Search Console ambarı küçültme (`moxdop:db:slim`)
 
@@ -4681,3 +4681,5 @@ Status: coded + tested (tests/Feature/Finance/FinanceAreaTest.php, 13 tests); sc
 - By word: Moxi tools `finans_ozet`, `finans_isler` and cards `finans_is_ac`, `finans_odeme`, `finans_odeme_geri_al`, `finans_is_degistir`, `finans_gider`; MCP tool `finance` (summary, jobs, add_job, record_payment, unpay, update_job, add_expense, preview).
 - Scheduled: `finance-tick` hourly (Gmail + reminders). Async: Gmail and dekont reading run on the queue.
 - Known limits: mails without an attachment (only a link) are not pulled; foreign-currency expenses other than USD are listed but not added to the TL total; the inflation rate is typed by hand.
+
+- **Sistem yedeği Drive'da (yakup 2026-11-13).** Gece yedeği Google Drive'a aynı boyutla yüklendiğinde (`DriveBackupCopy::put` boyutu doğrular) sunucuda yalnız bu son yedek kalır; Drive'da en yeni `DriveBackupCopy::KEEP` (3) kopya durur. Drive bağlı değilse ya da kopya başarısız olduysa sunucuda her zamanki `moxdop-backup.keep` kopya kalır, hiçbir yerel yedek silinmez.

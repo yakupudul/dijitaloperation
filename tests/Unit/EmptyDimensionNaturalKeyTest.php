@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Services\DataPool\DataPoolStorageRegistry;
 use App\Services\DataPool\PostgresWarehouseWriter;
 use App\Services\DataPool\Support\NormalizedDatasetBatch;
 use InvalidArgumentException;
@@ -34,5 +35,29 @@ final class EmptyDimensionNaturalKeyTest extends TestCase
 
         $this->expectException(InvalidArgumentException::class);
         $call(['property_id' => '', 'city' => 'Ankara', 'landingPage' => '/', 'sessions' => 1]);
+    }
+
+    public function test_ga4_campaign_name_is_a_dimension_so_an_empty_name_does_not_stop_the_write(): void
+    {
+        $registry = app(DataPoolStorageRegistry::class);
+        foreach (['ga4_campaign_daily', 'ga4_event_campaign_daily'] as $dataset) {
+            $columns = collect($registry->physicalDataset($dataset)['columns'])->keyBy('name');
+            $this->assertSame('dimension', $columns['sessionCampaignName']['role'] ?? null, $dataset);
+        }
+
+        $writer = app(PostgresWarehouseWriter::class);
+        $validate = new ReflectionMethod($writer, 'validateAndNormalizeRecord');
+        $physical = $registry->physicalDataset('ga4_campaign_daily');
+        $columnMap = collect($physical['columns'])->keyBy('name')->all();
+        $batch = new NormalizedDatasetBatch('ga4_campaign_daily', 1, 1, 'k', []);
+        $record = ['external_resource_id' => 'r', 'property_id' => '1', 'reporting_date' => '2026-11-12', 'sessionCampaignId' => '(not set)',
+            'sessionCampaignName' => '', 'sessionSource' => 'google', 'sessionMedium' => 'cpc', 'sessions' => 2];
+        foreach ($columnMap as $name => $definition) {
+            if (! array_key_exists($name, $record) && ! ($definition['nullable'] ?? false) && ! array_key_exists('default', $definition)) {
+                $record[$name] = str_contains(strtolower($name), 'date') ? '2026-11-12' : '1';
+            }
+        }
+        $row = $validate->invoke($writer, $batch, $record, 4, $physical['natural_key'], $columnMap, array_keys($columnMap), 'upsert', now());
+        $this->assertSame(PostgresWarehouseWriter::EMPTY_DIMENSION, $row['sessionCampaignName']);
     }
 }

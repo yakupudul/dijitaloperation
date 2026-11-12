@@ -78,6 +78,10 @@ return [
         'ga4_acquisition_channel_daily' => $commonSessionMetrics,
         'ga4_source_medium_daily' => $commonSessionMetrics,
         'ga4_campaign_daily' => [
+            // The base contract marks the campaign name as 'identity', so an empty name GA4 returned for one row (Arısoy,
+            // 2026-11-12) failed the whole write and stopped the account. As a dimension it is stored as "(empty)" /
+            // "(not set)" like the other GA4 dimensions.
+            $column('sessionCampaignName', 'text', false, 'dimension'),
             $column('sessionCampaignId', 'text', false, 'dimension'),
             $column('sessionSource', 'text', false, 'dimension'),
             $column('sessionMedium', 'text', false, 'dimension'),
@@ -89,6 +93,9 @@ return [
         ],
         'ga4_event_landing_daily' => [
             array_merge($column('landingPage', 'text', false, 'dimension'), ['allow_empty_string' => true]),
+        ],
+        'ga4_event_campaign_daily' => [
+            $column('sessionCampaignName', 'text', false, 'dimension'),
         ],
         'ga4_event_daily' => [
             ...$metricColumns(['eventCount', 'activeUsers', 'totalUsers'], ['eventCountPerUser', 'eventValue', 'keyEvents']),
