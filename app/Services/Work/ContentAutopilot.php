@@ -18,6 +18,7 @@ use App\Services\Epicrisis\EpicrisisClaims;
 use App\Services\Site\ContentFormat;
 use App\Services\Site\ContentMap;
 use App\Services\Site\ContentPlanner;
+use App\Services\Site\DailyBlog;
 use App\Services\Site\SiteAi;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteScope;
@@ -229,6 +230,10 @@ final class ContentAutopilot
      */
     public function plan(DigitalAsset $site, User $by): array
     {
+        // Günlük blog (yakup 2026-11-12): such a site has one line only, DailyBlog; no back-dated fill next to it.
+        if (DailyBlog::siteOn($site)) {
+            return ['planned' => 0, 'open_dates' => 0];
+        }
         $dates = $this->openDates($site);
         if ($dates === [] || ! SiteScope::aiAllowed(Brand::query()->find($site->brand_id))) {
             return ['planned' => 0, 'open_dates' => count($dates)];
@@ -287,6 +292,9 @@ final class ContentAutopilot
         $today ??= self::today();
         $monday = $today->startOfWeek(CarbonImmutable::MONDAY);
         $state = ContentSiteState::for($site);
+        if (DailyBlog::siteOn($site)) {
+            return ['planned' => 0, 'quota' => 0, 'proposed' => 0, 'reason' => 'daily_blog'];
+        }
         if ($state->inBackfill()) {
             return ['planned' => 0, 'quota' => 0, 'proposed' => 0, 'reason' => 'backfill'];
         }
@@ -402,7 +410,19 @@ final class ContentAutopilot
     public static function written(DigitalAsset $site): Collection
     {
         return self::ideas($site)->where('status', Suggestion::APPROVED)->whereNull('action->article_write_id')->get()
-            ->filter(fn (Suggestion $s): bool => self::sendable($s))->values();
+            ->filter(fn (Suggestion $s): bool => self::reviewable($s))->values();
+    }
+
+    /**
+     * A written article the otopilot checks: a sendable new article, or a page refresh of the daily blog's line (that
+     * one goes live without the operator, so it is checked like a new article).
+     */
+    public static function reviewable(Suggestion $suggestion): bool
+    {
+        $action = (array) $suggestion->action;
+
+        return self::sendable($suggestion) || (DailyBlog::taken($suggestion) && ($action['kind'] ?? null) === 'update' && is_array($action['article'] ?? null)
+            && ! isset($action['article_write_id']) && ! isset($action['article_blocked']));
     }
 
     /** A written new article that has not been sent (no page update, no rule block). */
@@ -481,7 +501,7 @@ final class ContentAutopilot
 
                 continue;
             }
-            if (is_array($review) && ! empty($review['retry']) && self::sendable($suggestion)
+            if (is_array($review) && ! empty($review['retry']) && self::reviewable($suggestion)
                 && CarbonImmutable::parse((string) ($review['at'] ?? now()->toIso8601String()))->lt(now()->subMinutes(self::RECHECK_MINUTES))) {
                 $action['autopilot'] = array_diff_key((array) $action['autopilot'], ['review' => true]);
                 $suggestion->forceFill(['action' => $action])->save();
@@ -489,7 +509,7 @@ final class ContentAutopilot
 
                 continue;
             }
-            if (is_array($review) && self::sendable($suggestion) && $this->fixAfterCheck($suggestion, $review)) {
+            if (is_array($review) && self::reviewable($suggestion) && $this->fixAfterCheck($suggestion, $review)) {
                 $out['fixing']++;
 
                 continue;
@@ -645,6 +665,10 @@ final class ContentAutopilot
             return ['verdict' => 'wrong', 'reason' => mb_substr((string) $action['article_warnings'], 0, 200), 'at' => $at];
         }
         $article = (array) $action['article'];
+        // Günlük blog: no person reads it before it goes live, so the quality gate decides first (Claude corrects what fails).
+        if (DailyBlog::on($brand) && ($problems = DailyBlog::problems($article, $suggestion, $site)) !== []) {
+            return ['verdict' => 'wrong', 'reason' => DailyBlog::reason($problems), 'at' => $at];
+        }
         $format = (array) ($action['article_format'] ?? []);
         $words = ContentFormat::words((string) ($article['html'] ?? ''));
         // Too thin for its subject even after the second write: never sent by the one click (yakup, 2026-10-15).
@@ -718,7 +742,7 @@ final class ContentAutopilot
         return Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::APPROVED)
             ->whereNotNull('action->autopilot')->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
             ->whereHas('brand', fn (Builder $brand): Builder => $brand->operational())->get()
-            ->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.review.verdict') === 'ok' && self::sendable($s)
+            ->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.review.verdict') === 'ok' && self::sendable($s) && ! DailyBlog::taken($s)
                 && (! is_string(data_get($s->action, 'autopilot.date'))
                     || (string) data_get($s->action, 'autopilot.date') <= (data_get($s->action, 'autopilot.week') !== null ? $weekEnd : $today)))
             ->sortBy(fn (Suggestion $s): string => (string) (data_get($s->action, 'autopilot.date') ?? '9999'))->values();

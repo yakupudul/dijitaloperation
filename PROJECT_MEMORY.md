@@ -1,5 +1,15 @@
 # PROJECT_MEMORY
 
+## 2026-11-12 — Günlük blog: moximu.com günde 2 yazı, onaysız
+
+yakup: "Moximu.com için her gün 2 içerik paylaşır mısın otomatik … benden onay almana gerek yok", "Onaylıyorum yap", "fiyat verme".
+- Yalnız `brands.auto_blog` dolu marka (moximu.com). `DailyBlog` içerik otopilotu turunda (20 dk) çalışır; yeni zamanlanmış iş yok.
+- Tek hat: site haftalık döngüden, geriye dönük doldurmadan ve günlük tıktan çıkar; bekleyen onaylı başlıklar önce bu hatta yazılır. Yaklaşık iki günlük (6) yazı hep yazımda tutulur; havuz azalınca günde en çok bir kez yeni başlık istenir (Search Console boşlukları + WhatsApp'ta kliniklerin sorduğu sorular).
+- Yuvalar 09:00 (kalıcı rehber) ve 15:00 (branş/şehir ya da 8-20. sıradaki sayfanın yenilemesi). Yeni yazı WordPress'e yuvasına zamanlanmış gider; yenileme yuvasında sayfayı değiştirir.
+- Kalite kapısı (onayın yerine): başlık ≤60 ve iki noktasız, MoxDOP yok, garanti yok, fiyat/para birimi yok, 450-2500 kelime, marka adı geçer, aynı konuda ikinci yazı yok; sonra olağan AI kontrolü. Takılanı Claude düzeltir (heal), düzelmeyen hiç yayınlanmaz.
+- Kapak: sitedeki rehber kapaklarının tarzı (sol: Moximu Rehber, konu etiketi, iki tonlu başlık, moximu.com/rehber; sağ: yumuşak sarı-yeşil ışıklı panelde konuya göre 6 motiften biri), yalnız yazının kendi kelimeleri; Instagram için 1080×1350 dikey sürüm taslak olarak /sosyal'e düşer (onayı orada).
+- Yazının sonuna sitenin ilgili hizmet sayfası ve ücretsiz ön değerlendirme bağlantısı eklenir. IndexNow'u bağlayıcı yapar; İşletme Profili gönderi planı yeni sayfayı önce alır. Pazartesi 05:00 tek satır rapor telefona gider.
+
 ## 2026-11-09 — Moxi (panel asistanı) kuralları
 
 - Moxi panelde hiçbir şeyi kendisi değiştirmez: her değişiklik operatörün Yap dediği kart. Dış dünyaya (Google cevabı, sosyal, WhatsApp, reklam) yazmaz.

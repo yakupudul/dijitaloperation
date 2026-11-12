@@ -821,7 +821,8 @@ final class ContentPlanner
             }, $candidates),
             'previous_titles' => $previous->take(150)->pluck('title')->values()->all(),
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title, 'category' => $p->category])->values()->all(),
-        ] + Epicrisis::input($brand, 'content');
+        ] + array_filter(['house_rules' => DailyBlog::houseRules($brand), 'reader_questions' => DailyBlog::on($brand) ? DailyBlog::readerQuestions($brand) : []])
+            + Epicrisis::input($brand, 'content');
     }
 
     /**
@@ -1263,7 +1264,7 @@ final class ContentPlanner
             'language' => $language,
             'site_pages' => $sitePages->map(fn (Page $p): array => ['url' => (string) $p->url, 'title' => $p->title])->values()->all(),
             'forbidden' => $terms->phrases(),
-        ] + Epicrisis::input($brand, 'content');
+        ] + array_filter(['house_rules' => DailyBlog::houseRules($brand)]) + Epicrisis::input($brand, 'content');
         $evidence = new SiteEvidence($sitePages->pluck('url')->map(fn ($u): string => (string) $u)->all());
         // The numbers of the plan and the cluster (title, questions, queries: "20'lik diş") are the writer's own data, and
         // so are the facts of the brand's epikriz ("10 yıl garanti").

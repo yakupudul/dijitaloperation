@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-12 — Günlük blog: moximu.com günde 2 yazı, onaysız (yakup'un açık istisnası)
+
+- **Kodlandı + test:** `App\Services\Site\DailyBlog` (`brands.auto_blog`, migration `2027_02_05_090000`), `content-autopilot` turunda çalışır. Üretim (BUFFER 6, bekleyen onaylı başlık önce, iki yuva dengesi, en çok bir yenileme), yayın (09:00 / 15:00 Istanbul; yeni yazı zamanlanmış taslak, yenileme yuvasında sayfaya), kalite kapısı `problems()` (+ `ContentAutopilot::verdict` içinde), satış paragrafı `decorate()`, Instagram taslağı, pazartesi raporu `weeklyReport()` (push).
+- **Tek hat:** `ContentAutopilot::plan` / `planWeek` bu siteyi atlar, `ready()` (günlük tık) bu hattın yazılarını almaz; yenileme yazıları da `reviewable()` ile AI kontrolünden geçer.
+- **Kapak:** `BrandCover` sitedeki rehber kapak tarzına çevrildi; 6 motif (harita, arama, telefon, liste, adımlar, ölçüm), art arda aynı motif kullanılmaz, Instagram 1080×1350.
+- **Yazar ve fikir girdisi:** `house_rules` (fiyat yok, başlık kuralı, MoxDOP yok, marka adı, yuva türleri) ve `reader_questions` (WhatsApp'ta gelen sorular, numara/e-posta maskeli).
+- **Durum:** CODED, TESTED (PHPUnit `tests/Feature/Site/DailyBlogTest.php`); canlıda ilk yazılar yayından sonra kontrol edilecek.
+
 ## 2026-11-09 — Moxi: panelin köşe asistanı (dondurmadan yakup'un açık istisnası)
 
 - **Kodlandı + test:** Her panel ekranının sağ altında (yalnız admin) yağlı boya samuray maskot Moxi (`App\Livewire\Operator\Moxi`, `@persist`). Yazılan mesaj `MoxiTurnJob` (kuyruk `writes`) ile Claude API araç döngüsüne gider (`MoxiAgent`, en çok 8 tur, maliyet `moxi_messages.cost_usd` ve AI TL sınırlarına sayılır). Okuma araçları MCP araçlarını süreç içinde çağırır (`MoxiTools`): marka bul/dosya, satış ara/kaydı, ekran bul, bekleyenler, kanal verisi, Meta, notlar, stratejiler, içerik kuyruğu, sistem sağlığı, sayfa.

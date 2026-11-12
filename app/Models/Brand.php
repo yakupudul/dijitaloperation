@@ -207,6 +207,7 @@ class Brand extends Model
             'link_alert_read_at' => 'immutable_datetime',
             'write_levels' => 'array',
             'new_order_at' => 'immutable_datetime',
+            'auto_blog' => 'array',
         ];
     }
 }

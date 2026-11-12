@@ -114,6 +114,7 @@ use App\Services\Site\ClusterLinks;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentPosts;
 use App\Services\Site\ContentTopics;
+use App\Services\Site\DailyBlog;
 use App\Services\Site\PageCategorizer;
 use App\Services\Site\ServicePageMapper;
 use App\Services\Site\Showcase\SiteQuestions;
@@ -1322,6 +1323,10 @@ Artisan::command('moxdop:content:week {--site= : One website asset id}', functio
         $sites += $result['planned'] + $result['proposed'] > 0 ? 1 : 0;
     }
     $this->info($sites.' sitede '.$planned.' onaylı yazı bu haftaya tarihlendi, '.$proposed.' plan satırı onay bekliyor.');
+    // Günlük blog: Monday's one-line report of last week's articles to the owner's phone.
+    if ($this->option('site') === null && ($report = app(DailyBlog::class)->weeklyReport()) !== null) {
+        $this->info($report);
+    }
 })->purpose('Date the week\'s new articles of every site (Mon / Wed / Fri), write and AI-check them for the Monday click');
 
 Schedule::command('moxdop:content:week')
@@ -1417,7 +1422,9 @@ Artisan::command('moxdop:content:autopilot {--site= : One website asset id}', fu
         $planned += $autopilot->plan($site, $actor)['planned'];
         SiteOperations::dispatch((int) $site->id, SiteOperations::CONTENT_AUTOPILOT);
     }
-    $this->info($planned.' yeni tarih planlandı.');
+    // Günlük blog (yakup 2026-11-12): moximu.com's own line, published at its slots without a click; no job of its own.
+    $daily = $this->option('site') === null ? app(DailyBlog::class)->run($actor) : ['started' => 0, 'sent' => 0];
+    $this->info($planned.' yeni tarih planlandı. Günlük blog: '.$daily['started'].' yazı başladı, '.$daily['sent'].' yazı yayına planlandı.');
 })->purpose('Date every site\'s next articles (one every two days), write them and AI-check them for the daily send');
 
 // Otomatik onarım (yakup, 2026-10-14): at night the prepared desk rows are read once more by AI, the most useful first
