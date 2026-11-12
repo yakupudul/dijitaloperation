@@ -107,8 +107,8 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertNotNull($group);
         // Gelen kutusu replaced the WhatsApp entry 2026-11-07 (Aşama 2): one queue for WhatsApp, social and today's steps.
         $this->assertSame(['Satış', 'Finans', 'Gelen kutusu', 'Pazarlama', 'Web sitemiz', 'Marka kartımız'], array_column($group['items'], 'name'));
-        $this->assertSame('/assets/website/'.$site, $group['items'][3]['path']);
-        $this->assertSame('/brands/'.$this->portfolioBrand->id, $group['items'][4]['path']);
+        $this->assertSame('/assets/website/'.$site, $group['items'][4]['path']);
+        $this->assertSame('/brands/'.$this->portfolioBrand->id, $group['items'][5]['path']);
 
         // Our own site lights "Web sitemiz"; any other site keeps Markalar (whose tab is Web siteleri) lit.
         $active = fn (string $path): ?string => collect(OperatorMenu::groups($path, 'operator.website'))->flatMap(fn (array $g): array => $g['items'])->firstWhere('active', true)['name'] ?? null;
