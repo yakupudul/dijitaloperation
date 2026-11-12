@@ -3,7 +3,7 @@ Theme Name: İzmir Perde
 Description: Ölçüye özel perde sitesi için hafif, sayfa oluşturucusuz özel tema. Marka, telefon ve adres Firma Bilgileri ekranından okunur.
 Author: Moximu
 Author URI: https://moximu.com/
-Version: 1.0.0
+Version: 1.0.2
 Requires at least: 6.4
 Requires PHP: 8.0
 Text Domain: izmir-perde
@@ -50,6 +50,7 @@ a.c-ink:hover,.c-ink>a:hover{color:var(--plum)}
 .hl-t{border-top:1px solid var(--line)}.hl-b{border-bottom:1px solid var(--line)}
 .col{display:flex;flex-direction:column;gap:var(--g,16px);width:var(--w,auto);min-width:0}
 .col>*{max-width:100%}
+.row>.col{--g:16px}
 .row{display:flex;gap:var(--g,32px);align-items:var(--ai,center);justify-content:var(--jc,normal)}
 .row.wrapx{flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:repeat(var(--c,3),minmax(0,1fr));gap:var(--rg,24px) var(--g,24px)}
@@ -75,10 +76,10 @@ a.c-ink:hover,.c-ink>a:hover{color:var(--plum)}
 .top{background:var(--plum);padding:9px 24px}
 .top>div{max-width:1320px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:15px;line-height:1.6}
 .top .a{color:#fff}.top .b{color:var(--pinkbg)}
-.bar{background:#fff;padding:16px 24px;border-bottom:1px solid var(--line)}
+.bar{background:#fff;padding:17px 24px;border-bottom:1px solid var(--line)}
 .bar>div{max-width:1320px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:24px;position:relative}
 .logo{flex:none;width:220px;display:flex;flex-direction:column;gap:6px}
-.logo a{font-size:26px;font-weight:500;line-height:1;letter-spacing:.01em;color:var(--ink)}
+.logo a{font-size:21px;font-weight:400;line-height:1.45;color:var(--ink)}
 .logo span{font-size:10.5px;font-weight:500;line-height:1.4;letter-spacing:.24em;color:var(--text)}
 .nav{flex:1 1 auto;display:flex;justify-content:center}
 .nav ul{list-style:none;display:flex;margin:0;padding:0}
@@ -161,7 +162,7 @@ a.c-ink:hover,.c-ink>a:hover{color:var(--plum)}
 .mb>.pic{width:50%;min-height:640px;position:relative}
 .mb>.pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .mb>.txt{width:50%;padding:96px 72px;display:flex;flex-direction:column;justify-content:center;gap:24px}
-.mb .btns{margin-top:8px}
+.mb .btns{margin-top:0}
 
 /* final cta */
 .fc .row{--g:40px;justify-content:space-between}
@@ -189,7 +190,7 @@ a.c-ink:hover,.c-ink>a:hover{color:var(--plum)}
 .np-card .im{overflow:hidden}
 .np-card .im img{width:100%;transition:transform .6s ease}
 .np-card:hover .im img{transform:scale(1.035)}
-.np-card .ar{font-size:22px;line-height:1.3;color:var(--plum);transition:transform .2s ease}
+.np-card .ar{font-size:18px;font-weight:300;line-height:1.6;color:var(--plum);transition:transform .2s ease}
 .np-card:hover .ar{transform:translateX(4px)}
 .np-card h3{transition:color .2s}
 .np-card:hover h3{color:var(--plum)}
@@ -204,12 +205,13 @@ a.c-ink:hover,.c-ink>a:hover{color:var(--plum)}
 .c-bolge .go{font-size:17px;font-weight:500;line-height:1.4;color:var(--plum)}
 .g-bolge{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:48px 32px}
 .c-rehber{gap:12px}
+.c-rehber h3{padding-right:20%}
 .c-rehber .im img{height:260px;object-fit:cover}
 .g-rehber{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:48px 40px}
 .filter{display:flex;justify-content:center;gap:20px;overflow-x:auto}
-.filter button{padding:8px;font-size:15px;font-weight:500;line-height:1.45;color:var(--text);white-space:nowrap;transition:color .2s}
+.filter button{padding:8px;font-size:14px;font-weight:500;line-height:1.45;letter-spacing:.02em;color:#69727d;white-space:nowrap;transition:color .2s}
 .filter button:hover,.filter button.on{color:var(--ink)}
-.filter button.on{box-shadow:inset 0 -2px 0 var(--plum)}
+.filter button.on{font-weight:600}
 .pager{display:flex;justify-content:center;gap:14px;margin-top:8px;font-size:17px}
 .pager .current{color:var(--ink);font-weight:500}
 
@@ -235,9 +237,8 @@ a.c-ink:hover,.c-ink>a:hover{color:var(--plum)}
 .isler>div:last-child{border-bottom:1px solid var(--line)}
 .isler h3{flex:none;width:240px}
 .isler p{flex:1 1 0;font-size:15px;line-height:1.6;color:var(--text)}
-.isler .ar{flex:none;font-size:22px;line-height:1.3}
+.isler .ar{flex:none;font-size:18px;font-weight:300;line-height:1.6}
 .detay{padding-top:64px;border-top:1px solid var(--line)}
-.detay>div{max-width:860px}
 .prose{font-size:19px;line-height:1.65;color:var(--body)}
 .prose h2{font-size:30px;font-weight:300;line-height:1.2;margin:48px 0 14px;color:var(--ink)}
 .prose h3{font-size:22px;font-weight:400;line-height:1.3;margin:32px 0 10px;color:var(--ink)}
@@ -265,7 +266,7 @@ a.c-ink:hover,.c-ink>a:hover{color:var(--plum)}
 .ftr .cols{display:grid;grid-template-columns:1.6fr 1fr 1fr 1.2fr;gap:40px 48px}
 .ftr .cols>div{display:flex;flex-direction:column;gap:16px}
 .ftr .cols>div.br{gap:18px}.ftr .cols>div.ct{gap:10px}
-.ftr .name{font-size:26px;font-weight:500;line-height:1.3;color:#fff}
+.ftr .name{font-size:21px;font-weight:400;line-height:1.3;color:#fff}
 .ftr h4{font-size:17px;font-weight:500;line-height:1.4;color:#fff;margin:0}
 .ftr ul{list-style:none;margin:0;padding:0}
 .ftr li{margin:0 0 9px}.ftr li:last-child{margin:0}
@@ -326,8 +327,8 @@ body{font-size:16px}
 .row.stackm{flex-direction:column;align-items:stretch}
 .grid{grid-template-columns:repeat(var(--cm,1),minmax(0,1fr))}
 .top{padding:8px 16px}.top>div{font-size:14.5px}.top .b{display:none}
-.bar{padding:16px}
-.logo{width:170px}
+.bar{padding:12px 16px}
+.logo{width:170px;gap:4px}.logo a{font-size:19px;line-height:1.2}
 .nav{left:-16px;right:-16px}
 .nav a{font-size:17px}
 .acts{width:60px}.acts .wt{display:none}.acts .wi{display:inline-flex}
@@ -349,7 +350,7 @@ body{font-size:16px}
 .ph{height:var(--hm,calc(var(--h)*.65))}
 .g-perde,.g-bolge,.g-rehber{grid-template-columns:1fr}.c-perde.fix .im img{height:256px}.c-rehber .im img{height:220px}
 .g-blink{grid-template-columns:repeat(2,minmax(0,1fr))}
-.np-card .ar{font-size:20px}
+.np-card .ar{font-size:17px}
 .filter{justify-content:flex-start}
 .sp-pics>img{height:320px}.sp-gal{display:none}
 .pb{padding:48px 0;gap:64px}.pb.last{padding-bottom:16px}.pb.b{padding:44px 0}.pb.b.last{padding-bottom:16px}
@@ -363,7 +364,7 @@ body{font-size:16px}
 .ftr h4{font-size:16px}
 .ftr .bot .lg{margin-left:0}
 .mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:98;border-top:1px solid var(--line)}
-.mbar .btn{flex:1 1 0}
+.mbar .btn{flex:1 1 0}.mbar .btn:first-child{flex:0 0 44%}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 .logo a.im{display:block}.logo img{max-height:56px;width:auto}

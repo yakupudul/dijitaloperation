@@ -1,7 +1,7 @@
 <?php
 /**
  * İlk içerik: tema, onaylanan sayfa gövdelerini, perde ve ilçe sayfalarının alanlarını ve rehber yazılarını
- * seed/icerik.json içinde taşır. seed/rev.txt değiştiğinde bir kez çalışır. Panelden elle değiştirilmiş bir
+ * seed klasöründeki JSON dosyalarında taşır. seed/rev.txt değiştiğinde bir kez çalışır. Panelden elle değiştirilmiş bir
  * içeriğin üzerine yazmaz (yazdığı her şeyin özetini saklar, özet tutmuyorsa dokunmaz).
  */
 if ( ! defined( 'ABSPATH' ) ) {
@@ -37,8 +37,14 @@ function np_seed_run() {
 	if ( ! is_array( $state ) || ( $state['rev'] ?? '' ) !== $rev ) {
 		$state = array( 'rev' => $rev, 'done' => array(), 'log' => array() );
 	}
-	$data = json_decode( (string) file_get_contents( get_template_directory() . '/seed/icerik.json' ), true ); // phpcs:ignore
-	if ( ! is_array( $data ) ) {
+	$data = array();
+	foreach ( (array) glob( get_template_directory() . '/seed/*.json' ) as $np_file ) {
+		$part = json_decode( (string) file_get_contents( $np_file ), true ); // phpcs:ignore
+		foreach ( (array) $part as $np_k => $np_v ) {
+			$data[ $np_k ] = array_merge( $data[ $np_k ] ?? array(), (array) $np_v );
+		}
+	}
+	if ( ! $data ) {
 		delete_transient( 'np_seed_lock' );
 		return;
 	}
