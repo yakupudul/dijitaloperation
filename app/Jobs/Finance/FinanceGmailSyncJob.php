@@ -13,16 +13,16 @@ final class FinanceGmailSyncJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 540;
+    public int $timeout = 170;
 
-    public function __construct(public int $rounds = 4)
+    public function __construct(public int $rounds = 2)
     {
         $this->onQueue('default');
     }
 
     public function handle(GmailInvoices $gmail): void
     {
-        $until = microtime(true) + 480;
+        $until = microtime(true) + 100;
         for ($i = 0; $i < $this->rounds && microtime(true) < $until; $i++) {
             $result = $gmail->sync();
             if (! $result['ok'] || ! $result['more'] || $result['error'] !== null) {

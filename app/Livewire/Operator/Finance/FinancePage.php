@@ -220,13 +220,17 @@ final class FinancePage extends Component
 
     public function removeInstallment(int $i): void
     {
-        unset($this->job['installments'][$i]);
-        $this->job['installments'] = array_values($this->job['installments']);
+        $rows = (array) ($this->job['installments'] ?? []);
+        unset($rows[$i]);
+        $this->job['installments'] = array_values($rows);
     }
 
     public function saveJob(Agreements $agreements): void
     {
-        $data = $this->job;
+        if ($this->jobId === 0) {
+            return;
+        }
+        $data = $this->job + ['kind' => 'one_time'];
         $brand = filled($data['brand_id'] ?? null) ? Brand::query()->find((int) $data['brand_id']) : null;
         try {
             if ($this->jobId > 0) {

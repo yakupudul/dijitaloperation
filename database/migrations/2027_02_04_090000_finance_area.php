@@ -98,6 +98,9 @@ return new class extends Migration
             $table->dropColumn(['paid_amount', 'label', 'reminded_on', 'late_reminded_on']);
         });
         Schema::table('agreements', function (Blueprint $table): void {
+            $table->dropIndex(['tax_no']);
+        });
+        Schema::table('agreements', function (Blueprint $table): void {
             $table->dropColumn(['title', 'party', 'party_phone', 'tax_no', 'plan', 'total', 'fee_since']);
         });
     }
