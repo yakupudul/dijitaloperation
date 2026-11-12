@@ -84,6 +84,9 @@ final class SocialPage extends Component
     /** @var array<int, string> */
     public array $planTimes = [];
 
+    /** @var array<int, string> Story hours of every day (empty = unused). */
+    public array $storyTimes = ['', '', ''];
+
     // Hesaplar
     public string $configId = '';
 
@@ -118,6 +121,7 @@ final class SocialPage extends Component
             $this->planDays[$day] = isset($chosen[$day]);
             $this->planTimes[$day] = $chosen[$day] ?? SocialSchedule::DEFAULT_TIME;
         }
+        $this->storyTimes = array_pad(app(SocialSchedule::class)->storyTimes(), 3, '');
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
         $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
         $this->newTime = now(SocialPlanner::TIMEZONE)->addDay()->setTime(11, 30)->format('Y-m-d\TH:i');
@@ -211,7 +215,8 @@ final class SocialPage extends Component
             }
         }
         try {
-            $changed = app(SocialSchedule::class)->save($days);
+            $changed = app(SocialSchedule::class)->save($days, $this->storyTimes);
+            $this->storyTimes = array_pad(app(SocialSchedule::class)->storyTimes(), 3, '');
             $this->message = 'Paylaşım düzeni kaydedildi'.($changed > 0 ? '; sıradaki '.$changed.' gönderinin günü yeniden belirlendi.' : '.');
             $this->messageTone = 'success';
         } catch (Throwable $e) {
@@ -435,6 +440,7 @@ final class SocialPage extends Component
             'waitingCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
             'weeks' => $weeks,
             'line' => app(SocialSchedule::class)->line()->modelKeys(),
+            'storyLine' => app(SocialSchedule::class)->line(true)->modelKeys(),
             'dayNames' => [1 => 'Pazartesi', 2 => 'Salı', 3 => 'Çarşamba', 4 => 'Perşembe', 5 => 'Cuma', 6 => 'Cumartesi', 7 => 'Pazar'],
             'manual' => $manual,
             'history' => $history,

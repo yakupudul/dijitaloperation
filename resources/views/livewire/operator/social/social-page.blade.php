@@ -42,7 +42,7 @@
             <section class="card space-y-4 p-5" data-social-schedule>
                 <div>
                     <h2 class="section-title">Paylaşım düzeni</h2>
-                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Onayladığınız gönderiler sıraya girer ve seçtiğiniz günlerde, günde bir tane olarak Instagram ve Facebook’ta yayınlanır. Sırada {{ count($line) }} gönderi var.</p>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Onayladığınız gönderiler sıraya girer ve seçtiğiniz günlerde, günde bir tane olarak Instagram ve Facebook’ta yayınlanır. Sırada {{ count($line) }} gönderi ve {{ count($storyLine) }} story var.</p>
                 </div>
                 <div class="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-7">
                     @foreach ($dayNames as $day => $name)
@@ -54,6 +54,15 @@
                             <input type="time" wire:model="planTimes.{{ $day }}" aria-label="{{ $name }} paylaşım saati" class="mt-2 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900" @disabled(! $canWrite || ! ($planDays[$day] ?? false))>
                         </div>
                     @endforeach
+                </div>
+                <div data-story-times>
+                    <p class="text-sm font-medium">Story saatleri</p>
+                    <p class="mt-1 text-xs text-gray-500">Onayladığınız story’ler kendi sırasına girer ve her gün bu saatlerde yayınlanır; gönderilerin gününü almaz. Kullanmadığınız saati boş bırakın.</p>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        @foreach ([0, 1, 2] as $i)
+                            <input type="time" wire:model="storyTimes.{{ $i }}" aria-label="{{ $i + 1 }}. story saati" class="w-32 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900" @disabled(! $canWrite)>
+                        @endforeach
+                    </div>
                 </div>
                 @if ($canWrite)
                     <div class="flex flex-wrap items-center gap-3">

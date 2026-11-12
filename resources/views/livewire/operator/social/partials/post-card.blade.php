@@ -21,8 +21,8 @@
             <span class="rounded-full px-2 py-0.5 {{ $tone }}">{{ $post->statusLabel() }}</span>
             <span class="text-gray-500">{{ $post->publish_at->timezone($tz)->translatedFormat('j F D, H:i') }}</span>
             <span class="text-gray-500">· {{ $post->kindLabel() }}{{ $post->pillarLabel() ? ' · '.$post->pillarLabel() : '' }}</span>
-            @php $place = array_search($post->id, $line ?? [], true); @endphp
-            @if ($place !== false)<span class="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800" data-line-place>Sırada {{ $place + 1 }}.</span>@endif
+            @php $place = array_search($post->id, $post->kind === 'story' ? ($storyLine ?? []) : ($line ?? []), true); @endphp
+            @if ($place !== false)<span class="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800" data-line-place>{{ $post->kind === 'story' ? 'Story sırasında' : 'Sırada' }} {{ $place + 1 }}.</span>@endif
             @if ($post->pinned && $post->isEditable())<span class="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800" data-pinned>Sabit tarih</span>@endif
         </div>
         @if ($post->title)<p class="text-sm font-semibold">{{ $post->title }}</p>@endif

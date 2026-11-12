@@ -38,14 +38,14 @@ final class SocialScheduleTest extends TestCase
         SocialAccount::query()->create(['platform' => 'instagram', 'external_id' => 'IG1', 'username' => 'moximucom', 'access_token' => 't', 'page_id' => 'P1']);
     }
 
-    private function draft(string $at = '2026-12-20 09:00'): SocialPost
+    private function draft(string $at = '2026-12-20 09:00', string $kind = 'image'): SocialPost
     {
         $img = imagecreatetruecolor(20, 25);
         ob_start();
         imagepng($img);
         $png = (string) ob_get_clean();
 
-        return app(SocialPlanner::class)->create(['kind' => 'image', 'caption' => 'x', 'publish_at' => $at], [['bytes' => $png, 'name' => 'a.png']]);
+        return app(SocialPlanner::class)->create(['kind' => $kind, 'caption' => 'x', 'publish_at' => $at], [['bytes' => $png, 'name' => 'a.png']]);
     }
 
     private function at(SocialPost $post): string
@@ -117,5 +117,28 @@ final class SocialScheduleTest extends TestCase
 
         $viewer = User::factory()->create(['is_active' => true]);
         Livewire::actingAs($viewer)->test(SocialPage::class)->call('saveSchedule')->assertForbidden();
+    }
+
+    public function test_stories_have_their_own_line_two_a_day_and_never_take_a_post_day(): void
+    {
+        $planner = app(SocialPlanner::class);
+        $post = $this->draft();
+        $stories = [$this->draft('2026-12-20 09:00', 'story'), $this->draft('2026-12-20 09:00', 'story'), $this->draft('2026-12-20 09:00', 'story')];
+        foreach ([...$stories, $post] as $p) {
+            $planner->approve($p, $this->admin->id);
+        }
+
+        // Monday 08:00: stories at 09:00 and 18:00 today, the third tomorrow morning; the post keeps today 12:30.
+        $this->assertSame(['2026-11-09 09:00', '2026-11-09 18:00', '2026-11-10 09:00'], array_map(fn (SocialPost $s): string => $this->at($s), $stories));
+        $this->assertSame('2026-11-09 12:30', $this->at($post));
+
+        // The Admin sets three story hours: the line takes them at once.
+        Livewire::actingAs($this->admin)->test(SocialPage::class)
+            ->assertSet('storyTimes', ['09:00', '18:00', ''])
+            ->set('storyTimes', ['10:00', '15:00', '21:00'])
+            ->call('saveSchedule');
+        $this->assertSame(['10:00', '15:00', '21:00'], app(SocialSchedule::class)->storyTimes());
+        $this->assertSame(['2026-11-09 10:00', '2026-11-09 15:00', '2026-11-09 21:00'], array_map(fn (SocialPost $s): string => $this->at($s), $stories));
+        $this->assertSame('2026-11-09 12:30', $this->at($post));
     }
 }
