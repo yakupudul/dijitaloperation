@@ -34,7 +34,9 @@ class GoogleOAuthController extends Controller
         // Takvim + Drive (GoogleWorkspace): two extra permissions on the same connection; consent is asked again so the
         // kept refresh token covers them.
         $workspace = $request->boolean('workspace');
-        $forceConsent = $request->boolean('force_consent') || $workspace;
+        // Finans: reading the mailbox for invoices is one more permission on the same connection.
+        $gmail = $request->boolean('gmail');
+        $forceConsent = $request->boolean('force_consent') || $workspace || $gmail;
 
         $result = $oauth->beginAuthorization(
             integration: $integration,
@@ -42,7 +44,7 @@ class GoogleOAuthController extends Controller
             capabilities: $capabilities,
             forceConsent: $forceConsent,
             capabilityContext: is_string($capability) ? $capability : null,
-            extraScopes: $workspace ? GoogleWorkspace::SCOPES : [],
+            extraScopes: [...($workspace ? GoogleWorkspace::SCOPES : []), ...($gmail ? [GoogleWorkspace::GMAIL] : [])],
         );
 
         if (isset($result['error'])) {

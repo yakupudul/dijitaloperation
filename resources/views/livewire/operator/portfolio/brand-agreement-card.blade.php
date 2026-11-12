@@ -22,10 +22,10 @@
                 @foreach (Agreement::KINDS as $key => $label)
                     <button type="button" wire:click="$set('form.kind', '{{ $key }}')" @class(['seg h-8 text-[13px]', 'seg-active' => $form['kind'] === $key]) data-brand-agreement-kind="{{ $key }}">{{ $label }}</button>
                 @endforeach
-                <span class="self-center text-xs text-gray-400">{{ ['monthly' => 'Her ay, durdurulana kadar.', 'term' => 'Belirli ay sayısı boyunca her ay (6 aylık kampanya).', 'one_time' => 'Bir kez (site yapımı gibi).', 'partnership' => 'Gelir paylaşımı; sabit ücret yoksa 0 bırak.'][$form['kind']] ?? '' }}</span>
+                <span class="self-center text-xs text-gray-400">{{ ['monthly' => 'Her ay, durdurulana kadar.', 'term' => 'Belirli ay sayısı boyunca her ay (6 aylık kampanya).', 'one_time' => 'Bir kez (site yapımı gibi).', 'partnership' => 'Gelir paylaşımı; sabit ücret yoksa 0 bırak.', 'yearly' => 'Yılda bir (alan adı, sunucu); süren anlaşmanın yanında durur.'][$form['kind']] ?? '' }}</span>
             </div>
             <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <label class="block text-xs text-gray-500">{{ $form['kind'] === 'one_time' ? 'Tutar (₺, KDV hariç)' : 'Aylık ücret (₺, KDV hariç)' }}<input wire:model="form.fee" type="text" inputmode="numeric" placeholder="14.000" class="mt-1 {{ $input }}" data-brand-agreement-fee />@error('fee')<span class="text-error-600">{{ $message }}</span>@enderror</label>
+                <label class="block text-xs text-gray-500">{{ $form['kind'] === 'one_time' ? 'Tutar (₺, KDV hariç)' : ($form['kind'] === 'yearly' ? 'Yıllık ücret (₺, KDV hariç)' : 'Aylık ücret (₺, KDV hariç)') }}<input wire:model="form.fee" type="text" inputmode="numeric" placeholder="14.000" class="mt-1 {{ $input }}" data-brand-agreement-fee />@error('fee')<span class="text-error-600">{{ $message }}</span>@enderror</label>
                 @if ($form['kind'] === 'term')
                     <label class="block text-xs text-gray-500">Dönem (ay)<input wire:model="form.term_months" type="number" min="1" max="36" class="mt-1 {{ $input }}" />@error('term_months')<span class="text-error-600">{{ $message }}</span>@enderror</label>
                 @endif
@@ -43,7 +43,7 @@
             <div class="flex items-center gap-2">
                 <button type="submit" class="btn-primary" wire:loading.attr="disabled" data-brand-agreement-save>Kaydet</button>
                 <button type="button" wire:click="cancel" class="btn">Vazgeç</button>
-                @if ($editingId === 0 && $a !== null && $form['kind'] !== 'one_time')<span class="text-xs text-gray-400">Yeni aylık / dönemlik anlaşma, sürenin bir gün öncesinde eskisini bitirir.</span>@endif
+                @if ($editingId === 0 && $a !== null && ! in_array($form['kind'], \App\Services\Sales\Agreements::BESIDE_KINDS, true))<span class="text-xs text-gray-400">Yeni aylık / dönemlik anlaşma, sürenin bir gün öncesinde eskisini bitirir.</span>@endif
             </div>
         </form>
     @elseif ($a === null)

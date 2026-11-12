@@ -3,6 +3,7 @@
 use App\Http\Controllers\Calendar\QuickCaptureController;
 use App\Http\Controllers\Demo\OperatorFileDownloadController;
 use App\Http\Controllers\Integrations\WordPressConnectorDownloadController;
+use App\Http\Controllers\Operator\FinanceFilesController;
 use App\Http\Controllers\Operator\GbpReviewCardController;
 use App\Http\Controllers\Operator\GbpReviewRepliesPdfController;
 use App\Http\Controllers\Operator\Links\LinkReportController;
@@ -37,6 +38,7 @@ use App\Livewire\Operator\AiJobsPage;
 use App\Livewire\Operator\Assets\AnalyticsPage;
 use App\Livewire\Operator\Assets\SearchConsolePage;
 use App\Livewire\Operator\Calendar\CalendarPage;
+use App\Livewire\Operator\Finance\FinancePage;
 use App\Livewire\Operator\Flow\FlowPage;
 use App\Livewire\Operator\Gbp\Desk\BranchPagesPage as GbpBranchPagesPage;
 use App\Livewire\Operator\Gbp\Desk\DeskPage as GbpDeskPage;
@@ -228,6 +230,10 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         // Hızlı not eklentisi (2026-11-10): the Chrome extension ZIP with this panel's address and the user's key.
         Route::get('/takvim/hizli-not-eklentisi.zip', [QuickCaptureController::class, 'download'])->middleware('throttle:10,1')->name('operator.calendar.extension');
         Route::livewire('/satis', SalesPage::class)->name('operator.sales');
+        // Finans (2026-11-12): who agreed what, who paid, what remains; invoices, expenses and dekonts kept as files.
+        Route::livewire('/finans', FinancePage::class)->name('operator.finance');
+        Route::get('/finans/belge/{document}', [FinanceFilesController::class, 'show'])->where('document', '[0-9]{1,18}')->name('operator.finance.document');
+        Route::get('/finans/zip', [FinanceFilesController::class, 'zip'])->middleware('throttle:20,1')->name('operator.finance.zip');
         // Gelen kutusu (Aşama 2, 2026-11-07): WhatsApp, Instagram / Facebook, forms and today's steps in one queue.
         Route::livewire('/gelen-kutusu', InboxPage::class)->name('operator.inbox');
         // Bağlantılar (Backlink hizmeti, 2026-11-06): every brand's link desk, targets and the shared source pool.

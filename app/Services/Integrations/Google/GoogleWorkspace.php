@@ -19,6 +19,9 @@ final class GoogleWorkspace
 
     public const array SCOPES = [self::CALENDAR, self::DRIVE];
 
+    /** Finans (yakup 2026-11-12): the mailbox is only read, to find the invoices sent to it. Asked on its own with "Gmail'i bağla". */
+    public const string GMAIL = 'https://www.googleapis.com/auth/gmail.readonly';
+
     public function __construct(private readonly GoogleOAuthService $oauth, private readonly GoogleScopeCoverageService $coverage) {}
 
     public function integration(): ?CoreIntegration
@@ -39,6 +42,14 @@ final class GoogleWorkspace
         $integration = $this->integration();
 
         return $integration === null ? null : route('integrations.google.authorize', ['integration' => $integration->id, 'workspace' => 1]);
+    }
+
+    /** Where "Gmail'i bağla" goes (Finans): the same connection, one more permission. */
+    public function gmailConnectUrl(): ?string
+    {
+        $integration = $this->integration();
+
+        return $integration === null ? null : route('integrations.google.authorize', ['integration' => $integration->id, 'gmail' => 1]);
     }
 
     public function token(): string

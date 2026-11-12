@@ -11,6 +11,7 @@ use App\Mcp\Tools\CorrectResult;
 use App\Mcp\Tools\DeployNow;
 use App\Mcp\Tools\EditSite;
 use App\Mcp\Tools\FailTask;
+use App\Mcp\Tools\Finance;
 use App\Mcp\Tools\GbpEvidence;
 use App\Mcp\Tools\GetBrand;
 use App\Mcp\Tools\GetPage;
@@ -86,6 +87,10 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 - For Google Ads, Search Console, GA4 and Business Profile use `channel-data` (one dataset per call: months,
   campaigns, search terms, keywords, locations, queries, pages, countries, channels, landing pages, key events,
   profile actions, keywords, reviews). Check `last_day` before drawing a conclusion.
+
+## Finans (by word)
+- When the operator tells you a payment matter in words (a new job, taksit dates, money that came in, a fee change, an
+  expense), do it with `finance`: `jobs` to find the job, then the write. Never guess an amount he did not say.
 
 ## Moxi işleri (before the queue)
 - Moxi is the panel's corner assistant; jobs it could not do itself come to you. `list-tasks` shows `moxi_requests` (how
@@ -215,6 +220,7 @@ class MoxdopServer extends Server
         SaveNote::class,
         LeadKindsTool::class,
         SocialPosts::class,
+        Finance::class,
         SaveBrandFact::class,
         ListNotes::class,
         ListStrategies::class,

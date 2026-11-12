@@ -8,6 +8,7 @@ use App\Models\Brand;
 use App\Models\MoxiMessage;
 use App\Models\SalesLead;
 use App\Models\User;
+use App\Services\Finance\FinanceDesk;
 use App\Services\Sales\Agreements;
 use App\Services\Sales\ReferralRewards;
 use App\Services\Sales\SalesLeads;
@@ -34,7 +35,7 @@ final class MoxiActions
         'lead_offer' => 'Teklif',
         'brand_fact' => 'Marka bilgisi',
         'brand_agreement' => 'Anlaşma',
-    ];
+    ] + FinanceDesk::ACTIONS;
 
     public function __construct(private readonly SalesLeads $leads) {}
 
@@ -54,6 +55,7 @@ final class MoxiActions
             'lead_add' => $this->previewAdd($title, $args),
             'brand_fact' => $this->previewFact($title, $args),
             'brand_agreement' => $this->previewAgreement($title, $args),
+            'finance_job', 'finance_payment', 'finance_unpay', 'finance_job_update', 'finance_expense' => app(FinanceDesk::class)->preview($action, $args),
             default => $this->previewLead($action, $title, $args),
         };
     }
@@ -73,6 +75,7 @@ final class MoxiActions
             'lead_add' => $this->add($args, $user),
             'brand_fact' => $this->fact($args),
             'brand_agreement' => $this->agreement($args, $user),
+            'finance_job', 'finance_payment', 'finance_unpay', 'finance_job_update', 'finance_expense' => app(FinanceDesk::class)->run($action, $args, $user),
             default => $this->onLead($action, $args, $user),
         });
     }

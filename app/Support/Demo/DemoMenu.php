@@ -54,6 +54,8 @@ final class DemoMenu
             $group($own['name'] ?? 'Moximu', [
                 // Satış (2026-11-04): prospects, today's messages, customers' requests, results.
                 $item($tr ? 'Satış' : 'Sales', 'operator.sales', 'prospects', [], ['operator.sales.lead']),
+                // Finans (2026-11-12): payment tracking of every paid job, invoices and expenses. Admin only.
+                ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Finans' : 'Finance', 'operator.finance', 'finance', [], ['operator.finance.document'])] : []),
                 // Gelen kutusu (Aşama 2, 2026-11-07): the day's one queue; the WhatsApp screen (chats, Beyin, connection) lights it too.
                 ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Gelen kutusu' : 'Inbox', 'operator.inbox', 'chat', [], ['operator.whatsapp'])] : []),
                 // Pazarlama (Aşama 4, 2026-11-07): the funnel by source; Sosyal medya (ADR-083) lives inside it as a tab and

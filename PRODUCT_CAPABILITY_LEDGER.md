@@ -4666,3 +4666,18 @@ Status: IMPLEMENTED V1 (coded + PHPUnit; no real UAT). Live check pending: publi
 - Weekly mode: errors (bug / collection / page) enter approved (note: Tuesday batch, priority 1 same day); design /
   improvement wait for approval; `list-changes` todo shows non-urgent errors only on Tuesday; a live commit naming a
   proposed card moves it too. Faz 3 leftovers became cards #57 (demo mode) and #58 (DataForSEO).
+
+## Finans (2026-11-12, yakup: "işimle alakalı ödeme konularının takibi"; "Yap şimdi yeniliklerinle birlikte")
+
+Status: coded + tested (tests/Feature/Finance/FinanceAreaTest.php, 13 tests); screens walked on desktop and phone with sample data. Real UAT with yakup's Gmail and WhatsApp dekont is open.
+
+- `/finans` (Moximu menüsü, yalnız admin), four tabs: Bu ay (kimden ne alınacak, gelen, kalan, geciken; önceki aylardan açık kalanlar; yaklaşanlar; dijital harcama), Anlaşmalar (her iş + Zam görünümü), Giderler (belgeler + abonelikler), Faturalar (Gmail, yükleme, ZIP, ayarlar).
+- Agreements are the one source of every paid job: `brand_id` is optional (`party`, `party_phone` for a job outside the panel), `plan = schedule` keeps typed taksit rows, `paid_amount` keeps part payments, kind `yearly` renews once a year (row opened 35 days ahead), `fee_since` says since when the fee stands. `Agreements::receive()` fills the oldest open rows with whatever came in and says what remains; a KDV-inclusive amount is recognised (`FinanceBoard::net`).
+- `finance_documents`: invoices we wrote (out), expense documents (in), dekonts (receipt). UBL e-fatura / e-arşiv XML is read by rule; PDF and photos by the Claude API (cost counts toward the API's TL limits). An invoice we wrote finds its job by the buyer's vergi no (learned from the first match), an expense takes its category from the seller's last document. Files live on the private disk; `/finans/belge/{id}` and `/finans/zip?ay=YYYY-MM` are admin only. Customer invoices are NOT shown on hesap.moximu.com.
+- Gmail: one more permission on the Google connection (`gmail.readonly`, "Gmail'i bağla"); attachments (PDF, XML, ZIP) of invoice mails are pulled from 1 January of the year, then the last 5 days each hour. Nothing is deleted or sent.
+- WhatsApp dekont: an image / PDF a payer sends is read; when it is a dekont it waits under "Gelen dekontlar" for one tap. Nothing is marked paid without that tap.
+- Zam görünümü: fee, months at that fee, what it is worth today and what would buy the same (yearly inflation typed in Ayarlar), list price gap. Abonelik radarı: a seller seen in two months is a subscription (step, next day, price rise, stopped).
+- Reminders: push on the due day, once when 3 days late, once for an ending term / a yearly renewal / a subscription price rise. The reminder text for the payer is copied by the operator; the system never writes to a customer.
+- By word: Moxi tools `finans_ozet`, `finans_isler` and cards `finans_is_ac`, `finans_odeme`, `finans_odeme_geri_al`, `finans_is_degistir`, `finans_gider`; MCP tool `finance` (summary, jobs, add_job, record_payment, unpay, update_job, add_expense, preview).
+- Scheduled: `finance-tick` hourly (Gmail + reminders). Async: Gmail and dekont reading run on the queue.
+- Known limits: mails without an attachment (only a link) are not pulled; foreign-currency expenses other than USD are listed but not added to the TL total; the inflation rate is typed by hand.

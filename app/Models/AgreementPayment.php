@@ -6,19 +6,44 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** One month of an agreement: due on a day, ticked when it came in. No invoices, no amounts split. */
+/**
+ * One payment row of an agreement: a month, a year, or a taksit the operator typed. Due on a day, paid in full when
+ * paid_on is set; paid_amount keeps what came in so far when it arrives in parts.
+ */
 class AgreementPayment extends Model
 {
     protected $guarded = ['id'];
 
     protected function casts(): array
     {
-        return ['amount' => 'integer', 'due_on' => 'date', 'paid_on' => 'date'];
+        return ['amount' => 'integer', 'due_on' => 'date', 'paid_on' => 'date', 'paid_amount' => 'integer', 'reminded_on' => 'date', 'late_reminded_on' => 'date'];
     }
 
     public function agreement(): BelongsTo
     {
         return $this->belongsTo(Agreement::class);
+    }
+
+    /** What came in for this row: all of it once ticked, else the parts so far. */
+    public function received(): int
+    {
+        return $this->paid_on !== null ? max((int) $this->amount, (int) $this->paid_amount) : min((int) $this->amount, (int) $this->paid_amount);
+    }
+
+    public function open(): int
+    {
+        return $this->paid_on !== null ? 0 : max(0, (int) $this->amount - (int) $this->paid_amount);
+    }
+
+    public function isPartial(): bool
+    {
+        return $this->paid_on === null && (int) $this->paid_amount > 0;
+    }
+
+    /** "Kasım 2026", or the typed label of a taksit ("2. taksit"). */
+    public function title(): string
+    {
+        return filled($this->label) ? (string) $this->label : $this->periodLabel();
     }
 
     public function isPaid(): bool

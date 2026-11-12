@@ -300,6 +300,41 @@
   }
 }
 
+/* A data-table that becomes one block per row on a phone: the first cell is the row's title, the last its actions,
+   the cells between flow on one line (a cell with data-label says what it is). */
+@utility table-stack {
+  @media (width < 40rem) {
+    & thead {
+      @apply hidden;
+    }
+    & tbody tr {
+      @apply flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-gray-200 px-4 py-3 dark:border-gray-800;
+    }
+    & tbody tr:last-child {
+      @apply border-b-0;
+    }
+    & tbody td {
+      @apply block min-w-0 border-0 p-0 text-left;
+    }
+    & tbody td:first-child {
+      @apply w-full;
+    }
+    & tbody td:last-child {
+      @apply mt-1 w-full;
+    }
+    & tbody td:last-child > div {
+      @apply justify-start;
+    }
+    & tbody td[data-label]::before {
+      content: attr(data-label) ' ';
+      @apply text-xs font-normal text-gray-500;
+    }
+    & tbody td:empty {
+      @apply hidden;
+    }
+  }
+}
+
 /* Buttons for plain HTML buttons and links (x-ta.button uses the same look). */
 @utility btn {
   @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300/80 bg-white px-3 text-[13px] font-medium text-gray-900 shadow-card transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08];

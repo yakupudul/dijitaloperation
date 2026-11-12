@@ -2,10 +2,12 @@
 
 namespace App\Services\WhatsApp;
 
+use App\Jobs\Finance\FinanceReceiptJob;
 use App\Models\CoreIntegration;
 use App\Models\WhatsAppConversation;
 use App\Models\WhatsAppWebhookReceipt;
 use App\Services\Inbox\InboxAlerts;
+use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -14,6 +16,9 @@ final class WhatsAppIngestion
 {
     /** @var array<int, true> new live incoming messages of this receipt, told to the phone once it is saved */
     private array $fresh = [];
+
+    /** @var array<int, true> the fresh ones that carry a photo or a document */
+    private array $media = [];
 
     public function process(int $receiptId): void
     {
@@ -26,7 +31,12 @@ final class WhatsAppIngestion
             } catch (Throwable $exception) {
                 report($exception);
             }
+            // Finans: a photo or document may be a payer's dekont; it is read in the background (ReceiptCapture).
+            if (isset($this->media[$messageId])) {
+                rescue(fn () => FinanceReceiptJob::dispatch($messageId), report: false);
+            }
         }
+        $this->media = [];
     }
 
     private function ingest(int $receiptId): void
@@ -155,6 +165,22 @@ final class WhatsAppIngestion
         }, 3);
     }
 
+    /**
+     * The file a photo or document message carries (Meta's media id), kept so Finans can read a payer's dekont.
+     *
+     * @return array{media_id?: string, media_mime?: ?string}
+     */
+    private function mediaOf(array $message, string $type): array
+    {
+        $id = in_array($type, ['image', 'document'], true) ? data_get($message, $type.'.id') : null;
+        if (! is_string($id) || $id === '' || strlen($id) > 190 || ! SchemaState::hasColumn('whatsapp_messages', 'media_id')) {
+            return [];
+        }
+        $mime = data_get($message, $type.'.mime_type');
+
+        return ['media_id' => $id, 'media_mime' => is_string($mime) ? substr($mime, 0, 120) : null];
+    }
+
     /** Returns 1 for a new message, 0 for redelivery, -1 for unsupported/invalid envelope. */
     private function message(CoreIntegration $integration, array $config, mixed $message, array $names, bool $outgoing, bool $history): int
     {
@@ -205,12 +231,15 @@ final class WhatsAppIngestion
             'direction' => $outgoing ? 'outgoing' : 'incoming', 'message_type' => $type,
             'body' => $body, 'sent_at' => $sentAt, 'is_history' => $history,
             'reply_to_message_id' => is_string($replyId) ? substr($replyId, 0, 255) : null,
-        ]);
+        ] + $this->mediaOf($message, $type));
         if (! $stored->wasRecentlyCreated) {
             return 0;
         }
         if (! $outgoing && ! $history) {
             $this->fresh[$stored->id] = true;
+            if (filled($stored->media_id)) {
+                $this->media[$stored->id] = true;
+            }
         }
         $update = [
             // The name in the phone's address book wins over the WhatsApp profile name.

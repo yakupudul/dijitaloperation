@@ -16,6 +16,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -473,6 +474,10 @@ final class AiWorkers
         // Moxi, the panel assistant, runs on the Claude API too: its turns count toward the same TL limits.
         if ($worker === self::CLAUDE_API && SchemaState::hasTable('moxi_messages')) {
             $usd += (float) MoxiMessage::query()->where('created_at', '>=', $since)->sum('cost_usd');
+        }
+        // Finans reads invoices, expense documents and receipts with the Claude API as well.
+        if ($worker === self::CLAUDE_API && SchemaState::hasTable('finance_documents')) {
+            $usd += (float) DB::table('finance_documents')->where('created_at', '>=', $since)->sum('cost_usd');
         }
 
         return round($usd * $this->settings()['usd_try'], 2);

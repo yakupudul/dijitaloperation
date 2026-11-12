@@ -71,6 +71,8 @@ use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\RecoverInterruptedCollections;
 use App\Services\Collection\StartCollectionService;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Finance\FinanceReminders;
+use App\Services\Finance\GmailInvoices;
 use App\Services\Gbp\GbpPostQueue;
 use App\Services\Gbp\GbpPostReview;
 use App\Services\Gbp\ReviewReplyCheck;
@@ -1923,6 +1925,30 @@ Schedule::command('moxdop:social:inbox')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->name('social-inbox');
+
+// Finans (yakup 2026-11-12): every hour the mailbox is read for new invoices (the first runs walk back to 1 January a
+// page at a time); between 09:00 and 20:00 the phone is told about today's payments, late ones, endings and renewals.
+Artisan::command('moxdop:finance:tick', function (): void {
+    $gmail = app(GmailInvoices::class);
+    $read = ['messages' => 0, 'documents' => 0];
+    for ($i = 0; $i < 3 && $gmail->linked(); $i++) {
+        $result = $gmail->sync();
+        $read['messages'] += $result['messages'];
+        $read['documents'] += $result['documents'];
+        if (! $result['ok'] || ! $result['more'] || $result['error'] !== null) {
+            break;
+        }
+    }
+    $hour = (int) now('Europe/Istanbul')->format('G');
+    $told = $hour >= 9 && $hour < 20 ? app(FinanceReminders::class)->run() : ['due' => 0, 'late' => 0, 'coming' => 0];
+    $this->info('Gmail: '.$read['messages'].' mesaj, '.$read['documents'].' belge · bildirim: '.$told['due'].' bugün, '.$told['late'].' geciken, '.$told['coming'].' yaklaşan');
+})->purpose('Finans: read invoices from Gmail and tell the phone about payments due, late and coming.');
+
+Schedule::command('moxdop:finance:tick')
+    ->hourlyAt(12)
+    ->withoutOverlapping(30)
+    ->runInBackground()
+    ->name('finance-tick');
 
 // Bağlantı Düzeni 2.4: a job the operator switched off on Ayarlar › Zamanlanmış işler is skipped (it stays on the
 // schedule, so switching it on again needs no deploy). Keep this block at the end of the file: it covers every job above.

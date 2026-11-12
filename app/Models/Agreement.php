@@ -18,14 +18,20 @@ class Agreement extends Model
 {
     protected $guarded = ['id'];
 
+    /** A yearly row (alan adı, sunucu) is opened this many days before its day, so it can be asked for in time. */
+    public const int YEARLY_AHEAD_DAYS = 35;
+
     /** Ortaklık: no fee of our own (a revenue share, All for Clinics); the brand is served, nothing is billed monthly. */
-    public const array KINDS = ['monthly' => 'Aylık', 'term' => 'Dönemlik', 'one_time' => 'Tek seferlik', 'partnership' => 'Ortaklık'];
+    public const array KINDS = ['monthly' => 'Aylık', 'term' => 'Dönemlik', 'one_time' => 'Tek seferlik', 'yearly' => 'Yıllık', 'partnership' => 'Ortaklık'];
+
+    /** auto: a row per month (or year) from the fee. schedule: the rows are the dates and amounts the operator typed (taksit). */
+    public const array PLANS = ['auto' => 'Her dönem kendiliğinden', 'schedule' => 'Taksitli (tarihleri ben girerim)'];
 
     public const array STATUSES = ['active' => 'Sürüyor', 'paused' => 'Durduruldu', 'ended' => 'Bitti'];
 
     protected function casts(): array
     {
-        return ['fee' => 'integer', 'term_months' => 'integer', 'due_day' => 'integer', 'starts_on' => 'date', 'ends_on' => 'date', 'contract_on' => 'date', 'services' => 'array'];
+        return ['fee' => 'integer', 'term_months' => 'integer', 'due_day' => 'integer', 'starts_on' => 'date', 'ends_on' => 'date', 'contract_on' => 'date', 'services' => 'array', 'total' => 'integer', 'fee_since' => 'date'];
     }
 
     public function brand(): BelongsTo
@@ -46,6 +52,64 @@ class Agreement extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(AgreementPayment::class)->orderBy('period');
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(FinanceDocument::class)->orderByDesc('doc_date');
+    }
+
+    /** Who pays: the brand, or the name typed for a job outside the panel. */
+    public function payer(): string
+    {
+        return (string) ($this->brand?->name ?? $this->party ?? 'İsimsiz iş');
+    }
+
+    /** "Avrupadent", "Avrupadent · Web sitesi", "Ahmet Bey · Web sitesi". */
+    public function name(): string
+    {
+        return $this->payer().(filled($this->title) && $this->title !== $this->payer() ? ' · '.$this->title : '');
+    }
+
+    public function isSchedule(): bool
+    {
+        return $this->plan === 'schedule';
+    }
+
+    /** The whole price of the job when it has one: a schedule's total, a term's months × fee, a one-time fee. */
+    public function wholePrice(): ?int
+    {
+        if ($this->isSchedule()) {
+            return (int) ($this->total ?: $this->payments->sum('amount'));
+        }
+
+        return match ($this->kind) {
+            'term' => (int) $this->fee * (int) $this->term_months,
+            'one_time' => (int) $this->fee,
+            default => null,
+        };
+    }
+
+    /** What came in so far, over every row. */
+    public function received(): int
+    {
+        return (int) $this->payments->sum(fn (AgreementPayment $p): int => $p->received());
+    }
+
+    /** What is still to come of the whole price (null for an open-ended monthly / yearly job). */
+    public function remaining(): ?int
+    {
+        $whole = $this->wholePrice();
+
+        return $whole === null ? null : max(0, $whole - $this->received());
+    }
+
+    /** The day the present fee began (the start when it never changed). */
+    public function feeSince(): ?CarbonImmutable
+    {
+        $day = $this->fee_since ?? $this->starts_on;
+
+        return $day !== null ? CarbonImmutable::parse($day->toDateString()) : null;
     }
 
     /** @param  Builder<self>  $query */
@@ -83,22 +147,39 @@ class Agreement extends Model
         return match ($this->kind) {
             'partnership' => 'Ortaklık'.((int) $this->fee > 0 ? ' · '.$n.'/ay' : ' (gelir paylaşımı)'),
             'monthly' => $n.'/ay',
+            'yearly' => $n.'/yıl',
             'term' => $n.'/ay · '.(int) $this->term_months.' ay'.($this->ends_on !== null ? ' ('.$this->starts_on?->locale('tr')->isoFormat('MMM YYYY').' – '.$this->ends_on->locale('tr')->isoFormat('MMM YYYY').')' : ''),
-            default => $n.' tek seferlik',
+            default => ($this->isSchedule() && $this->total ? number_format((int) $this->total, 0, ',', '.').' ₺' : $n).' tek seferlik',
         };
     }
 
     /** The day of the month the fee is due, as a date in the given month (28 caps a short month). */
     public function dueIn(CarbonImmutable $month): CarbonImmutable
     {
+        if ($this->kind === 'yearly' && $this->starts_on !== null) {
+            return $month->startOfMonth()->setDay(min((int) $this->starts_on->day, $month->daysInMonth));
+        }
+
         return $month->startOfMonth()->setDay(min((int) $this->due_day ?: 1, $month->daysInMonth));
     }
 
     /** The periods (YYYY-MM) this agreement bills, from its start to $until (inclusive) and never past ends_on. */
     public function periodsUntil(CarbonImmutable $until): array
     {
-        if ($this->starts_on === null) {
-            return [];
+        if ($this->starts_on === null || $this->isSchedule()) {
+            return []; // a schedule's rows are typed, never made from the fee
+        }
+        if ($this->kind === 'yearly') {
+            // One row a year, on the start's month; the coming one appears YEARLY_AHEAD_DAYS before its day.
+            $out = [];
+            $ahead = $until->addDays(self::YEARLY_AHEAD_DAYS);
+            for ($day = CarbonImmutable::instance($this->starts_on), $guard = 0; $day->lte($ahead) && $guard < 40; $day = $day->addYear(), $guard++) {
+                if ($this->ends_on === null || $day->lte(CarbonImmutable::instance($this->ends_on))) {
+                    $out[] = $day->format('Y-m');
+                }
+            }
+
+            return $out;
         }
         // Months are compared as "YYYY-MM" so the dates' time zones never shift a month (dates are stored as days).
         $start = CarbonImmutable::instance($this->starts_on)->format('Y-m');

@@ -5,6 +5,7 @@
 > Yeni ekran, yeni yetenek, yeni zamanlanmış iş yok; zamanlanmış iş sayısı artmaz. Bir belirti için "bir kez düzelt" veri
 > migration'ı yazma; kötü veriyi üreten kuralı düzelt.
 > İstisna (yakup 2026-11-09): Moxi köşe asistanı (`app/Services/Moxi`, `App\Livewire\Operator\Moxi`); zamanlanmış iş eklemez.
+> İstisna (yakup 2026-11-12, "Yap şimdi yeniliklerinle birlikte"): Finans alanı (`app/Services/Finance`, `App\Livewire\Operator\Finance`, `/finans`); bir zamanlanmış iş ekler (`finance-tick`).
 
 ## Cursor Cloud specific instructions
 

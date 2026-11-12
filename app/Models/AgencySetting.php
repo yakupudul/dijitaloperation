@@ -89,6 +89,7 @@ class AgencySetting extends Model
             'ai_openai_admin_key' => 'encrypted',
             'ai_workers' => 'array',
             'google_workspace' => 'array',
+            'finance' => 'array',
             'social_schedule' => 'array',
             'ai_openai_audit' => 'array',
             'lead_kinds' => 'array',

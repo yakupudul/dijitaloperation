@@ -11,12 +11,14 @@ use App\Mcp\Tools\MetaPerformance;
 use App\Mcp\Tools\SaveNote;
 use App\Mcp\Tools\SystemHealth;
 use App\Models\Brand;
+use App\Models\FinanceDocument;
 use App\Models\MoxiMessage;
 use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SystemChange;
 use App\Models\User;
 use App\Services\Calendar\QuickCapture;
+use App\Services\Finance\FinanceDesk;
 use App\Services\Mcp\BrandBriefing;
 use App\Services\Operations\SystemChangeDesk;
 use App\Services\Sales\SalesLeads;
@@ -65,6 +67,11 @@ final class MoxiTools
         'teklif' => 'lead_offer',
         'marka_bilgisi' => 'brand_fact',
         'anlasma_yaz' => 'brand_agreement',
+        'finans_is_ac' => 'finance_job',
+        'finans_odeme' => 'finance_payment',
+        'finans_odeme_geri_al' => 'finance_unpay',
+        'finans_is_degistir' => 'finance_job_update',
+        'finans_gider' => 'finance_expense',
     ];
 
     /** Longest tool result handed back to the model (characters); longer ones are cut and say so. */
@@ -113,6 +120,26 @@ final class MoxiTools
                 'brand_id' => $int('Marka id (marka_bul ile bul).'), 'fee' => $int('Aylık ya da toplam ücret, TL, KDV hariç.'), 'kind' => $str('Anlaşma türü (söylenmediyse monthly).', ['monthly', 'term', 'one_time', 'partnership']),
                 'term_months' => $int('Dönemlik ise ay sayısı.'), 'due_day' => $int('Ödeme günü (1-28; söylenmediyse 1).'), 'starts_on' => $date, 'note' => $str('Not (ör. 6 ay peşin).'),
             ], ['brand_id', 'fee'])],
+            ['name' => 'finans_ozet', 'description' => 'Finans: bir ayın ödeme özeti. Kimden ne alınacak, ne geldi, ne gecikti, o ay dijitalde ne harcandı, yaklaşan yenilemeler ve biten anlaşmalar. Tutarlar TL, KDV hariç. month boşsa bu ay.', 'input_schema' => $object(['month' => $str('Ay, YYYY-AA.')])],
+            ['name' => 'finans_isler', 'description' => 'Finans: işleri (anlaşmaları) ada göre bulur; ücret, ne zamandır bu ücret, ne ödendi, ne kaldı ve açık ödeme satırları (payment_id) döner. Boş q = süren her iş. Ödeme ya da değişiklik kartından önce işi bununla bul.', 'input_schema' => $object(['q' => $str('Ödeyen, marka ya da iş adının bir parçası.'), 'ended' => ['type' => 'boolean', 'description' => 'Biten işler de gelsin.']])],
+            ['name' => 'finans_is_ac', 'description' => 'KART: Finans\'a yeni iş açar. Panelde markası olmayan iş için party (kimden alınacak) ver; markalı iş için brand_id. Taksitli işte installments ver (tarih ve tutar), ücret onlardan toplanır. Yılda bir yenilenen alan adı / sunucu için kind=yearly. Ücret KDV hariç TL; söylenmeyen tutarı asla tahmin etme.', 'input_schema' => $object([
+                'brand_id' => $int('Marka id (marka_bul ile bul); marka yoksa verme.'), 'party' => $str('Marka yoksa kimden alınacağı (kişi ya da işletme adı).'), 'party_phone' => $str('Telefonu.'), 'title' => $str('İşin adı (Web sitesi, Alan adı yenileme…).'),
+                'kind' => $str('Ödeme şekli (söylenmediyse one_time).', ['monthly', 'term', 'one_time', 'yearly']), 'fee' => $int('Ücret, TL, KDV hariç (aylık / yıllık / toplam).'), 'term_months' => $int('Dönemlik ise ay sayısı.'), 'due_day' => $int('Ödeme günü (1-28).'), 'starts_on' => $date,
+                'installments' => ['type' => 'array', 'description' => 'Taksitler.', 'items' => $object(['due_on' => $date, 'amount' => $int('Tutar, TL, KDV hariç.'), 'label' => $str('Not (peşinat, teslimde…).')], ['due_on', 'amount'])], 'note' => $str('Not.'),
+            ])],
+            ['name' => 'finans_odeme', 'description' => 'KART: gelen parayı bir işe işler; en eski açık satırdan başlayarak doldurur, kısmi ödeme olur, kalan söylenir. Operatör "X 12.000 yatırdı" deyince finans_isler ile işi bul. vat söylenmediyse auto (tutar açık satırlara KDV\'li mi KDV\'siz mi uyuyor, sistem anlar).', 'input_schema' => $object([
+                'agreement_id' => $int('İş id (finans_isler ile bul).'), 'amount' => ['type' => 'number', 'description' => 'Gelen tutar, TL.'], 'date' => $date, 'vat' => $str('Tutar KDV dahil mi.', ['auto', 'yes', 'no']), 'note' => $str('Not.'),
+            ], ['agreement_id', 'amount'])],
+            ['name' => 'finans_odeme_geri_al', 'description' => 'KART: yanlış işlenen bir ödemeyi geri alır; satır yeniden açık olur.', 'input_schema' => $object(['payment_id' => $int('Ödeme satırı id (finans_isler ya da finans_ozet ile bul).')], ['payment_id'])],
+            ['name' => 'finans_is_degistir', 'description' => 'KART: bir işi değiştirir: ücret (zam; fee_since = yeni ücretin başladığı gün, önceki aylar eski ücrette kalır), ödeme günü, ad, not, bekleyen taksitler ya da durum (ended = bitir, paused = durdur, active = sürdür).', 'input_schema' => $object([
+                'agreement_id' => $int('İş id (finans_isler ile bul).'), 'fee' => $int('Yeni ücret, TL, KDV hariç.'), 'fee_since' => $date, 'due_day' => $int('Ödeme günü (1-28).'), 'title' => $str('İşin adı.'), 'note' => $str('Not.'),
+                'installments' => ['type' => 'array', 'description' => 'Bekleyen taksitlerin yeni hali (ödenmişler durur).', 'items' => $object(['due_on' => $date, 'amount' => $int('Tutar, TL, KDV hariç.'), 'label' => $str('Not.')], ['due_on', 'amount'])],
+                'status' => $str('Durum.', ['active', 'paused', 'ended']),
+            ], ['agreement_id'])],
+            ['name' => 'finans_gider', 'description' => 'KART: belgesi olmayan bir gideri yazar (belgesi olan gider Finans › Giderler\'e yüklenir ya da Gmail\'den gelir). Tutar KDV dahil. Bir müşteri için ödendiyse brand_id; geri istenecekse rebill.', 'input_schema' => $object([
+                'counterparty' => $str('Nereye ödendi.'), 'amount' => ['type' => 'number', 'description' => 'Tutar, KDV dahil.'], 'currency' => $str('Para birimi.', ['TRY', 'USD', 'EUR', 'GBP']), 'doc_date' => $date,
+                'category' => $str('Gider türü.', array_keys(FinanceDocument::CATEGORIES)), 'brand_id' => $int('Müşteri için ödendiyse marka id.'), 'rebill' => ['type' => 'boolean', 'description' => 'Müşteriden geri istenecek.'], 'note' => $str('Not.'),
+            ], ['counterparty', 'amount'])],
             ['name' => 'yapilacaklar', 'description' => 'Operatörün kendi yapılacakları ve notları (Takvim › Yapılacaklar): bugün, geciken, tarihsiz işler ve son notlar. q verilirse işlerde ve notlarda (toplantı notları dahil) arar; "X ile ne konuşmuştuk" gibi sorular için.', 'input_schema' => $object(['q' => $str('Aranan kelime (boş = açık işler ve son notlar).')])],
             ['name' => 'yapilacak_ekle', 'description' => 'Operatörün söylediği işi, hatırlatmayı ya da notu hemen Takvim\'e yazar (kart yok). Metni operatörün sözüyle ver: "yarın 10\'da Şaban Bey\'i ara" tarihli hatırlatma, "not: …" not, "toplantı: cuma 14:00 …" toplantı olur; tarih yoksa tikleyene kadar Yapılacaklar\'da durur.', 'input_schema' => $object(['text' => $str('Operatörün cümlesi; ilk satır başlık, gerisi not.')], ['text'])],
             ['name' => 'deftere_yaz', 'description' => 'Defterine kalıcı bir şey yazar: operatörün söylediği genel bir bilgi (bilgi), nasıl çalışmak istediği (tercih) ya da seni düzelttiği bir yer (ders). Kısa, tek cümle. Markaya özel bilgi için marka_bilgisi kartı kullan.', 'input_schema' => $object(['text' => $str('Öğrendiğin, tek cümle.'), 'kind' => $str('Tür.', ['bilgi', 'tercih', 'ders'])], ['text', 'kind'])],
@@ -143,6 +170,8 @@ final class MoxiTools
                 'satis_ara' => ['text' => self::json($this->searchLeads((string) ($input['q'] ?? ''), isset($input['status']) ? (string) $input['status'] : null)), 'message' => null],
                 'satis_kaydi' => ['text' => self::cut(self::json($this->lead((int) ($input['lead_id'] ?? 0)))), 'message' => null],
                 'ekran_bul' => ['text' => self::json($this->screens((string) ($input['q'] ?? ''))), 'message' => null],
+                'finans_ozet' => ['text' => self::cut(self::json(app(FinanceDesk::class)->summary(isset($input['month']) ? (string) $input['month'] : null))), 'message' => null],
+                'finans_isler' => ['text' => self::cut(self::json(app(FinanceDesk::class)->jobs((string) ($input['q'] ?? ''), (bool) ($input['ended'] ?? false)))), 'message' => null],
                 'bekleyenler' => ['text' => self::json($this->waiting()), 'message' => null],
                 'yapilacaklar' => ['text' => self::cut(self::json($this->todos($user, trim((string) ($input['q'] ?? ''))))), 'message' => null],
                 'yapilacak_ekle' => $this->addTodo($input, $user),
