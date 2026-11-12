@@ -2353,3 +2353,4 @@ yakup 2026-11-11: "tüm yol haritalarını şimdi yap". Beş yol haritasının (
   sırada bekler (`ExternalWriteService::hold`, 5 dakikada bir bakılır, hiçbiri başarısız olmaz), sosyal gönderiler
   yayınlanmaz, Claude'un MCP site araçlarından yalnız okuyanlar cevap verir. Düğme Hata merkezinde; açıkken her ekranda
   kırmızı şerit ve "Devam ettir" çıkar. Veri okuma durmaz.
+- Sosyal: kapak görseli olmayan Reels, Instagram'a `thumb_offset` 5000 ms ile gider (onaylı eski Reels taslakları yeniden yüklenmeden doğru kapakla çıkar; kapak görseli varsa o geçerlidir).

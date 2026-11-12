@@ -18,6 +18,9 @@ use Throwable;
  */
 class SocialPublisher
 {
+    /** Frame used as the Reels cover when the post carries no cover image (Instagram `thumb_offset`, ms). */
+    private const REELS_COVER_MS = 5000;
+
     public function __construct(private readonly SocialGraph $graph) {}
 
     /** Publishes everything due. @return array{published: int, failed: int, processing: int} */
@@ -153,8 +156,9 @@ class SocialPublisher
                 'carousel' => $this->igCarousel($ig, $token, $media, $caption),
                 // A Reels post may carry an image after the video: it is the cover shown on the profile grid
                 // (yakup 2026-11-12: without it Instagram shows the first frame, an empty screen in our videos).
+                // Without a cover image the frame at the fifth second is used: our videos open empty and fill in.
                 'reels' => $this->igCreate($ig, $token, ['media_type' => 'REELS', 'video_url' => $this->firstOf($media, 'video')['url'], 'caption' => $caption, 'share_to_feed' => 'true']
-                    + (($cover = $this->firstOf($media, 'image', false)) !== null ? ['cover_url' => $cover['url']] : [])),
+                    + (($cover = $this->firstOf($media, 'image', false)) !== null ? ['cover_url' => $cover['url']] : ['thumb_offset' => self::REELS_COVER_MS])),
                 'story' => $this->igCreate($ig, $token, $media[0]['type'] === 'video'
                     ? ['media_type' => 'STORIES', 'video_url' => $media[0]['url']]
                     : ['media_type' => 'STORIES', 'image_url' => $media[0]['url']]),

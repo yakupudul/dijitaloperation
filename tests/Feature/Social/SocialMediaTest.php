@@ -150,7 +150,7 @@ final class SocialMediaTest extends TestCase
         $target = $post->targets()->first();
         $this->assertSame('processing', $target->status);
         $this->assertSame('C9', $target->container_id);
-        Http::assertSent(fn (Request $r): bool => ($r['media_type'] ?? null) === 'REELS' && ! isset($r['cover_url']));
+        Http::assertSent(fn (Request $r): bool => ($r['media_type'] ?? null) === 'REELS' && ! isset($r['cover_url']) && (int) ($r['thumb_offset'] ?? 0) === 5000);
 
         $status = 'FINISHED';
         app(SocialPublisher::class)->run();
