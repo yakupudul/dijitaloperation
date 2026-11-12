@@ -6,7 +6,7 @@
         'published', 'done' => 'tone-ok',
         default => 'tone-info',
     };
-    $tabs = ['instagram' => 'Instagram', 'plan' => 'Plan', 'gecmis' => 'Yayınlananlar', 'yeni' => 'Yeni gönderi', 'hesaplar' => 'Hesaplar'];
+    $tabs = ['instagram' => 'Instagram', 'plan' => 'Plan', 'trendler' => 'Trendler', 'gecmis' => 'Yayınlananlar', 'yeni' => 'Yeni gönderi', 'hesaplar' => 'Hesaplar'];
     $meta = $accounts->whereIn('platform', ['instagram', 'facebook']);
 @endphp
 <div class="dark:text-gray-200" data-social-page>
@@ -115,6 +115,42 @@
             @empty
                 <x-ta.empty-state size="sm" title="Planlı gönderi yok." />
             @endforelse
+        @elseif ($tab === 'trendler')
+            {{-- Trendler (yakup 2026-11-13): posts of watched accounts that did far better than that account's usual. --}}
+            <section class="card space-y-4 p-5" data-social-trends>
+                <div>
+                    <h2 class="section-title">Şu an tutan gönderiler</h2>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">İzlediğiniz hesapların son üç haftadaki gönderileri okunur; hesabın kendi ortalamasının en az iki katı beğeni ve yorum alan gönderi burada görünür. Yalnızca işletme ve içerik üretici hesapları okunabilir.</p>
+                </div>
+                @if ($canWrite)
+                    <label class="block text-sm font-medium">İzlenen hesaplar <span class="font-normal text-gray-500">(her satıra bir kullanıcı adı)</span>
+                        <textarea wire:model="watchlist" rows="5" class="mt-1 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900" placeholder="kullaniciadi"></textarea></label>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" wire:click="saveWatchlist" class="btn" wire:loading.attr="disabled">Listeyi kaydet</button>
+                        <button type="button" wire:click="readTrends" class="btn-primary" wire:loading.attr="disabled" wire:target="readTrends"><span wire:loading.remove wire:target="readTrends">Şimdi oku</span><span wire:loading wire:target="readTrends">Okunuyor…</span></button>
+                    </div>
+                @endif
+                @if (($trends['read_at'] ?? null) !== null)
+                    <p class="text-xs text-gray-500">Son okuma: {{ \Illuminate\Support\Carbon::parse($trends['read_at'])->timezone($tz)->translatedFormat('j F H:i') }} · {{ count($trends['accounts']) }} hesap okundu{{ $trends['errors'] !== [] ? ', '.count($trends['errors']).' hesap okunamadı ('.implode(', ', array_filter(array_keys($trends['errors']))).')' : '' }}.</p>
+                @endif
+            </section>
+            @if (($trends['hits'] ?? []) !== [])
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3" data-trend-hits>
+                    @foreach ($trends['hits'] as $hit)
+                        <a href="{{ $hit['permalink'] }}" target="_blank" rel="noopener" class="card block space-y-2 p-4 hover:border-brand-500">
+                            <div class="flex flex-wrap items-center gap-2 text-xs">
+                                <span class="tone-ok rounded-full px-2 py-0.5">ortalamasının {{ str_replace('.', ',', (string) $hit['times']) }} katı</span>
+                                <span class="text-gray-500">{{ $hit['type'] === 'reels' ? 'Reels' : ($hit['type'] === 'carousel_album' ? 'Kaydırmalı' : 'Görsel') }} · {{ \Illuminate\Support\Carbon::parse($hit['at'])->timezone($tz)->translatedFormat('j F') }}</span>
+                            </div>
+                            <p class="text-sm font-semibold">{{ '@'.$hit['account'] }} <span class="font-normal text-gray-500">· {{ number_format($hit['followers'], 0, ',', '.') }} takipçi</span></p>
+                            <p class="text-sm text-gray-600 dark:text-gray-300">{{ $hit['caption'] !== '' ? $hit['caption'] : 'Açıklama yok.' }}</p>
+                            <p class="text-xs text-gray-500">{{ number_format($hit['likes'], 0, ',', '.') }} beğeni · {{ number_format($hit['comments'], 0, ',', '.') }} yorum · Instagram’da aç ↗</p>
+                        </a>
+                    @endforeach
+                </div>
+            @elseif (($trends['read_at'] ?? null) !== null)
+                <x-ta.empty-state size="sm" title="Bu okumada ortalamasının iki katını geçen gönderi yok." />
+            @endif
         @elseif ($tab === 'gecmis')
             <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 @forelse ($history as $post)

@@ -6,6 +6,7 @@ use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
 use App\Services\Social\SocialPlanner;
+use App\Services\Social\SocialTrendWatch;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Validation\Rule;
 use Laravel\Mcp\Request;
@@ -14,13 +15,13 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Throwable;
 
-#[Description('Moximu\'s own social media plan (Instagram, Facebook, LinkedIn; ADR-083). action=list: accounts, upcoming and recent posts with channel results. action=draft: adds a post as a DRAFT (never published before the operator approves it on /sosyal): kind image | carousel (2-10 files, in order) | reels (mp4) | story; media = files as https URLs or base64; caption = Instagram+Facebook text; linkedin_text (optional; LinkedIn gets it only when given); publish_at in Istanbul time "Y-m-d H:i". action=update: change caption / linkedin_text / publish_at of a draft or approved post (a changed publish_at fixes the date; otherwise an approved post takes the next free day of the operator\'s posting plan, one a day, in line order, so the draft\'s publish_at is only a proposal). action=delete: remove a draft. Rules: corporate plain Turkish, no MoxDOP name, no guarantees, numbers only from recorded results, no AI images.')]
+#[Description('Moximu\'s own social media plan (Instagram, Facebook, LinkedIn; ADR-083). action=list: accounts, upcoming and recent posts with channel results. action=draft: adds a post as a DRAFT (never published before the operator approves it on /sosyal): kind image | carousel (2-10 files, in order) | reels (mp4) | story; media = files as https URLs or base64; caption = Instagram+Facebook text; linkedin_text (optional; LinkedIn gets it only when given); publish_at in Istanbul time "Y-m-d H:i". action=update: change caption / linkedin_text / publish_at of a draft or approved post (a changed publish_at fixes the date; otherwise an approved post takes the next free day of the operator\'s posting plan, one a day, in line order, so the draft\'s publish_at is only a proposal). action=delete: remove a draft. action=trends: the watched Instagram accounts and their posts of the last three weeks that got at least twice that account\'s usual likes+comments (a fresh reading through the official API; give watch = user names to replace the watch list first). Rules: corporate plain Turkish, no MoxDOP name, no guarantees, numbers only from recorded results, no AI images.')]
 class SocialPosts extends Tool
 {
     public function handle(Request $request): Response
     {
         $validated = $request->validate([
-            'action' => ['required', Rule::in(['list', 'draft', 'update', 'delete'])],
+            'action' => ['required', Rule::in(['list', 'draft', 'update', 'delete', 'trends'])],
             'id' => ['nullable', 'integer'],
             'kind' => ['nullable', Rule::in(SocialPost::KINDS)],
             'pillar' => ['nullable', Rule::in(SocialPost::PILLARS)],
@@ -31,6 +32,8 @@ class SocialPosts extends Tool
             'source_url' => ['nullable', 'string', 'max:1000'],
             'platforms' => ['nullable', 'array'],
             'platforms.*' => [Rule::in(SocialAccount::PLATFORMS)],
+            'watch' => ['nullable', 'array', 'max:60'],
+            'watch.*' => ['string', 'max:120'],
             'media' => ['nullable', 'array', 'max:10'],
             'media.*.url' => ['nullable', 'string', 'max:2000'],
             'media.*.base64' => ['nullable', 'string'],
@@ -44,6 +47,7 @@ class SocialPosts extends Tool
                 'draft' => $this->draft($planner, $validated),
                 'update' => $this->update($planner, $validated),
                 'delete' => $this->remove($planner, $validated),
+                'trends' => $this->trends($validated),
             };
         } catch (Throwable $e) {
             return Response::error($e->getMessage());
@@ -101,6 +105,17 @@ class SocialPosts extends Tool
         return Response::text('Gönderi #'.$v['id'].' silindi.');
     }
 
+    /** @param  array<string, mixed>  $v */
+    private function trends(array $v): Response
+    {
+        $watch = app(SocialTrendWatch::class);
+        if (is_array($v['watch'] ?? null)) {
+            $watch->save($v['watch']);
+        }
+
+        return Response::json(['watching' => $watch->accounts()] + $watch->reading(true));
+    }
+
     /** @return array<string, mixed> */
     private function listing(): array
     {
@@ -128,7 +143,7 @@ class SocialPosts extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'action' => $schema->string()->enum(['list', 'draft', 'update', 'delete'])->required(),
+            'action' => $schema->string()->enum(['list', 'draft', 'update', 'delete', 'trends'])->required(),
             'id' => $schema->integer()->description('Post id for update / delete.'),
             'kind' => $schema->string()->enum(SocialPost::KINDS)->description('draft: image | carousel | reels | story'),
             'pillar' => $schema->string()->enum(SocialPost::PILLARS)->description('rehber | vaka | gundem | anlatim | guven'),
@@ -138,6 +153,7 @@ class SocialPosts extends Tool
             'publish_at' => $schema->string()->description('Istanbul time, "Y-m-d H:i".'),
             'source_url' => $schema->string()->description('The site page the post is based on.'),
             'platforms' => $schema->array()->items($schema->string()->enum(SocialAccount::PLATFORMS))->description('Only these channels (default: every enabled account that fits).'),
+            'watch' => $schema->array()->items($schema->string())->description('trends: Instagram user names to watch (replaces the list).'),
             'media' => $schema->array()->items($schema->object(fn (JsonSchema $row): array => [
                 'url' => $row->string()->description('https URL of a JPG/PNG/MP4'),
                 'base64' => $row->string()->description('File content in base64 (instead of url)'),

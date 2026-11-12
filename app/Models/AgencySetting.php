@@ -91,6 +91,7 @@ class AgencySetting extends Model
             'google_workspace' => 'array',
             'finance' => 'array',
             'social_schedule' => 'array',
+            'social_watchlist' => 'array',
             'ai_openai_audit' => 'array',
             'lead_kinds' => 'array',
             'marketing_targets' => 'array',

@@ -13,6 +13,7 @@ use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
 use App\Services\Social\SocialSchedule;
+use App\Services\Social\SocialTrendWatch;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -87,6 +88,9 @@ final class SocialPage extends Component
     /** @var array<int, string> Story hours of every day (empty = unused). */
     public array $storyTimes = ['', '', ''];
 
+    /** Trendler: watched Instagram accounts, one per line. */
+    public string $watchlist = '';
+
     // Hesaplar
     public string $configId = '';
 
@@ -107,7 +111,7 @@ final class SocialPage extends Component
 
             return;
         }
-        if (! in_array($this->tab, ['instagram', 'plan', 'gecmis', 'yeni', 'hesaplar'], true)) {
+        if (! in_array($this->tab, ['instagram', 'plan', 'trendler', 'gecmis', 'yeni', 'hesaplar'], true)) {
             $this->tab = 'instagram';
         }
         // The Meta login comes back here with its result as a flash; without this it was never shown (2026-11-08).
@@ -122,6 +126,7 @@ final class SocialPage extends Component
             $this->planTimes[$day] = $chosen[$day] ?? SocialSchedule::DEFAULT_TIME;
         }
         $this->storyTimes = array_pad(app(SocialSchedule::class)->storyTimes(), 3, '');
+        $this->watchlist = implode("\n", app(SocialTrendWatch::class)->accounts());
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
         $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
         $this->newTime = now(SocialPlanner::TIMEZONE)->addDay()->setTime(11, 30)->format('Y-m-d\TH:i');
@@ -129,7 +134,7 @@ final class SocialPage extends Component
 
     public function setTab(string $tab): void
     {
-        $this->tab = in_array($tab, ['instagram', 'plan', 'gecmis', 'yeni', 'hesaplar'], true) ? $tab : 'instagram';
+        $this->tab = in_array($tab, ['instagram', 'plan', 'trendler', 'gecmis', 'yeni', 'hesaplar'], true) ? $tab : 'instagram';
         $this->openPost = 0;
         $this->message = '';
         $this->messageTone = 'info';
@@ -171,6 +176,25 @@ final class SocialPage extends Component
     }
 
     /** Reads the live Instagram posts again (the grid keeps them 10 minutes). */
+    /** Trendler: the watched accounts, one per line. */
+    public function saveWatchlist(): void
+    {
+        $this->authorizeAdmin();
+        $names = app(SocialTrendWatch::class)->save(preg_split('/[\s,;]+/', $this->watchlist) ?: []);
+        $this->watchlist = implode("\n", $names);
+        $this->message = count($names).' hesap izleniyor. Okumak için “Şimdi oku”ya basın.';
+        $this->messageTone = 'success';
+    }
+
+    /** Trendler: reads the watched accounts now (one Graph call per account). */
+    public function readTrends(): void
+    {
+        $this->authorizeAdmin();
+        $reading = app(SocialTrendWatch::class)->reading(true);
+        $this->message = count($reading['hits']).' öne çıkan gönderi bulundu'.($reading['errors'] !== [] ? '; '.count($reading['errors']).' hesap okunamadı.' : '.');
+        $this->messageTone = 'success';
+    }
+
     public function refreshFeed(): void
     {
         $account = SocialAccount::query()->where('platform', SocialAccount::INSTAGRAM)->where('enabled', true)->orderBy('id')->first();
@@ -441,6 +465,7 @@ final class SocialPage extends Component
             'weeks' => $weeks,
             'line' => app(SocialSchedule::class)->line()->modelKeys(),
             'storyLine' => app(SocialSchedule::class)->line(true)->modelKeys(),
+            'trends' => $this->tab === 'trendler' ? app(SocialTrendWatch::class)->reading() : null,
             'dayNames' => [1 => 'Pazartesi', 2 => 'Salı', 3 => 'Çarşamba', 4 => 'Perşembe', 5 => 'Cuma', 6 => 'Cumartesi', 7 => 'Pazar'],
             'manual' => $manual,
             'history' => $history,
