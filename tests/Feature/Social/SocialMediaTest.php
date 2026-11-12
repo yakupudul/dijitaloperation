@@ -150,7 +150,7 @@ final class SocialMediaTest extends TestCase
         $target = $post->targets()->first();
         $this->assertSame('processing', $target->status);
         $this->assertSame('C9', $target->container_id);
-        Http::assertSent(fn (Request $r): bool => ($r['media_type'] ?? null) === 'REELS');
+        Http::assertSent(fn (Request $r): bool => ($r['media_type'] ?? null) === 'REELS' && ! isset($r['cover_url']));
 
         $status = 'FINISHED';
         app(SocialPublisher::class)->run();
@@ -211,6 +211,21 @@ final class SocialMediaTest extends TestCase
             ->call('retry', $post->id);
         $this->assertSame('done', $post->targets()->where('social_account_id', $linkedin->id)->value('status'));
         $this->assertSame('pending', $ig->fresh()->status);
+    }
+
+    public function test_reels_with_an_image_after_the_video_sends_it_as_the_cover(): void
+    {
+        Http::fake(['*/IG1/media' => Http::response(['id' => 'C9']), '*' => Http::response(['status_code' => 'IN_PROGRESS'])]);
+        $post = app(SocialPlanner::class)->create(['kind' => 'reels', 'caption' => 'x', 'publish_at' => '2026-11-09 11:30', 'platforms' => ['instagram']], [
+            ['bytes' => "\0\0\0\x18ftypmp42video", 'name' => 'v.mp4'], ['bytes' => $this->png(), 'name' => 'kapak.png'],
+        ]);
+        $post->update(['pinned' => true]);
+        app(SocialPlanner::class)->approve($post, $this->admin->id);
+        $this->travelTo(CarbonImmutable::parse('2026-11-09 11:35', 'Europe/Istanbul'));
+
+        app(SocialPublisher::class)->run();
+
+        Http::assertSent(fn (Request $r): bool => ($r['media_type'] ?? null) === 'REELS' && str_ends_with((string) ($r['cover_url'] ?? ''), '.jpg') && str_ends_with((string) $r['video_url'], '.mp4'));
     }
 
     public function test_week_is_approved_with_one_click_and_unapproved_drafts_expire(): void

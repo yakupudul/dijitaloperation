@@ -151,7 +151,10 @@ class SocialPublisher
             $caption = $post->kind === 'story' ? null : (string) $post->caption;
             $container = match ($post->kind) {
                 'carousel' => $this->igCarousel($ig, $token, $media, $caption),
-                'reels' => $this->igCreate($ig, $token, ['media_type' => 'REELS', 'video_url' => $this->firstOf($media, 'video')['url'], 'caption' => $caption, 'share_to_feed' => 'true']),
+                // A Reels post may carry an image after the video: it is the cover shown on the profile grid
+                // (yakup 2026-11-12: without it Instagram shows the first frame, an empty screen in our videos).
+                'reels' => $this->igCreate($ig, $token, ['media_type' => 'REELS', 'video_url' => $this->firstOf($media, 'video')['url'], 'caption' => $caption, 'share_to_feed' => 'true']
+                    + (($cover = $this->firstOf($media, 'image', false)) !== null ? ['cover_url' => $cover['url']] : [])),
                 'story' => $this->igCreate($ig, $token, $media[0]['type'] === 'video'
                     ? ['media_type' => 'STORIES', 'video_url' => $media[0]['url']]
                     : ['media_type' => 'STORIES', 'image_url' => $media[0]['url']]),

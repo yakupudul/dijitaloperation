@@ -134,7 +134,7 @@
                 <label class="block text-sm">Kısa ad (yalnız burada görünür)
                     <input type="text" wire:model="newTitle" maxlength="190" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
                 </label>
-                <label class="block text-sm">Görsel ya da video (jpg, png, mp4; kaydırmalıda sırayla)
+                <label class="block text-sm">Görsel ya da video (jpg, png, mp4; kaydırmalıda sırayla; Reels’te videodan sonra eklenen görsel kapak olur)
                     <input type="file" wire:model="newFiles" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" class="mt-1 block w-full text-sm">
                 </label>
                 @error('newFiles')<p class="text-sm text-error-600">{{ $message }}</p>@enderror
