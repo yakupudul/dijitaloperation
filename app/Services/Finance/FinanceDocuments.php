@@ -9,6 +9,7 @@ use App\Models\FinanceDocument;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -314,6 +315,7 @@ final class FinanceDocuments
             }
             $out['dropped']++;
         }
+        $this->setAsideCopies();
         $out['left'] = $open()->count();
         $out['twins'] = $this->dropTwins();
 
@@ -336,6 +338,7 @@ final class FinanceDocuments
             if ($read !== null && $doc->counterparty === null && $doc->amount === null) {
                 // A paper kept unread: what was read now is written on it.
                 $this->classify($doc, $read, []);
+                $this->secondCopy($doc);
             }
             $doc->save();
             if ($doc->wasChanged('counterparty')) {
@@ -371,7 +374,7 @@ final class FinanceDocuments
 
                 return ['id' => $doc->id, 'file' => $doc->original_name, 'mail_from' => data_get($doc->meta, 'from'), 'mail_subject' => data_get($doc->meta, 'subject'),
                     'text' => $text !== null ? mb_substr($text, 0, 6000) : null,
-                    'file_url' => $bytes !== null ? \Illuminate\Support\Facades\URL::temporarySignedRoute('finance.paper', now()->addDay(), ['document' => $doc->id]) : null];
+                    'file_url' => $bytes !== null ? URL::temporarySignedRoute('finance.paper', now()->addDay(), ['document' => $doc->id]) : null];
             })->all();
     }
 
@@ -446,6 +449,11 @@ final class FinanceDocuments
             $doc->path = $path;
         }
         $this->classify($doc, $read, $hint);
+        if ($source !== 'upload' && $this->secondCopy($doc)) {
+            $doc->save();
+
+            return $doc; // the same invoice came once more (a second mail, another file of it): not counted twice
+        }
         $doc->save();
         $this->learn($doc);
         $this->dropTwins($doc->doc_no);
@@ -476,6 +484,57 @@ final class FinanceDocuments
         }
 
         return $dropped;
+    }
+
+    /**
+     * The same paper a second time: same way, same number, same other side as one already in sight. It is set aside
+     * (Faturalar › Yok sayılanlar, with its file, "Geri al" brings it back) and says which paper it repeats. One the
+     * operator brought back is not set aside again.
+     */
+    private function secondCopy(FinanceDocument $doc): bool
+    {
+        $no = self::key((string) $doc->doc_no);
+        if ($no === '' || $doc->status === 'ignored' || data_get($doc->meta, 'same_as') !== null) {
+            return false;
+        }
+        $first = FinanceDocument::query()->where('direction', $doc->direction)->where('status', '!=', 'ignored')->whereNotNull('doc_no')
+            ->when($doc->exists, fn ($q) => $q->where('id', '<', $doc->id))->orderBy('id')->get()
+            ->first(function (FinanceDocument $other) use ($doc, $no): bool {
+                if (self::key((string) $other->doc_no) !== $no) {
+                    return false;
+                }
+                if (filled($doc->counterparty_tax_no) && filled($other->counterparty_tax_no)) {
+                    return $doc->counterparty_tax_no === $other->counterparty_tax_no;
+                }
+
+                return self::key((string) $doc->counterparty) === self::key((string) $other->counterparty);
+            });
+        if ($first === null) {
+            return false;
+        }
+        $doc->status = 'ignored';
+        $doc->meta = ['same_as' => $first->id] + (array) $doc->meta;
+
+        return true;
+    }
+
+    /**
+     * Papers already in sight twice (taken before the rule above): the later copy is set aside.
+     *
+     * @return int how many were set aside
+     */
+    public function setAsideCopies(): int
+    {
+        $count = 0;
+        $numbers = FinanceDocument::query()->where('source', '!=', 'upload')->where('status', '!=', 'ignored')->whereNotNull('doc_no')->orderByDesc('id')->limit(500)->get();
+        foreach ($numbers as $doc) {
+            if ($this->secondCopy($doc)) {
+                $doc->save();
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /** @return list<FinanceDocument> */

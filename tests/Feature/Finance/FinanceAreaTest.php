@@ -423,6 +423,34 @@ class FinanceAreaTest extends TestCase
         $this->assertContains('finance-tick', $names);
     }
 
+    public function test_the_same_invoice_arriving_twice_by_mail_is_counted_once(): void
+    {
+        app(FinanceSettings::class)->put(['own_tax_no' => '11111111111']);
+        $documents = app(FinanceDocuments::class);
+        $xml = $this->invoiceXml('9998887776', 'Metunic Teknoloji', '11111111111', 'Moximu', '710.39', '118.40');
+        $first = $documents->keep($xml, 'fatura.xml', 'text/xml', ['source' => 'gmail', 'external_id' => 'm1:0'])[0];
+        // The second mail carries the same invoice in a file that differs by a byte.
+        $again = $documents->keep($xml."\n", 'fatura-kopya.xml', 'text/xml', ['source' => 'gmail', 'external_id' => 'm2:0'])[0];
+
+        $this->assertNotSame($first->id, $again->id);
+        $this->assertNotSame('ignored', $first->fresh()->status);
+        $this->assertSame('ignored', $again->fresh()->status);
+        $this->assertSame($first->id, data_get($again->fresh()->meta, 'same_as'));
+        $this->assertNull(data_get($again->fresh()->meta, 'reason'));
+        $this->assertTrue($again->fresh()->hasFile());
+
+        // Two copies taken before the rule: the later one is set aside; one brought back by hand stays.
+        $again->update(['status' => 'new', 'meta' => []]);
+        $this->assertSame(1, $documents->setAsideCopies());
+        $this->assertSame('ignored', $again->fresh()->status);
+        $again->update(['status' => 'new']);
+        $this->assertSame(0, $documents->setAsideCopies());
+
+        // Another seller with the same number is another invoice.
+        $other = $documents->keep($this->invoiceXml('5554443332', 'Başka Satıcı', '11111111111', 'Moximu', '100.00', '20.00'), 'baska.xml', 'text/xml', ['source' => 'gmail', 'external_id' => 'm3:0'])[0];
+        $this->assertNotSame('ignored', $other->status);
+    }
+
     private function invoiceXml(string $sellerTax, string $seller, string $buyerTax, string $buyer, string $payable, string $vat): string
     {
         $party = fn (string $name, string $tax): string => '<cac:Party><cac:PartyIdentification><cbc:ID schemeID="'.(strlen($tax) === 11 ? 'TCKN' : 'VKN').'">'.$tax.'</cbc:ID></cac:PartyIdentification>'

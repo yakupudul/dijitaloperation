@@ -530,7 +530,7 @@
                                 <tr wire:key="doc-{{ $d->id }}" data-finance-doc="{{ $d->id }}">
                                     <td class="whitespace-nowrap text-gray-700 dark:text-gray-300">{{ $day($d->doc_date) }}</td>
                                     @if ($tab === 'faturalar')<td><span @class(['chip', 'chip-up' => $d->direction === 'out', 'chip-flat' => $d->direction !== 'out'])>{{ $d->directionLabel() }}</span></td>@endif
-                                    <td class="min-w-[12rem]"><p class="font-medium text-gray-900 dark:text-white">{{ $d->counterparty ?: '—' }}</p>@if ($d->doc_no || $d->note)<p class="text-xs text-gray-500">{{ $d->doc_no }}{{ $d->doc_no && $d->note ? ' · ' : '' }}{{ $d->note }}</p>@endif</td>
+                                    <td class="min-w-[12rem]"><p class="font-medium text-gray-900 dark:text-white">{{ $d->counterparty ?: '—' }}</p>@if ($d->doc_no || $d->note)<p class="text-xs text-gray-500">{{ $d->doc_no }}{{ $d->doc_no && $d->note ? ' · ' : '' }}{{ $d->note }}</p>@endif @if ($d->status === 'ignored' && data_get($d->meta, 'same_as'))<p class="text-xs text-gray-500">Aynı fatura ikinci kez geldi, sayılmıyor.</p>@endif</td>
                                     <td class="text-gray-700 dark:text-gray-300">
                                         @if ($d->direction === 'in'){{ $d->categoryLabel() }}@if ($d->brand)<p class="text-xs text-gray-500">{{ $d->brand->name }} adına{{ $d->rebill ? ($d->rebilled_agreement_id ? ' · yansıtıldı' : ' · yansıtılacak') : '' }}</p>@endif
                                         @else {{ $d->agreement?->name() ?? '—' }} @endif
