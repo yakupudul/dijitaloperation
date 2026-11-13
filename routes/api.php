@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Calendar\QuickCaptureController;
 use App\Http\Controllers\Integrations\WhatsAppWebhookController;
+use App\Http\Controllers\Operator\FinanceFilesController;
 use App\Http\Controllers\Integrations\WordPressConnectorCommandsController;
 use App\Http\Controllers\Integrations\WordPressConnectorEventsController;
 use App\Http\Controllers\Integrations\WordPressConnectorPairController;
@@ -35,6 +36,13 @@ Route::get('/connectors/wordpress/themes/{file}', WordPressThemeReleaseControlle
     ->middleware(['signed', 'throttle:30,1'])
     ->where('file', '[a-z0-9][a-z0-9-]{1,40}-[a-f0-9]{16}\.zip')
     ->name('api.connectors.wordpress.theme');
+
+// Finans: a day-long signed link to one mail paper no rule could read, for the Claude subscription round that reads it
+// (MCP tool `finance`, action unread_papers). Only papers still waiting to be read are served.
+Route::get('/finance/papers/{document}', [FinanceFilesController::class, 'paper'])
+    ->middleware(['signed', 'throttle:60,1'])
+    ->where('document', '[0-9]{1,18}')
+    ->name('finance.paper');
 
 Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify'])
     ->middleware('throttle:30,1')->name('api.whatsapp.webhook');

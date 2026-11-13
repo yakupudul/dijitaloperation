@@ -31,6 +31,21 @@ final class FinanceFilesController extends Controller
         ]);
     }
 
+    /** The signed link of {@see FinanceDocuments::unread()}: a paper still waiting to be read, nothing else. */
+    public function paper(FinanceDocument $document, FinanceDocuments $documents): Response
+    {
+        abort_unless($document->source === 'gmail' && data_get($document->meta, 'reason') === FinanceDocuments::UNVERIFIED, 404);
+        $bytes = $documents->bytes($document);
+        abort_if($bytes === null, 404);
+
+        return response($bytes, 200, [
+            'Content-Type' => $document->mime ?: 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="belge-'.$document->id.'"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
     public function zip(Request $request, FinanceDocuments $documents): BinaryFileResponse
     {
         $this->admin();

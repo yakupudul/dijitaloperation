@@ -125,6 +125,32 @@ class FinanceOverviewTest extends TestCase
         $this->assertSame(1, FinanceDocument::query()->where('meta->reason', FinanceDocuments::UNVERIFIED)->count());
     }
 
+    public function test_a_claude_subscription_round_reads_what_no_rule_could_through_the_mcp_tool(): void
+    {
+        config(['ai.providers.anthropic.key' => '']);
+        $docs = app(FinanceDocuments::class);
+        $scan = $docs->keepSet([['bytes' => "%PDF-1.4\n%tarama1", 'name' => 'a.pdf', 'mime' => 'application/pdf']], ['source' => 'gmail', 'external_id' => 'gmail:b1:a', 'subject' => 'Faturanız'])[0];
+        $other = $docs->keepSet([['bytes' => "%PDF-1.4\n%tarama2", 'name' => 'b.pdf', 'mime' => 'application/pdf']], ['source' => 'gmail', 'external_id' => 'gmail:b2:b'])[0];
+
+        $list = \App\Mcp\Servers\MoxdopServer::tool(\App\Mcp\Tools\Finance::class, ['action' => 'unread_papers']);
+        $list->assertOk()->assertSee('Faturanız')->assertSee('file_url');
+        $url = $docs->unread()[0]['file_url'];
+        $this->get($url)->assertOk();
+        $this->get(route('finance.paper', ['document' => $scan->id]))->assertForbidden();
+
+        \App\Mcp\Servers\MoxdopServer::tool(\App\Mcp\Tools\Finance::class, ['action' => 'read_paper', 'data' => ['id' => $scan->id, 'mine' => true, 'kind' => 'invoice',
+            'seller' => 'Vodafone', 'buyer' => 'Yakup Udül', 'amount' => 899.9, 'doc_date' => '2026-10-20', 'currency' => 'TRY']])->assertOk()->assertSee('Belge alındı');
+        $this->assertSame('new', $scan->fresh()->status);
+        $this->assertSame('Vodafone', $scan->fresh()->counterparty);
+        $this->assertSame('899.90', (string) $scan->fresh()->amount);
+
+        \App\Mcp\Servers\MoxdopServer::tool(\App\Mcp\Tools\Finance::class, ['action' => 'read_paper', 'data' => ['id' => $other->id, 'mine' => false]])->assertOk();
+        $this->assertSame(FinanceDocuments::NOT_MINE, data_get($other->fresh()->meta, 'reason'));
+        $this->assertNull($other->fresh()->path);
+        // Once read, the link serves nothing.
+        $this->get($url)->assertNotFound();
+    }
+
     /** A one-page PDF whose lines are real text (Helvetica, ASCII). */
     private function pdf(array $lines): string
     {

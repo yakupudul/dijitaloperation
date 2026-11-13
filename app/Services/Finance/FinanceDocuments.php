@@ -285,7 +285,9 @@ final class FinanceDocuments
             ->where(fn ($q) => $q->where('status', '!=', 'ignored')->orWhere('meta->reason', self::UNVERIFIED));
         $held = $this->reader->held() !== null;
         $out = ['checked' => 0, 'dropped' => 0, 'left' => 0];
-        foreach ($open()->orderBy('id')->limit($held ? 200 : $limit)->get() as $doc) {
+        // The least lately looked at first, so papers no rule can read do not hold the others back.
+        foreach ($open()->orderBy('updated_at')->orderBy('id')->limit($held ? 200 : $limit)->get() as $doc) {
+            $read = null;
             $mine = $doc->direction === FinanceDocument::OUT && $doc->status !== 'ignored' ? true : null;
             if ($mine === null) {
                 $bytes = $this->bytes($doc);
@@ -295,6 +297,8 @@ final class FinanceDocuments
                     // Cannot be read now: until it is known to be ours it is not shown.
                     if ($doc->status !== 'ignored') {
                         $doc->forceFill(['meta' => ['reason' => self::UNVERIFIED, 'was' => $doc->status] + (array) $doc->meta, 'status' => 'ignored'])->save();
+                    } else {
+                        $doc->touch();
                     }
 
                     continue;
@@ -302,33 +306,68 @@ final class FinanceDocuments
                 $mine = $read !== null && $this->inOurName($read);
             }
             $out['checked']++;
-            if ($mine) {
-                $meta = (array) $doc->meta;
-                $was = (string) ($meta['was'] ?? $doc->status);
-                unset($meta['reason'], $meta['was']);
-                $doc->forceFill(['status' => $doc->status === 'ignored' ? $was : $doc->status, 'meta' => ['mine' => true, 'read_by' => $read['by'] ?? ($meta['read_by'] ?? null)] + $meta]);
-                if (isset($read) && $read !== null && $doc->counterparty === null && $doc->amount === null) {
-                    // A paper kept unread: what was read now is written on it.
-                    $this->classify($doc, $read, []);
-                }
-                $doc->save();
-                if ($doc->wasChanged('counterparty')) {
-                    $this->learn($doc);
-                }
-
+            if ($this->settle($doc, (bool) $mine, $read)) {
                 continue;
             }
-            if ($doc->hasFile() && ! FinanceDocument::query()->where('path', $doc->path)->where('id', '!=', $doc->id)->exists()) {
-                Storage::disk(self::DISK)->delete((string) $doc->path);
-            }
-            $doc->forceFill(['status' => 'ignored', 'path' => null, 'counterparty' => null, 'counterparty_tax_no' => null, 'doc_no' => null, 'amount' => null, 'vat' => null,
-                'agreement_id' => null, 'payment_id' => null, 'brand_id' => null, 'rebill' => false, 'vendor_key' => null, 'category' => null, 'note' => null,
-                'meta' => ['reason' => self::NOT_MINE]])->save();
             $out['dropped']++;
         }
         $out['left'] = $open()->count();
 
         return $out;
+    }
+
+    /**
+     * A mail paper whose owner is known now: ours comes into sight with what was read written on it; another's loses
+     * its file and what was read and stays only as a mark. True when it was ours.
+     *
+     * @param  ?array<string, mixed>  $read
+     */
+    public function settle(FinanceDocument $doc, bool $mine, ?array $read): bool
+    {
+        if ($mine) {
+            $meta = (array) $doc->meta;
+            $was = (string) ($meta['was'] ?? $doc->status);
+            unset($meta['reason'], $meta['was']);
+            $doc->forceFill(['status' => $doc->status === 'ignored' ? $was : $doc->status, 'meta' => array_filter(['mine' => true, 'read_by' => $read['by'] ?? ($meta['read_by'] ?? null)]) + $meta]);
+            if ($read !== null && $doc->counterparty === null && $doc->amount === null) {
+                // A paper kept unread: what was read now is written on it.
+                $this->classify($doc, $read, []);
+            }
+            $doc->save();
+            if ($doc->wasChanged('counterparty')) {
+                $this->learn($doc);
+            }
+
+            return true;
+        }
+        if ($doc->hasFile() && ! FinanceDocument::query()->where('path', $doc->path)->where('id', '!=', $doc->id)->exists()) {
+            Storage::disk(self::DISK)->delete((string) $doc->path);
+        }
+        $doc->forceFill(['status' => 'ignored', 'path' => null, 'counterparty' => null, 'counterparty_tax_no' => null, 'doc_no' => null, 'amount' => null, 'vat' => null,
+            'agreement_id' => null, 'payment_id' => null, 'brand_id' => null, 'rebill' => false, 'vendor_key' => null, 'category' => null, 'note' => null,
+            'meta' => ['reason' => self::NOT_MINE]])->save();
+
+        return false;
+    }
+
+    /**
+     * Mail papers no rule could read (a scan, a PDF without text), for a Claude subscription round to read through the
+     * MCP tool `finance` (yakup 2026-11-13: "bu işlemi claude abonelik yapsın her zaman"): the mail it came with, the
+     * text the PDF carries if any, and a link to the file that works for a day.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function unread(int $limit = 10): array
+    {
+        return FinanceDocument::query()->where('source', 'gmail')->where('meta->reason', self::UNVERIFIED)->orderBy('id')->limit(max(1, min(25, $limit)))->get()
+            ->map(function (FinanceDocument $doc): array {
+                $bytes = $this->bytes($doc);
+                $text = $bytes !== null && str_starts_with($bytes, '%PDF') ? $this->reader->pdfText($bytes) : null;
+
+                return ['id' => $doc->id, 'file' => $doc->original_name, 'mail_from' => data_get($doc->meta, 'from'), 'mail_subject' => data_get($doc->meta, 'subject'),
+                    'text' => $text !== null ? mb_substr($text, 0, 6000) : null,
+                    'file_url' => $bytes !== null ? \Illuminate\Support\Facades\URL::temporarySignedRoute('finance.paper', now()->addDay(), ['document' => $doc->id]) : null];
+            })->all();
     }
 
     /** "ÖZEL DEMİDERM POLİKLİNİĞİ LTD. ŞTİ." → "ozeldemidermpoliklinigi": names compared without case, marks and company tails. */
