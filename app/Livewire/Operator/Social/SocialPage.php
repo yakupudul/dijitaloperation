@@ -93,6 +93,9 @@ final class SocialPage extends Component
     /** @var array<int, string> video hours of every day; empty = videos wait in the post line */
     public array $reelTimes = ['', ''];
 
+    /** Günün son videosu deneme Reels'i olarak çıkar (önce takip etmeyenlere gösterilir). */
+    public bool $trialReels = true;
+
     /** Trendler: watched Instagram accounts, one per line. */
     public string $watchlist = '';
 
@@ -137,6 +140,7 @@ final class SocialPage extends Component
         }
         $this->storyTimes = array_pad(app(SocialSchedule::class)->storyTimes(), 3, '');
         $this->reelTimes = array_pad(app(SocialSchedule::class)->reelTimes(), 2, '');
+        $this->trialReels = app(SocialSchedule::class)->trialReels();
         $this->watchlist = implode("\n", app(SocialTrendWatch::class)->accounts());
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
         $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
@@ -251,7 +255,7 @@ final class SocialPage extends Component
             }
         }
         try {
-            $changed = app(SocialSchedule::class)->save($days, $this->storyTimes, $this->reelTimes);
+            $changed = app(SocialSchedule::class)->save($days, $this->storyTimes, $this->reelTimes, $this->trialReels);
             $this->storyTimes = array_pad(app(SocialSchedule::class)->storyTimes(), 3, '');
             $this->reelTimes = array_pad(app(SocialSchedule::class)->reelTimes(), 2, '');
             $this->message = 'Paylaşım düzeni kaydedildi'.($changed > 0 ? '; sıradaki '.$changed.' gönderinin günü yeniden belirlendi.' : '.');

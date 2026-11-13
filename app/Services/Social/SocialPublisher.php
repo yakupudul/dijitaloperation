@@ -7,6 +7,7 @@ use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
 use App\Support\EmergencyStop;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -73,7 +74,7 @@ class SocialPublisher
         return $stats;
     }
 
-    /** @return string published | failed | processing | manual */
+    /** @return string published | failed | processing | manual | skipped */
     public function publishTarget(SocialPost $post, SocialPostTarget $target): string
     {
         $account = $target->account;
@@ -81,6 +82,12 @@ class SocialPublisher
             $target->update(['status' => SocialPostTarget::SKIPPED, 'error' => 'Hesap kapalı.']);
 
             return 'failed';
+        }
+        if ($post->created_by === 'blog' && $account->platform === SocialAccount::INSTAGRAM) {
+            // Blog posts planned before the rule changed still carry an Instagram row: it is closed, not sent.
+            $target->update(['status' => SocialPostTarget::SKIPPED, 'error' => 'Blog yazıları Instagram’a gönderilmez.']);
+
+            return 'skipped';
         }
         if ($account->isManual()) {
             $target->update(['status' => SocialPostTarget::MANUAL]);
@@ -175,8 +182,7 @@ class SocialPublisher
                 // A Reels post may carry an image after the video: it is the cover shown on the profile grid
                 // (yakup 2026-11-12: without it Instagram shows the first frame, an empty screen in our videos).
                 // Without a cover image the frame at the fifth second is used: our videos open empty and fill in.
-                'reels' => $this->igCreate($ig, $token, ['media_type' => 'REELS', 'video_url' => $this->firstOf($media, 'video')['url'], 'caption' => $caption, 'share_to_feed' => 'true']
-                    + (($cover = $this->firstOf($media, 'image', false)) !== null ? ['cover_url' => $cover['url']] : ['thumb_offset' => self::REELS_COVER_MS])),
+                'reels' => $this->igReels($ig, $token, $media, $caption, app(SocialSchedule::class)->isTrial($post)),
                 'story' => $this->igCreate($ig, $token, $media[0]['type'] === 'video'
                     ? ['media_type' => 'STORIES', 'video_url' => $media[0]['url']]
                     : ['media_type' => 'STORIES', 'image_url' => $media[0]['url']]),
@@ -205,6 +211,31 @@ class SocialPublisher
         }
 
         return ['status' => 'published', 'id' => $id, 'permalink' => is_string($permalink) ? $permalink : null];
+    }
+
+    /**
+     * A trial reel (SocialSchedule::isTrial) carries `trial_params`: Instagram shows it to non-followers first and moves
+     * it to the profile itself when it does well (SS_PERFORMANCE). An account Instagram has not opened trial reels for
+     * refuses the container; the video then goes out as an ordinary reel, so a refusal never costs the day's video.
+     *
+     * @param  list<array{path: string, type: string, url: string}>  $media
+     */
+    private function igReels(string $ig, string $token, array $media, ?string $caption, bool $trial): string
+    {
+        $params = ['media_type' => 'REELS', 'video_url' => $this->firstOf($media, 'video')['url'], 'caption' => $caption, 'share_to_feed' => 'true']
+            + (($cover = $this->firstOf($media, 'image', false)) !== null ? ['cover_url' => $cover['url']] : ['thumb_offset' => self::REELS_COVER_MS]);
+        if ($trial) {
+            try {
+                return $this->igCreate($ig, $token, $params + ['trial_params' => (string) json_encode(['graduation_strategy' => 'SS_PERFORMANCE'])]);
+            } catch (SocialGraphException $e) {
+                if ($e->isTemporary()) {
+                    throw $e;
+                }
+                Log::info('Instagram trial reel refused; publishing as an ordinary reel.', ['error' => $e->getMessage()]);
+            }
+        }
+
+        return $this->igCreate($ig, $token, $params);
     }
 
     /** @param  array<string, scalar|null>  $params */

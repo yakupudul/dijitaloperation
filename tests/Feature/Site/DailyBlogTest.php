@@ -5,9 +5,12 @@ namespace Tests\Feature\Site;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
 use App\Models\ExternalWriteAction;
+use App\Models\SocialAccount;
+use App\Models\SocialPost;
 use App\Models\Suggestion;
 use App\Services\Site\BrandCover;
 use App\Services\Site\DailyBlog;
+use App\Services\Social\SocialPlanner;
 use App\Services\Work\ContentAutopilot;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Queue;
@@ -129,8 +132,11 @@ final class DailyBlogTest extends SiteTestCase
         $this->assertSame('2026-11-14 09:00', app(DailyBlog::class)->freeSlots($this->site, $now)[0]->format('Y-m-d H:i'), 'the next free slot is tomorrow morning');
         $this->brand->forceFill(['cover_style' => BrandCover::MOXIMU_REHBER])->save();
         app(DailyBlog::class)->instagramDraft($guide->fresh(), $now->setTime(9, 0));
-        $social = \App\Models\SocialPost::query()->find((int) data_get($guide->fresh()->action, 'daily.instagram_id'));
+        $social = SocialPost::query()->find((int) data_get($guide->fresh()->action, 'daily.instagram_id'));
         $this->assertNotNull($social, 'the article gets its social post');
+        SocialAccount::query()->create(['platform' => 'instagram', 'external_id' => 'IG1', 'username' => 'moximucom', 'access_token' => 't', 'page_id' => 'P1', 'enabled' => true]);
+        app(SocialPlanner::class)->syncTargets($social, DailyBlog::SOCIAL_PLATFORMS);
+        $this->assertSame(0, $social->targets()->whereHas('account', fn ($q) => $q->where('platform', 'instagram'))->count(), 'blog posts never go to Instagram');
         $this->assertStringContainsString('https://panorama.com.tr/rehber/yazi-', (string) $social->linkedin_text, 'LinkedIn gets the article link for its card');
     }
 

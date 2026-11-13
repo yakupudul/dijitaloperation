@@ -72,6 +72,12 @@
                             <input type="time" wire:model="reelTimes.{{ $i }}" aria-label="{{ $i + 1 }}. video saati" class="w-32 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900" @disabled(! $canWrite)>
                         @endforeach
                     </div>
+                    <label class="mt-3 flex items-start gap-2 text-sm" data-trial-reels>
+                        <input type="checkbox" wire:model="trialReels" class="mt-0.5 rounded border-gray-300 dark:border-gray-700 dark:bg-gray-900" @disabled(! $canWrite)>
+                        <span>Günün son videosu deneme Reels’i olsun
+                            <span class="block text-xs text-gray-500">İki video saati varken geçerlidir. Instagram videoyu önce takip etmeyenlere gösterir; iyi giderse profile kendisi ekler.</span>
+                        </span>
+                    </label>
                 </div>
                 @if ($canWrite)
                     <div class="flex flex-wrap items-center gap-3">

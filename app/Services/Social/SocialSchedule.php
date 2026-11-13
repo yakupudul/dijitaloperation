@@ -49,6 +49,30 @@ class SocialSchedule
         return is_array($stored) && is_array($stored['reels'] ?? null) ? $this->cleanTimes($stored['reels']) : [];
     }
 
+    /**
+     * Deneme Reels'i (yakup 2026-11-13): with two video hours, the last video of the day goes out as an Instagram trial
+     * reel. Instagram shows it to people who do not follow the account first and moves it to the profile by itself when
+     * it does well. On by default; the Plan tab switches it off.
+     */
+    public function trialReels(): bool
+    {
+        $stored = AgencySetting::query()->value('social_schedule');
+        $stored = is_string($stored) ? json_decode($stored, true) : $stored;
+
+        return ! is_array($stored) || ($stored['trial'] ?? true) !== false;
+    }
+
+    /** True for the video waiting at the last of at least two video hours while trial reels are on. */
+    public function isTrial(SocialPost $post): bool
+    {
+        if ($post->kind !== 'reels' || $post->publish_at === null || ! $this->trialReels()) {
+            return false;
+        }
+        $times = $this->reelTimes();
+
+        return count($times) >= 2 && Carbon::parse($post->publish_at)->timezone(SocialPlanner::TIMEZONE)->format('H:i') === end($times);
+    }
+
     /** Which line a post waits in: story, reels (only when video hours are set) or post. */
     public function lane(SocialPost $post): string
     {
@@ -94,8 +118,9 @@ class SocialSchedule
      * @param  array<int, string>  $days  chosen weekdays with their hour; at least one
      * @param  array<array-key, mixed>|null  $storyTimes  story hours of every day; null keeps the stored ones
      * @param  array<array-key, mixed>|null  $reelTimes  video hours of every day; null keeps the stored ones
+     * @param  bool|null  $trial  last video of the day as a trial reel; null keeps the stored choice
      */
-    public function save(array $days, ?array $storyTimes = null, ?array $reelTimes = null): int
+    public function save(array $days, ?array $storyTimes = null, ?array $reelTimes = null, ?bool $trial = null): int
     {
         $clean = [];
         foreach ($days as $day => $time) {
@@ -110,7 +135,7 @@ class SocialSchedule
         $setting = AgencySetting::query()->first() ?? new AgencySetting;
         $stories = $storyTimes === null ? $this->storyTimes() : $this->cleanTimes($storyTimes);
         $reels = $reelTimes === null ? $this->reelTimes() : $this->cleanTimes($reelTimes);
-        $setting->forceFill(['social_schedule' => ['days' => $clean, 'stories' => $stories, 'reels' => $reels]])->save();
+        $setting->forceFill(['social_schedule' => ['days' => $clean, 'stories' => $stories, 'reels' => $reels, 'trial' => $trial ?? $this->trialReels()]])->save();
 
         return $this->reflow();
     }

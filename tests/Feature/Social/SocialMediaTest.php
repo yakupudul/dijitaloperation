@@ -16,6 +16,7 @@ use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
 use App\Services\Social\SocialPublisher;
+use App\Services\Social\SocialSchedule;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -156,6 +157,49 @@ final class SocialMediaTest extends TestCase
         app(SocialPublisher::class)->run();
         $this->assertSame('published', $target->fresh()->status);
         Http::assertSentCount(5); // create, status, status, publish, permalink
+    }
+
+    public function test_last_video_of_the_day_goes_out_as_a_trial_reel_and_falls_back_when_refused(): void
+    {
+        app(SocialSchedule::class)->save([1 => '12:30'], null, ['19:00', '21:30']);
+        $refuse = false;
+        Http::fake(function (Request $request) use (&$refuse) {
+            $url = $request->url();
+
+            return match (true) {
+                str_contains($url, '/IG1/media') && $refuse && isset($request['trial_params']) => Http::response(['error' => ['message' => 'Trial reels are not available.', 'code' => 100]], 400),
+                str_contains($url, '/IG1/media') => Http::response(['id' => 'C9']),
+                default => Http::response(['status_code' => 'IN_PROGRESS']),
+            };
+        });
+        $early = $this->makePost('reels', 1, null, ['instagram']);
+        $early->update(['publish_at' => CarbonImmutable::parse('2026-11-09 19:00', 'Europe/Istanbul')->utc()]);
+        $late = $this->makePost('reels', 1, null, ['instagram']);
+        $late->update(['publish_at' => CarbonImmutable::parse('2026-11-09 21:30', 'Europe/Istanbul')->utc()]);
+        app(SocialPlanner::class)->approve($early, $this->admin->id);
+        app(SocialPlanner::class)->approve($late, $this->admin->id);
+        $early->update(['publish_at' => CarbonImmutable::parse('2026-11-09 19:00', 'Europe/Istanbul')->utc()]);
+        $late->update(['publish_at' => CarbonImmutable::parse('2026-11-09 21:30', 'Europe/Istanbul')->utc()]);
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-09 19:05', 'Europe/Istanbul'));
+        app(SocialPublisher::class)->run();
+        Http::assertSent(fn (Request $r): bool => ($r['media_type'] ?? null) === 'REELS' && ! isset($r['trial_params']));
+        Http::assertNotSent(fn (Request $r): bool => isset($r['trial_params']));
+
+        $this->travelTo(CarbonImmutable::parse('2026-11-09 21:35', 'Europe/Istanbul'));
+        app(SocialPublisher::class)->run();
+        Http::assertSent(fn (Request $r): bool => str_contains((string) ($r['trial_params'] ?? ''), 'SS_PERFORMANCE'));
+        $this->assertSame('processing', $late->targets()->first()->status);
+
+        // Instagram refuses trial reels for the account: the video still goes out, as an ordinary reel.
+        $late->targets()->update(['status' => 'pending', 'container_id' => null]);
+        $refuse = true;
+        app(SocialPublisher::class)->run();
+        $this->assertSame('processing', $late->targets()->first()->status);
+
+        // Switched off on the Plan tab: no trial parameter at all.
+        app(SocialSchedule::class)->save([1 => '12:30'], null, ['19:00', '21:30'], false);
+        $this->assertFalse(app(SocialSchedule::class)->isTrial($late->fresh()));
     }
 
     public function test_carousel_creates_children_then_one_container(): void

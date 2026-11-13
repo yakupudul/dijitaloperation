@@ -533,10 +533,13 @@ final class DailyBlog
     }
 
     /**
-     * The same article as an Instagram post (portrait cover, caption from the article). yakup 2026-11-13: Moximu's
+     * The same article as a social post for Facebook and LinkedIn (portrait cover, caption from the article). yakup 2026-11-13: Moximu's
      * social posts need no approval, so it is approved here with a fixed time 90 minutes after the article's slot
      * (the article is live by then) and stays outside the daily post line.
      */
+    /** @var list<string> where an article's social post goes; never Instagram */
+    public const array SOCIAL_PLATFORMS = ['facebook', 'linkedin'];
+
     public function instagramDraft(Suggestion $suggestion, CarbonImmutable $slot, ?int $approver = null): void
     {
         if (data_get($suggestion->action, 'daily.instagram_id') !== null) {
@@ -563,6 +566,9 @@ final class DailyBlog
             $post = app(SocialPlanner::class)->create([
                 'kind' => 'image', 'pillar' => 'rehber', 'title' => $title, 'caption' => $caption, 'linkedin_text' => $linkedin,
                 'publish_at' => $slot->addMinutes(self::INSTAGRAM_AFTER_MINUTES), 'created_by' => 'blog',
+                // yakup 2026-11-13: blog covers no longer go to Instagram (local search titles crowd the profile and
+                // say nothing to a hekim elsewhere); Facebook and LinkedIn keep them.
+                'platforms' => self::SOCIAL_PLATFORMS,
             ], [['bytes' => app(BrandCover::class)->render($style, $words, true), 'name' => 'rehber-'.$suggestion->id.'.jpg']]);
             if ($approver !== null) {
                 $post->update(['pinned' => true]);
