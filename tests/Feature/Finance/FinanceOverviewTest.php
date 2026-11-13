@@ -3,7 +3,10 @@
 namespace Tests\Feature\Finance;
 
 use App\Livewire\Operator\Finance\FinancePage;
+use App\Mcp\Servers\MoxdopServer;
+use App\Mcp\Tools\Finance;
 use App\Models\AgencySetting;
+use App\Models\Agreement;
 use App\Models\FinanceDocument;
 use App\Models\User;
 use App\Services\Finance\FinanceBoard;
@@ -79,7 +82,7 @@ class FinanceOverviewTest extends TestCase
 
         // Raising the fee to the agreed one clears the waiting raise.
         $agreements->update($agreements->start(null, ['kind' => 'monthly', 'party' => 'OPC', 'fee' => '18500', 'starts_on' => '2026-11-01', 'next_fee' => '25000'], $this->admin), ['fee' => '25000']);
-        $this->assertNull(\App\Models\Agreement::query()->where('party', 'OPC')->first()->next_fee);
+        $this->assertNull(Agreement::query()->where('party', 'OPC')->first()->next_fee);
     }
 
     public function test_the_overview_opens_on_this_month_and_takes_any_range_and_steps(): void
@@ -129,8 +132,9 @@ class FinanceOverviewTest extends TestCase
             'Fatura No: TCL2026000123456', 'Fatura Tarihi: 05-11-2026', 'Hesaplanan KDV(%20): 150,00', 'Odenecek Tutar: 1.250,50 TL', 'Kopya']);
         $twin = $docs->keepSet([['bytes' => $again, 'name' => 'fatura-2.pdf', 'mime' => 'application/pdf']], ['source' => 'gmail', 'external_id' => 'gmail:a4:fatura'])[0]->fresh();
         $this->assertSame('ignored', $twin->status);
-        $this->assertSame(FinanceDocuments::TWIN, data_get($twin->meta, 'reason'));
-        $this->assertNull($twin->path);
+        $this->assertSame($doc->id, data_get($twin->meta, 'same_as'));
+        $this->assertNull(data_get($twin->meta, 'reason'));
+        Storage::disk(FinanceDocuments::DISK)->assertExists($twin->path);
         $this->assertSame('new', $doc->fresh()->status);
         $this->assertSame(1, FinanceDocument::query()->where('doc_no', 'TCL2026000123456')->where('status', '!=', 'ignored')->count());
     }
@@ -158,19 +162,19 @@ class FinanceOverviewTest extends TestCase
         $scan = $docs->keepSet([['bytes' => "%PDF-1.4\n%tarama1", 'name' => 'a.pdf', 'mime' => 'application/pdf']], ['source' => 'gmail', 'external_id' => 'gmail:b1:a', 'subject' => 'Faturanız'])[0];
         $other = $docs->keepSet([['bytes' => "%PDF-1.4\n%tarama2", 'name' => 'b.pdf', 'mime' => 'application/pdf']], ['source' => 'gmail', 'external_id' => 'gmail:b2:b'])[0];
 
-        $list = \App\Mcp\Servers\MoxdopServer::tool(\App\Mcp\Tools\Finance::class, ['action' => 'unread_papers']);
+        $list = MoxdopServer::tool(Finance::class, ['action' => 'unread_papers']);
         $list->assertOk()->assertSee('Faturanız')->assertSee('file_url');
         $url = $docs->unread()[0]['file_url'];
         $this->get($url)->assertOk();
         $this->get(route('finance.paper', ['document' => $scan->id]))->assertForbidden();
 
-        \App\Mcp\Servers\MoxdopServer::tool(\App\Mcp\Tools\Finance::class, ['action' => 'read_paper', 'data' => ['id' => $scan->id, 'mine' => true, 'kind' => 'invoice',
+        MoxdopServer::tool(Finance::class, ['action' => 'read_paper', 'data' => ['id' => $scan->id, 'mine' => true, 'kind' => 'invoice',
             'seller' => 'Vodafone', 'buyer' => 'Yakup Udül', 'amount' => 899.9, 'doc_date' => '2026-10-20', 'currency' => 'TRY']])->assertOk()->assertSee('Belge alındı');
         $this->assertSame('new', $scan->fresh()->status);
         $this->assertSame('Vodafone', $scan->fresh()->counterparty);
         $this->assertSame('899.90', (string) $scan->fresh()->amount);
 
-        \App\Mcp\Servers\MoxdopServer::tool(\App\Mcp\Tools\Finance::class, ['action' => 'read_paper', 'data' => ['id' => $other->id, 'mine' => false]])->assertOk();
+        MoxdopServer::tool(Finance::class, ['action' => 'read_paper', 'data' => ['id' => $other->id, 'mine' => false]])->assertOk();
         $this->assertSame(FinanceDocuments::NOT_MINE, data_get($other->fresh()->meta, 'reason'));
         $this->assertNull($other->fresh()->path);
         // Once read, the link serves nothing.

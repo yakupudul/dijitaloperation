@@ -34,9 +34,6 @@ final class FinanceDocuments
     /** meta.reason of a mail paper taken before the rule that could not be read again yet: kept out of sight until it is known to be ours. */
     public const string UNVERIFIED = 'unverified';
 
-    /** The same invoice sent twice in different files (a resent mail, a portal copy): the later one is only a mark. */
-    public const string TWIN = 'twin';
-
     public const array EXTENSIONS = ['pdf', 'xml', 'jpg', 'jpeg', 'png', 'webp', 'zip', 'html'];
 
     public function __construct(private readonly FinanceReader $reader, private readonly FinanceSettings $settings) {}
@@ -317,7 +314,6 @@ final class FinanceDocuments
         }
         $this->setAsideCopies();
         $out['left'] = $open()->count();
-        $out['twins'] = $this->dropTwins();
 
         return $out;
     }
@@ -344,7 +340,6 @@ final class FinanceDocuments
             if ($doc->wasChanged('counterparty')) {
                 $this->learn($doc);
             }
-            $this->dropTwins($doc->doc_no);
 
             return true;
         }
@@ -456,34 +451,8 @@ final class FinanceDocuments
         }
         $doc->save();
         $this->learn($doc);
-        $this->dropTwins($doc->doc_no);
 
-        return $doc->fresh() ?? $doc;
-    }
-
-    /**
-     * Keeps one copy of each invoice: papers with the same number, side and amount but different bytes (the same
-     * e-arşiv mailed twice) leave the later ones as hidden marks without a file. Returns how many were dropped.
-     */
-    public function dropTwins(?string $docNo = null): int
-    {
-        $shown = FinanceDocument::query()->where('status', '!=', 'ignored')->whereNotNull('doc_no')->where('doc_no', '!=', '')
-            ->when($docNo !== null, fn ($q) => $q->where('doc_no', $docNo));
-        if ($docNo === null && ! (clone $shown)->select('doc_no')->groupBy('doc_no')->havingRaw('count(*) > 1')->exists()) {
-            return 0;
-        }
-        $dropped = 0;
-        foreach ($shown->orderBy('id')->get()->groupBy(fn (FinanceDocument $d): string => $d->direction.'|'.$d->doc_no.'|'.number_format((float) $d->amount, 2, '.', '')) as $group) {
-            foreach ($group->slice(1) as $twin) {
-                if ($twin->hasFile() && ! FinanceDocument::query()->where('path', $twin->path)->where('id', '!=', $twin->id)->exists()) {
-                    Storage::disk(self::DISK)->delete((string) $twin->path);
-                }
-                $twin->forceFill(['status' => 'ignored', 'path' => null, 'meta' => ['reason' => self::TWIN, 'twin_of' => $group->first()->id] + (array) $twin->meta])->save();
-                $dropped++;
-            }
-        }
-
-        return $dropped;
+        return $doc;
     }
 
     /**
