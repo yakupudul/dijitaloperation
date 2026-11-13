@@ -123,6 +123,16 @@ class FinanceOverviewTest extends TestCase
         $this->assertSame(FinanceDocuments::UNVERIFIED, data_get($scan->meta, 'reason'));
         Storage::disk(FinanceDocuments::DISK)->assertExists($scan->path);
         $this->assertSame(1, FinanceDocument::query()->where('meta->reason', FinanceDocuments::UNVERIFIED)->count());
+
+        // The same invoice mailed again in another file is kept once.
+        $again = $this->pdf(['TURKCELL ILETISIM HIZMETLERI A.S.', 'VKN: 3110045623', 'e-Arsiv Fatura', 'SAYIN', 'YAKUP UDUL', 'TCKN: 12345678901',
+            'Fatura No: TCL2026000123456', 'Fatura Tarihi: 05-11-2026', 'Hesaplanan KDV(%20): 150,00', 'Odenecek Tutar: 1.250,50 TL', 'Kopya']);
+        $twin = $docs->keepSet([['bytes' => $again, 'name' => 'fatura-2.pdf', 'mime' => 'application/pdf']], ['source' => 'gmail', 'external_id' => 'gmail:a4:fatura'])[0]->fresh();
+        $this->assertSame('ignored', $twin->status);
+        $this->assertSame(FinanceDocuments::TWIN, data_get($twin->meta, 'reason'));
+        $this->assertNull($twin->path);
+        $this->assertSame('new', $doc->fresh()->status);
+        $this->assertSame(1, FinanceDocument::query()->where('doc_no', 'TCL2026000123456')->where('status', '!=', 'ignored')->count());
     }
 
     public function test_a_paper_that_opens_with_the_buyer_still_finds_the_seller_and_both_tax_numbers(): void
