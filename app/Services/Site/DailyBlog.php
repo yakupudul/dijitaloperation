@@ -95,6 +95,46 @@ final class DailyBlog
         return ['per_day' => count($times), 'times' => $times];
     }
 
+    /** Positioning subjects the line opens at most this many of per idea run (the rest of the line follows demand). */
+    public const int DIRECTION_PER_RUN = 2;
+
+    /**
+     * Marka rotası konuları (2026-11-13): subjects of the brand's positioning that its old Search Console demand cannot
+     * bring (moximu.com: the health advertising regulation; every cluster came from Google Ads searches). Stored in
+     * `auto_blog.topics`; the agency's own blog (Moximu rehber style) has its positioning list by default (yakup
+     * 2026-11-13, "Tamam ne gerekiyorsa yap"). Each becomes one new-article candidate until an idea for it exists.
+     *
+     * @return list<string>
+     */
+    public static function directionTopics(?Brand $brand): array
+    {
+        if (! self::on($brand)) {
+            return [];
+        }
+        $topics = (array) ($brand->auto_blog['topics'] ?? []);
+        if ($topics === [] && BrandCover::styleOf($brand) === BrandCover::MOXIMU_REHBER) {
+            $topics = self::MOXIMU_TOPICS;
+        }
+
+        return array_values(array_unique(array_filter(array_map(fn (mixed $t): string => is_string($t) ? trim($t) : '', $topics), fn (string $t): bool => mb_strlen($t) >= 4)));
+    }
+
+    /** Moximu: the clinic agency that knows the health advertising regulation best (approved positioning, 2026-11-13). */
+    public const array MOXIMU_TOPICS = [
+        'sağlık tanıtım yönetmeliği',
+        'doktor reklam yasağı',
+        'diş hekimi reklam yasağı',
+        'klinik reklamında yasak ifadeler',
+        'sağlık kuruluşu sosyal medya paylaşım kuralları',
+        'klinik web sitesinde fiyat yazılır mı',
+        'hasta yorumu ve önce sonra fotoğrafı paylaşma kuralları',
+        'il sağlık müdürlüğü reklam cezası',
+        'muayenehane tanıtımı nasıl yapılır',
+        'estetik klinik reklam kuralları',
+        'sağlık turizmi tanıtım kuralları',
+        'Google Ads sağlık reklamı politikası',
+    ];
+
     public static function on(?Brand $brand): bool
     {
         return self::settings($brand) !== null;
@@ -689,6 +729,7 @@ final class DailyBlog
             'Say "Google İşletme Profili", never "Google kartı". Follow the health advertising rules (2025 yönetmelik).',
             'Topics: the morning article is a lasting guide; the afternoon one a branch and/or city article (e.g. a dental clinic in İzmir) or a refresh of a page that ranks 8-20.',
             'Prefer subjects from reader_questions (what clinics ask on WhatsApp) and Search Console searches the site has no page for; never a subject the site already covers.',
+            ...(self::directionTopics($brand) !== [] ? ['A candidate with source "direction" is a subject of the brand\'s positioning (e.g. the health advertising regulation): write it as a lasting guide for clinic owners and doctors, plain and correct, never legal advice or a promise.'] : []),
         ];
     }
 

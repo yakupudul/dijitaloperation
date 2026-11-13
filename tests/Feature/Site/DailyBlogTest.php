@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Site;
 
+use App\Ai\Agents\Site\WeeklyContentAgent;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
 use App\Models\ExternalWriteAction;
@@ -142,7 +143,7 @@ final class DailyBlogTest extends SiteTestCase
         $this->assertSame(0, $social->targets()->whereHas('account', fn ($q) => $q->where('platform', 'instagram'))->count(), 'blog posts never go to Instagram');
         $this->assertStringContainsString('https://panorama.com.tr/rehber/yazi-', (string) $social->linkedin_text, 'LinkedIn gets the article link for its card');
         app(DailyBlog::class)->instagramDraft($local->fresh(), $now->setTime(15, 0));
-        $city = \App\Models\SocialPost::query()->find((int) data_get($local->fresh()->action, 'daily.instagram_id'));
+        $city = SocialPost::query()->find((int) data_get($local->fresh()->action, 'daily.instagram_id'));
         $this->assertNotNull($city, 'the city article still gets its Instagram post');
         $this->assertNull($city->linkedin_text, 'a city article never goes to LinkedIn');
         $second = $this->idea('Klinik SEO nasıl ölçülür?', Suggestion::APPROVED, $ok + ['daily' => ['lane' => 'rehber']]);
@@ -249,5 +250,40 @@ final class DailyBlogTest extends SiteTestCase
         $this->assertSame('closed', $outcome['outcome'] ?? null);
         $this->assertSame('new', data_get($new->fresh()->action, 'kind'));
         $this->assertNull($new->fresh()->page_id);
+    }
+
+    /**
+     * Marka rotası konuları (2026-11-13): Moximu's clusters all came from old Google Ads searches; the line also opens the
+     * positioning's subjects (health advertising regulation), a few per run, each once.
+     */
+    public function test_the_line_opens_the_positioning_subjects_no_search_brings(): void
+    {
+        $this->enableAi();
+        Queue::fake();
+        $this->brand->forceFill(['cover_style' => BrandCover::MOXIMU_REHBER])->save();
+        $this->assertContains('sağlık tanıtım yönetmeliği', DailyBlog::directionTopics($this->brand->fresh()));
+        $prompts = [];
+        WeeklyContentAgent::fake(function (string $prompt) use (&$prompts): array {
+            $prompts[] = $prompt;
+            $candidates = json_decode(substr($prompt, strpos($prompt, '{')), true)['candidates'] ?? [];
+
+            return ['items' => array_map(fn (array $c): array => ['candidate_id' => $c['candidate_id'], 'language' => 'tr', 'title' => 'Rehber '.$c['candidate_id'].' '.md5((string) $c['query']),
+                'kind' => 'new', 'cluster_id' => null, 'query' => null, 'page_type' => 'blog', 'target_url' => null, 'angle' => 'decision', 'outline' => ['Giriş'], 'questions' => ['Soru?'], 'reason' => 'Rota.'], $candidates)];
+        });
+
+        app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 10]);
+
+        $direction = collect(json_decode(substr($prompts[0], strpos($prompts[0], '{')), true)['candidates'])->where('source', 'direction');
+        $this->assertCount(DailyBlog::DIRECTION_PER_RUN, $direction, 'a few positioning subjects a run, not the whole line');
+        $first = $direction->pluck('query')->all();
+        $this->assertSame(DailyBlog::DIRECTION_PER_RUN, Suggestion::query()->where('action->source', 'direction')->count());
+
+        $prompts = [];
+        app(ContentPlanner::class)->weekly($this->site, null, ['tr' => 10]);
+        $again = collect(json_decode(substr($prompts[0], strpos($prompts[0], '{')), true)['candidates'])->where('source', 'direction')->pluck('query')->all();
+        $this->assertSame([], array_intersect($first, $again), 'a subject that has its idea is not asked again');
+
+        $this->brand->forceFill(['cover_style' => null])->save();
+        $this->assertSame([], DailyBlog::directionTopics($this->brand->fresh()), 'other brands keep their own demand');
     }
 }

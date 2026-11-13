@@ -652,6 +652,25 @@ final class ContentPlanner
                 ];
             }
         }
+        // 1d) Marka rotası konuları (daily blog brands): the positioning's subjects that no search demand brings yet, a few a run.
+        if ($only === null) {
+            $direction = 0;
+            $topics = DailyBlog::directionTopics($brand);
+            // A topic the idea run drops comes back on another day, not first every day (no starving the rest).
+            $shift = $topics !== [] ? (int) now()->dayOfYear % count($topics) : 0;
+            foreach ([...array_slice($topics, $shift), ...array_slice($topics, 0, $shift)] as $topic) {
+                $folded = SeoText::fold($topic);
+                if ($direction >= DailyBlog::DIRECTION_PER_RUN || isset($usedKeys['r:'.$folded]) || isset($usedQueries[$folded])) {
+                    continue;
+                }
+                $out[] = [
+                    'key' => 'r:'.$folded, 'source' => 'direction', 'kind' => 'new', 'row' => null, 'query' => $topic, 'page' => null, 'angle_hint' => null,
+                    'tier' => 0, 'score' => 100.0 - $direction,
+                    'evidence' => [['kind' => 'direction', 'value' => 'Markanın konumlandırma konusu: «'.$topic.'»', 'source' => 'Marka rotası']],
+                ];
+                $direction++;
+            }
+        }
         // Clusters a recent idea already answers go last (rotation; yakup, 2026-10-07: pools stuck on the same clusters).
         usort($out, fn (array $a, array $b): int => [$a['tier'] ?? 0, $b['score']] <=> [$b['tier'] ?? 0, $a['score']]);
         // One new page per cluster: never while a new-page idea of the cluster waits, is approved or snoozed, and at most
