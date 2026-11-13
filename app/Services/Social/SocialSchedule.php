@@ -195,6 +195,8 @@ class SocialSchedule
         // A post day is taken by any other post of that day; a story or video hour only by one of its kind at that very hour.
         $taken = $this->ofLane(SocialPost::query(), $lane)
             ->whereIn('status', [SocialPost::APPROVED, SocialPost::PARTIAL, SocialPost::PUBLISHED])
+            // The blog's own posts go out at their fixed hour beside the day's post; they do not take the day.
+            ->where(fn ($q) => $q->whereNull('created_by')->orWhere('created_by', '!=', 'blog'))
             ->where('publish_at', '>=', now()->subDay())
             ->whereNotIn('id', $line->modelKeys())
             ->pluck('publish_at')->map(fn ($at): string => Carbon::parse($at)->timezone($tz)->format($stories ? 'Y-m-d H:i' : 'Y-m-d'))->flip();

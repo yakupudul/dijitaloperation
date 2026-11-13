@@ -169,4 +169,19 @@ final class SocialScheduleTest extends TestCase
         Livewire::actingAs($this->admin)->test(SocialPage::class)->call('setTab', 'plan')
             ->assertSet('reelTimes', ['19:00', ''])->assertSee('Video sırasında 1.');
     }
+
+    public function test_a_blog_post_with_its_fixed_hour_does_not_take_the_days_post_slot(): void
+    {
+        $img = imagecreatetruecolor(20, 25);
+        ob_start();
+        imagepng($img);
+        $blog = app(SocialPlanner::class)->create(['kind' => 'image', 'caption' => 'x', 'publish_at' => '2026-11-09 10:30', 'created_by' => 'blog'], [['bytes' => (string) ob_get_clean(), 'name' => 'b.png']]);
+        $blog->update(['pinned' => true]);
+        app(SocialPlanner::class)->approve($blog->fresh(), $this->admin->id);
+        $post = $this->draft();
+        app(SocialPlanner::class)->approve($post, $this->admin->id);
+
+        $this->assertSame('2026-11-09 10:30', $this->at($blog));
+        $this->assertSame('2026-11-09 12:30', $this->at($post));
+    }
 }

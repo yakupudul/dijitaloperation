@@ -47,6 +47,9 @@ use Throwable;
  */
 final class DailyBlog
 {
+    /** The article's Instagram post goes out this long after the article's own slot. */
+    public const int INSTAGRAM_AFTER_MINUTES = 90;
+
     /** Articles kept in work (written, being written or checked): about two days. */
     public const int BUFFER = 6;
 
@@ -353,7 +356,7 @@ final class DailyBlog
                 $planner->sendDraft($pick->fresh(), $actor, $refresh ? null : $slot);
                 $sent++;
                 if (! $refresh) {
-                    $this->instagramDraft($pick->fresh(), $slot);
+                    $this->instagramDraft($pick->fresh(), $slot, (int) $actor->id);
                 }
             } catch (Throwable $e) {
                 $action = (array) $pick->fresh()->action;
@@ -519,8 +522,12 @@ final class DailyBlog
         $suggestion->forceFill(['action' => $action])->save();
     }
 
-    /** The same article as an Instagram draft (portrait cover, caption from the article); it waits on /sosyal for approval. */
-    public function instagramDraft(Suggestion $suggestion, CarbonImmutable $slot): void
+    /**
+     * The same article as an Instagram post (portrait cover, caption from the article). yakup 2026-11-13: Moximu's
+     * social posts need no approval, so it is approved here with a fixed time 90 minutes after the article's slot
+     * (the article is live by then) and stays outside the daily post line.
+     */
+    public function instagramDraft(Suggestion $suggestion, CarbonImmutable $slot, ?int $approver = null): void
     {
         if (data_get($suggestion->action, 'daily.instagram_id') !== null) {
             return;
@@ -541,8 +548,12 @@ final class DailyBlog
             $caption = $title."\n\n".($excerpt !== '' ? $excerpt."\n\n" : '').'Rehberin tamamı moximu.com/rehber sayfasında.'."\n\n".'#klinikpazarlama #sağlıkpazarlaması #moximu';
             $post = app(SocialPlanner::class)->create([
                 'kind' => 'image', 'pillar' => 'rehber', 'title' => $title, 'caption' => $caption,
-                'publish_at' => $slot->addDay()->setTime(12, 0), 'created_by' => 'blog',
+                'publish_at' => $slot->addMinutes(self::INSTAGRAM_AFTER_MINUTES), 'created_by' => 'blog',
             ], [['bytes' => app(BrandCover::class)->render($style, $words, true), 'name' => 'rehber-'.$suggestion->id.'.jpg']]);
+            if ($approver !== null) {
+                $post->update(['pinned' => true]);
+                app(SocialPlanner::class)->approve($post->fresh(), $approver);
+            }
             $action = (array) $suggestion->fresh()->action;
             $action['daily']['instagram_id'] = (int) $post->id;
             $suggestion->forceFill(['action' => $action])->save();
