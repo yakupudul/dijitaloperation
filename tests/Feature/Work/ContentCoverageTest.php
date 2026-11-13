@@ -228,7 +228,7 @@ final class ContentCoverageTest extends SiteTestCase
     {
         $this->enableAi();
         Queue::fake();
-        $this->page('/implant/', 'İmplant', ['category' => 'hizmet', 'language' => 'tr']);
+        $this->page('/implant/', 'İmplant', ['category' => 'blog', 'wp_post_type' => 'post', 'language' => 'tr']);
         $this->backfill();
         $this->rowOf('no_page', 'Zirkonyum kaplama fiyatı');
         $this->rowOf('no_page', 'İmplant fiyatları');
@@ -332,7 +332,7 @@ final class ContentCoverageTest extends SiteTestCase
         foreach (range(1, 300) as $n) {
             $this->page('/a-'.$n.'/', 'Sayfa '.$n, ['category' => 'blog']);
         }
-        $this->page('/zirkonyum-kaplama/', 'Zirkonyum kaplama', ['category' => 'hizmet']);
+        $this->page('/zirkonyum-kaplama/', 'Zirkonyum kaplama', ['category' => 'blog', 'wp_post_type' => 'post']);
         $sufficient = $this->cluster($this->implant, 'İmplant fiyatları', ['implant fiyatları']);
         BrandClusterPage::query()->create(['brand_id' => $this->brand->id, 'cluster_id' => $sufficient->id, 'website_asset_id' => $this->site->id, 'state' => 'sufficient', 'language' => 'tr']);
         Query::query()->create(['text' => 'zirkonyum kaplama ömrü', 'text_hash' => QueryNormalizer::hash('zirkonyum kaplama ömrü'), 'sector_id' => $this->dental->id,
@@ -418,7 +418,7 @@ final class ContentCoverageTest extends SiteTestCase
     {
         $this->enableAi();
         Queue::fake();
-        $page = $this->page('/zirkonyum-kaplama/', 'Zirkonyum kaplama', ['category' => 'hizmet']);
+        $page = $this->page('/zirkonyum-kaplama/', 'Zirkonyum kaplama', ['category' => 'blog', 'wp_post_type' => 'post']);
         foreach (['zirkonyum kaplama ömrü', 'zirkonyum kaplama fiyatı', 'zirkonyum kaplama kaç yıl gider'] as $i => $text) {
             Query::query()->create(['text' => $text, 'text_hash' => QueryNormalizer::hash($text), 'sector_id' => $this->dental->id,
                 'service_id' => $this->zirkonyum->id, 'assignment' => 'rule']);

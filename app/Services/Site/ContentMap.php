@@ -163,6 +163,12 @@ final class ContentMap
         }
         $query = is_string($action['query'] ?? null) ? $action['query'] : null;
         $page = $this->owner($site, $query, (string) $suggestion->title);
+        if ($page !== null && ! ContentPlanner::refreshable($page)) {
+            // A service / price page carries the subject: it is never rewritten by a content update (2026-11-13).
+            $this->close($suggestion, 'Bu konuyu sitenin satış sayfası işliyor ('.SeoText::urlPath((string) $page->url).'); satış sayfaları içerik güncellemesiyle yeniden yazılmaz.');
+
+            return ['outcome' => 'closed', 'url' => (string) $page->url];
+        }
         if ($page !== null) {
             $busy = Suggestion::query()->where('brand_id', $suggestion->brand_id)->where('action_type', SiteSuggestionTypes::CONTENT)->where('page_id', $page->id)
                 ->where('id', '!=', $suggestion->id)->whereIn('status', [Suggestion::OPEN, Suggestion::APPROVED, Suggestion::SNOOZED])->exists();

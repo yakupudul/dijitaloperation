@@ -290,15 +290,14 @@ final class SiteSuggestionsTest extends SiteTestCase
             ]];
         });
 
-        $this->assertSame(['status' => 'ready', 'added' => 2], app(ContentPlanner::class)->weekly($this->site));
+        $this->assertSame(['status' => 'ready', 'added' => 1], app(ContentPlanner::class)->weekly($this->site), 'the thin service page gets no rewrite (2026-11-13: only blog posts are refreshed)');
 
         $this->assertStringContainsString('İmplant sonrası beslenme', $prompts[0], 'previous titles are in the pack');
         $new = Suggestion::query()->where('title', 'İmplant sonrası ilk hafta')->sole();
         $this->assertSame('https://panorama.com.tr/blog/implant-sonrasi-ilk-hafta/', $new->action['target_url'], 'site URL pattern, not invented');
         $this->assertSame($gap->id, $new->cluster_id);
         $this->assertSame(['İmplant sonrası ne yenir?'], $new->action['questions']);
-        $update = Suggestion::query()->where('title', 'Zirkonyum kaplama sayfasını genişlet')->sole();
-        $this->assertSame([$this->zirkonyumPage->id, 'update'], [$update->page_id, $update->action['kind']], 'an update names the candidate page, not the AI\'s URL');
+        $this->assertSame(0, Suggestion::query()->where('page_id', $this->zirkonyumPage->id)->where('action->kind', 'update')->count(), 'a service page is never a refresh target');
         $this->assertSame(0, Suggestion::query()->where('title', 'Aday dışı fikir')->count());
         $this->assertGreaterThanOrEqual(3, (int) Suggestion::query()->where('decision_key', 'site.content')->min('priority'), 'a content idea is never critical');
 

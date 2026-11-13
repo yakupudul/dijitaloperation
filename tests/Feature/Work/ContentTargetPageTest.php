@@ -110,7 +110,7 @@ final class ContentTargetPageTest extends SiteTestCase
         $connection = CoreConnection::factory()->create(['digital_asset_id' => $this->site->id, 'type' => 'wordpress_connector', 'enabled' => true,
             'config' => ['pairing_state' => 'paired', 'snapshot_url' => 'https://panorama.com.tr/wp-json/moxdop/v1/snapshot', 'plugin_version' => '1.14.0']]);
         CoreConnectionCredential::factory()->create(['connection_id' => $connection->id, 'encrypted_payload' => ['client_id' => 'c', 'shared_secret' => str_repeat('s', 43)]]);
-        $page = $this->page('/kanal-tedavisi-nedir/', 'Kanal tedavisi nedir', ['wp_post_id' => 321]);
+        $page = $this->page('/kanal-tedavisi-nedir/', 'Kanal tedavisi nedir', ['wp_post_id' => 321, 'wp_post_type' => 'post']);
 
         return $this->idea('Kanal tedavisi adım adım nasıl yapılır?', ['kind' => 'update', 'target_url' => $page->url, 'article' => ['title' => 'Kanal tedavisi adım adım nasıl yapılır?',
             'slug' => 'kanal', 'html' => '<h2>Adımlar</h2><p>Önce uyuşturma yapılır.</p>', 'meta_title' => 'Kanal tedavisi adım adım', 'meta_description' => 'Adımlar.', 'excerpt' => 'x',

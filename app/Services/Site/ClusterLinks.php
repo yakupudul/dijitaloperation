@@ -130,6 +130,9 @@ final class ClusterLinks
 
     private function strengthenIfUnseen(Suggestion $idea, DigitalAsset $site, Page $page): bool
     {
+        if (! ContentPlanner::refreshable($page)) {
+            return false; // only blog posts are refreshed
+        }
         $sentAt = $idea->resolved_at ?? $idea->updated_at;
         if ($sentAt === null || $sentAt->gt(now()->subDays(self::WEAK_AFTER_DAYS)) || ! SchemaState::hasTable('gsc_page_daily')) {
             return false;
@@ -160,6 +163,9 @@ final class ClusterLinks
     /** A live article Google shows at position 4–20 after REFRESH_AFTER_DAYS: a "güçlendir" idea of its own page. */
     private function strengthenIfStriking(Suggestion $idea, DigitalAsset $site, Page $page): bool
     {
+        if (! ContentPlanner::refreshable($page)) {
+            return false; // only blog posts are refreshed
+        }
         $sentAt = $idea->resolved_at ?? $idea->updated_at;
         if ($sentAt === null || $sentAt->gt(now()->subDays(self::REFRESH_AFTER_DAYS)) || ! SchemaState::hasTable('gsc_page_daily')) {
             return false;

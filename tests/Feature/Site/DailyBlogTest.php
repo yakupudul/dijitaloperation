@@ -9,11 +9,14 @@ use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\Suggestion;
 use App\Services\Site\BrandCover;
+use App\Services\Site\ContentMap;
+use App\Services\Site\ContentPlanner;
 use App\Services\Site\DailyBlog;
 use App\Services\Social\SocialPlanner;
 use App\Services\Work\ContentAutopilot;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Günlük blog (yakup 2026-11-12): moximu.com publishes two articles a day without approval, through a quality gate, with
@@ -199,5 +202,52 @@ final class DailyBlogTest extends SiteTestCase
         $words = BrandCover::words($this->idea('Reklam bütçesi hedeften geriye hesaplanır'));
         $this->assertSame(['Reklam bütçesi', 'hedeften geriye hesaplanır'], [$words['title'], $words['title_rest']], 'black first part, grey rest');
         $this->assertSame(['Doğru kategori', 'Haftalık gönderi'], $words['items']);
+    }
+
+    /**
+     * 2026-11-13: refresh ideas of the afternoon slot rewrote two moximu.com sales pages (/hizmetlerimiz/klinik-seo/,
+     * /fiyatlar/tek-hizmet/) with blog articles. A content update may only rewrite a blog post.
+     */
+    public function test_a_refresh_never_rewrites_a_service_or_price_page(): void
+    {
+        Queue::fake();
+        $this->connection();
+        $service = $this->page('/hizmetlerimiz/klinik-seo/', 'Klinik SEO hizmeti', ['wp_post_id' => 64, 'wp_post_type' => 'page', 'category' => 'hizmet']);
+        $post = $this->page('/rehber/klinik-seo-nasil-olculur/', 'Klinik SEO nasıl ölçülür?', ['wp_post_id' => 900, 'wp_post_type' => 'post', 'category' => 'blog']);
+        $this->assertFalse(ContentPlanner::refreshable($service));
+        $this->assertTrue(ContentPlanner::refreshable($post));
+        $this->assertTrue(ContentPlanner::refreshable($this->page('/blog/eski-yazi/', 'Eski yazı', ['category' => 'blog'])), 'a blog page not collected from WordPress');
+        $this->assertFalse(ContentPlanner::refreshable($this->page('/fiyatlar/tek-hizmet/', 'Tek hizmet fiyatları')), 'an unknown page is never rewritten');
+
+        $ok = ['autopilot' => ['review' => ['verdict' => 'ok', 'reason' => '', 'at' => now()->toIso8601String()]]];
+        $sales = $this->idea('Diş kliniği SEO hizmetinde ücret nasıl belirlenir?', Suggestion::APPROVED, $ok + ['kind' => 'update', 'page_type' => 'hizmet',
+            'target_url' => (string) $service->url, 'daily' => ['lane' => 'yenileme']]);
+        $sales->forceFill(['page_id' => $service->id, 'target_type' => 'page', 'target_id' => $service->id])->save();
+        $this->assertFalse(ContentPlanner::updateTargetAllowed($sales->fresh()));
+        $this->assertFalse(app(DailyBlog::class)->inWork($this->site)->contains('id', $sales->id), 'a sales-page refresh leaves the line');
+
+        $now = CarbonImmutable::parse('2026-11-13 14:50', 'Europe/Istanbul');
+        $this->travelTo($now);
+        $this->assertSame(0, app(DailyBlog::class)->publish($this->site, $this->admin, $now), 'the afternoon slot never takes it');
+        $this->assertNull(data_get($sales->fresh()->action, 'article_write_id'));
+        try {
+            app(ContentPlanner::class)->sendDraft($sales->fresh(), $this->admin);
+            $this->fail('a sales page must never get a page update draft');
+        } catch (ValidationException $e) {
+            $this->assertStringContainsString('blog yazısı değil', $e->getMessage());
+        }
+        $this->assertSame(0, ExternalWriteAction::query()->count(), 'nothing was written to the site');
+
+        $refresh = $this->idea('Klinik SEO nasıl ölçülür?', Suggestion::APPROVED, $ok + ['kind' => 'update', 'target_url' => (string) $post->url, 'daily' => ['lane' => 'yenileme']]);
+        $refresh->forceFill(['page_id' => $post->id, 'target_type' => 'page', 'target_id' => $post->id])->save();
+        $this->assertTrue(ContentPlanner::updateTargetAllowed($refresh->fresh()));
+        $this->assertTrue(app(DailyBlog::class)->inWork($this->site)->contains('id', $refresh->id), 'a blog post refresh stays in the line');
+
+        // A new idea whose subject a sales page carries is closed, never turned into that page's update.
+        $new = $this->idea('Klinik SEO hizmeti', Suggestion::OPEN, [], false);
+        $outcome = app(ContentMap::class)->resolve($new);
+        $this->assertSame('closed', $outcome['outcome'] ?? null);
+        $this->assertSame('new', data_get($new->fresh()->action, 'kind'));
+        $this->assertNull($new->fresh()->page_id);
     }
 }

@@ -71,6 +71,45 @@ final class ContentPlanner
     /** Why a new idea is not stored: another idea of the site already has its subject (ContentMap). */
     public const string SAME_SUBJECT = 'aynı konuda başka fikir var';
 
+    /** Why an update idea is not stored or sent: its page is not a blog post (a service, price or other sales page). */
+    public const string NOT_A_POST = 'güncellenecek sayfa blog yazısı değil';
+
+    /** Why a new idea is not stored: a sales page of the site already carries its subject. */
+    public const string SALES_PAGE_SUBJECT = 'konuyu sitenin bir satış sayfası işliyor';
+
+    /**
+     * Whether a content update may rewrite this page: only blog posts (WordPress post type "post"; a page MoxDOP did
+     * not collect from WordPress counts when it is categorised as blog). Service, price, home and every other page
+     * stay out (2026-11-13: two moximu.com sales pages, /hizmetlerimiz/klinik-seo/ and /fiyatlar/tek-hizmet/, were
+     * overwritten with blog articles by refresh ideas that targeted them).
+     */
+    public static function refreshable(?Page $page): bool
+    {
+        if ($page === null) {
+            return false;
+        }
+        $type = trim((string) $page->wp_post_type);
+
+        return $type === 'post' || ($type === '' && $page->category === 'blog');
+    }
+
+    /**
+     * Whether an idea may go out: a new article always; an update only when its page is a blog post, or (no page
+     * collected yet) when it is the correction of an article MoxDOP sent itself (ResultCorrections names its post).
+     */
+    public static function updateTargetAllowed(Suggestion $suggestion): bool
+    {
+        $action = (array) $suggestion->action;
+        if (($action['kind'] ?? 'new') !== 'update') {
+            return true;
+        }
+        if ($suggestion->page_id !== null) {
+            return self::refreshable(Page::query()->find($suggestion->page_id, ['id', 'category', 'wp_post_type']));
+        }
+
+        return (int) ($action['wp_post_id'] ?? 0) > 0 && str_starts_with((string) $suggestion->title, 'Düzeltme: ');
+    }
+
     /** Search Console queries the site already shows for but not near the top: the strongest idea material. */
     private const int STRIKING_QUERIES = 40;
 
@@ -623,6 +662,9 @@ final class ContentPlanner
         // One update per page per run: several searches answered by the same page make one idea for it, not ten.
         $updatePages = [];
         $out = array_values(array_filter($out, function (array $c) use (&$newPageClusters, &$updatePages): bool {
+            if ($c['kind'] === 'update' && ! self::refreshable($c['page'])) {
+                return false; // only blog posts are refreshed; sales pages are never rewritten
+            }
             if ($c['kind'] === 'update' && $c['page'] !== null) {
                 if (isset($updatePages[(int) $c['page']->id])) {
                     return false;
@@ -1713,6 +1755,9 @@ final class ContentPlanner
             throw ValidationException::withMessages(['write' => 'Sayfanın yeni sürümü zaten WordPress\'te taslak.']);
         }
         $page = $suggestion->page_id !== null ? Page::query()->find($suggestion->page_id) : null;
+        if (! self::updateTargetAllowed($suggestion)) {
+            throw ValidationException::withMessages(['write' => 'Bu sayfa bir blog yazısı değil; hizmet, fiyat ve diğer satış sayfalarının metni içerik güncellemesiyle değiştirilmez.']);
+        }
         // A correction of a sent article (ResultCorrections) names the WordPress post itself: it may not be collected yet.
         $postId = $page?->wp_post_id ?? ((int) ($action['wp_post_id'] ?? 0) ?: null);
         if ($postId === null) {
@@ -1749,6 +1794,9 @@ final class ContentPlanner
         }
         if ($draft->status !== 'succeeded') {
             throw ValidationException::withMessages(['write' => 'WordPress taslak kopyası henüz hazır değil.']);
+        }
+        if (! self::updateTargetAllowed($suggestion)) {
+            throw ValidationException::withMessages(['write' => 'Bu sayfa bir blog yazısı değil; hizmet, fiyat ve diğer satış sayfalarının metni içerik güncellemesiyle değiştirilmez.']);
         }
         $writes = app(ExternalWriteService::class);
         $ids = [(int) $writes->requestContentApply($user, $site, (int) ($draft->result['post_id'] ?? 0), $suggestion)->id];
@@ -1806,7 +1854,10 @@ final class ContentPlanner
         if ($kind === 'new') {
             $map = app(ContentMap::class);
             $query = is_string($extra['query'] ?? null) ? $extra['query'] : null;
-            if (($owner = $map->owner($site, $query, $title)) !== null) {
+            if (($owner = $map->owner($site, $query, $title)) !== null && ! self::refreshable($owner)) {
+                return self::SALES_PAGE_SUBJECT; // never a rewrite of a service / price page, nor a rival article to it
+            }
+            if ($owner !== null) {
                 [$kind, $item['target_url'], $sitePages] = ['update', (string) $owner->url, $sitePages->push($owner)->unique('id')->values()];
                 $mapNote = 'Sitede bu konuyu işleyen sayfa var; yeni yazı yerine o sayfa güçlendirilecek.';
                 $extra['angle'] = 'update';
@@ -1818,6 +1869,9 @@ final class ContentPlanner
             $page = $sitePages->first(fn (Page $p): bool => SeoText::urlKey((string) $p->url) === SeoText::urlKey((string) ($item['target_url'] ?? '')));
             if ($page === null) {
                 return 'güncellenecek sayfa sitede yok'; // an update must name a real page of the site
+            }
+            if (! self::refreshable($page)) {
+                return self::NOT_A_POST;
             }
             if (! self::inLanguage($page, (string) ($extra['language'] ?? SiteScope::primaryLanguage($site) ?? ''))) {
                 return 'güncellenecek sayfa başka dilde'; // a Turkish idea never rewrites the /de/ page (opcklinik.com, 2026-10-12)

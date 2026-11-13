@@ -422,7 +422,7 @@ final class ContentAutopilot
         $action = (array) $suggestion->action;
 
         return self::sendable($suggestion) || (DailyBlog::taken($suggestion) && ($action['kind'] ?? null) === 'update' && is_array($action['article'] ?? null)
-            && ! isset($action['article_write_id']) && ! isset($action['article_blocked']));
+            && ! isset($action['article_write_id']) && ! isset($action['article_blocked']) && ContentPlanner::updateTargetAllowed($suggestion));
     }
 
     /** A written new article that has not been sent (no page update, no rule block). */

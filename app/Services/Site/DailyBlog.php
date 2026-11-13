@@ -150,7 +150,7 @@ final class DailyBlog
     public function inWork(DigitalAsset $site): Collection
     {
         return self::ideas($site)->where('status', Suggestion::APPROVED)->whereNull('action->article_write_id')->get()
-            ->filter(fn (Suggestion $s): bool => self::taken($s) && ! self::givenUp($s))->values();
+            ->filter(fn (Suggestion $s): bool => self::taken($s) && ! self::givenUp($s) && ContentPlanner::updateTargetAllowed($s))->values();
     }
 
     /** Held by the check after every correction round, or blocked by a rule for good: it never goes out. */
@@ -202,7 +202,8 @@ final class DailyBlog
         $refreshes = $work->filter(fn (Suggestion $s): bool => self::lane($s) === 'yenileme')->count();
         $candidates = self::ideas($site)->where(fn (Builder $q): Builder => $q->where('status', Suggestion::APPROVED)->orWhere(fn (Builder $open): Builder => $open->actionable()))
             ->whereNull('action->article_write_id')->get()
-            ->filter(fn (Suggestion $s): bool => ! self::taken($s) && ! isset($s->action['article_blocked']) && empty($s->action['page_update']));
+            ->filter(fn (Suggestion $s): bool => ! self::taken($s) && ! isset($s->action['article_blocked']) && empty($s->action['page_update'])
+                && ContentPlanner::updateTargetAllowed($s));
         $scores = $this->scorer->forSuggestions($candidates);
         $ordered = $candidates->sortByDesc(fn (Suggestion $s): int => ($s->status === Suggestion::APPROVED ? 10000 : 0) + (is_array($s->action['article'] ?? null) ? 1000 : 0)
             + (int) ($scores[(int) $s->id]['score'] ?? 0))->values();
