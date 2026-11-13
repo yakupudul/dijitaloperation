@@ -43,14 +43,15 @@ final class GmailInvoices
         return rescue(fn (): ?string => $this->workspace->gmailConnectUrl(), null, false);
     }
 
-    /** @return array{linked: bool, synced_at: ?string, backfill_done: bool, last_error: ?string, found: int, not_mine: int} */
+    /** @return array{linked: bool, synced_at: ?string, backfill_done: bool, last_error: ?string, found: int, not_mine: int, waiting: int} */
     public function state(): array
     {
         $kept = (array) $this->settings->get('gmail');
 
         return ['linked' => $this->linked(), 'synced_at' => $kept['synced_at'] ?? null, 'backfill_done' => (bool) ($kept['backfill_done'] ?? false),
             'last_error' => $kept['last_error'] ?? null, 'found' => FinanceDocument::query()->where('source', 'gmail')->where('status', '!=', 'ignored')->count(),
-            'not_mine' => FinanceDocument::query()->where('source', 'gmail')->where('meta->reason', FinanceDocuments::NOT_MINE)->count()];
+            'not_mine' => FinanceDocument::query()->where('source', 'gmail')->where('meta->reason', FinanceDocuments::NOT_MINE)->count(),
+            'waiting' => FinanceDocument::query()->where('source', 'gmail')->where('meta->reason', FinanceDocuments::UNVERIFIED)->count()];
     }
 
     /**

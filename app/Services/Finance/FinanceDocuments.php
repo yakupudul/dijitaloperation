@@ -30,6 +30,9 @@ final class FinanceDocuments
     /** meta.reason of a mail paper that is not in our own name: only its mark is kept. */
     public const string NOT_MINE = 'not_mine';
 
+    /** meta.reason of a mail paper taken before the rule that could not be read again yet: kept out of sight until it is known to be ours. */
+    public const string UNVERIFIED = 'unverified';
+
     public const array EXTENSIONS = ['pdf', 'xml', 'jpg', 'jpeg', 'png', 'webp', 'zip', 'html'];
 
     public function __construct(private readonly FinanceReader $reader, private readonly FinanceSettings $settings) {}
@@ -254,21 +257,33 @@ final class FinanceDocuments
      */
     public function recheckMail(int $limit = 8): array
     {
-        $open = fn () => FinanceDocument::query()->where('source', 'gmail')->where('status', '!=', 'ignored')->whereNull('meta->mine');
+        // Not looked at yet, or looked at while the reader was away (those wait out of sight with their file).
+        $open = fn () => FinanceDocument::query()->where('source', 'gmail')->whereNull('meta->mine')
+            ->where(fn ($q) => $q->where('status', '!=', 'ignored')->orWhere('meta->reason', self::UNVERIFIED));
+        $held = $this->reader->held() !== null;
         $out = ['checked' => 0, 'dropped' => 0, 'left' => 0];
-        foreach ($open()->orderBy('id')->limit($limit)->get() as $doc) {
-            $mine = $doc->direction === FinanceDocument::OUT ? true : null;
+        foreach ($open()->orderBy('id')->limit($held ? 200 : $limit)->get() as $doc) {
+            $mine = $doc->direction === FinanceDocument::OUT && $doc->status !== 'ignored' ? true : null;
             if ($mine === null) {
                 $bytes = $this->bytes($doc);
-                $read = $bytes !== null ? $this->reader->read($bytes, (string) $doc->mime, (string) $doc->original_name, ['from' => data_get($doc->meta, 'from'), 'subject' => data_get($doc->meta, 'subject')]) : null;
+                $byRule = $bytes !== null && (str_starts_with(ltrim($bytes), '<?xml') || str_ends_with(strtolower((string) $doc->original_name), '.xml'));
+                $read = $bytes !== null && ($byRule || ! $held) ? $this->reader->read($bytes, (string) $doc->mime, (string) $doc->original_name, ['from' => data_get($doc->meta, 'from'), 'subject' => data_get($doc->meta, 'subject')]) : null;
                 if ($read === null && $bytes !== null && strlen($bytes) <= FinanceReader::AI_MAX_BYTES) {
-                    break; // the API cannot read now: the rest waits for the next run
+                    // Cannot be read now: until it is known to be ours it is not shown.
+                    if ($doc->status !== 'ignored') {
+                        $doc->forceFill(['meta' => ['reason' => self::UNVERIFIED, 'was' => $doc->status] + (array) $doc->meta, 'status' => 'ignored'])->save();
+                    }
+
+                    continue;
                 }
                 $mine = $read !== null && $this->inOurName($read);
             }
             $out['checked']++;
             if ($mine) {
-                $doc->forceFill(['meta' => ['mine' => true] + (array) $doc->meta])->save();
+                $meta = (array) $doc->meta;
+                $was = (string) ($meta['was'] ?? $doc->status);
+                unset($meta['reason'], $meta['was']);
+                $doc->forceFill(['status' => $doc->status === 'ignored' ? $was : $doc->status, 'meta' => ['mine' => true] + $meta])->save();
 
                 continue;
             }

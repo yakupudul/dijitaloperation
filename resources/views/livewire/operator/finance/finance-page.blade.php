@@ -344,7 +344,7 @@
                     <div class="min-w-0">
                         <h2 class="section-title">Gmail'den faturalar</h2>
                         @if ($gmail['linked'])
-                            <p class="page-sub">Bağlı. Yalnız Moximu ya da Yakup Udül adına düzenlenmiş belgeler alınır. {{ $gmail['found'] }} belge alındı{{ ($gmail['not_mine'] ?? 0) > 0 ? ', adına olmayan '.$gmail['not_mine'].' belge alınmadı' : '' }}{{ $gmail['synced_at'] ? ' · son okuma '.\Carbon\CarbonImmutable::parse($gmail['synced_at'])->setTimezone('Europe/Istanbul')->locale('tr')->isoFormat('D MMM HH:mm') : '' }}{{ $gmail['backfill_done'] ? '' : ' · yılbaşından bugüne geçmiş hâlâ okunuyor' }}. Her saat kendiliğinden okunur.</p>
+                            <p class="page-sub">Bağlı. Yalnız Moximu ya da Yakup Udül adına düzenlenmiş belgeler alınır. {{ $gmail['found'] }} belge alındı{{ ($gmail['not_mine'] ?? 0) > 0 ? ', adına olmayan '.$gmail['not_mine'].' belge alınmadı' : '' }}{{ ($gmail['waiting'] ?? 0) > 0 ? ', '.$gmail['waiting'].' belge okunana kadar gösterilmiyor' : '' }}{{ $gmail['synced_at'] ? ' · son okuma '.\Carbon\CarbonImmutable::parse($gmail['synced_at'])->setTimezone('Europe/Istanbul')->locale('tr')->isoFormat('D MMM HH:mm') : '' }}{{ $gmail['backfill_done'] ? '' : ' · yılbaşından bugüne geçmiş hâlâ okunuyor' }}. Her saat kendiliğinden okunur.</p>
                             @if ($gmail['last_error'])<p class="mt-1 text-[13px] text-error-600">{{ $gmail['last_error'] }}</p>@endif
                         @else
                             <p class="page-sub">Gmail'i bağladığında faturalı e-postaların ekleri (PDF, XML, ZIP) buraya kendiliğinden gelir. Posta kutusu yalnız okunur; hiçbir e-posta silinmez ya da gönderilmez.</p>

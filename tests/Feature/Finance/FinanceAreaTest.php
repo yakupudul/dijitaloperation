@@ -347,6 +347,17 @@ class FinanceAreaTest extends TestCase
         Storage::disk(FinanceDocuments::DISK)->assertMissing('finance/old/e.xml');
         $this->assertSame('new', $mine[0]->fresh()->status);
         $this->assertSame(2, app(GmailInvoices::class)->state()['not_mine']);
+
+        // A PDF taken before the rule, while the reader is away: out of sight with its file until it can be read.
+        Storage::disk(FinanceDocuments::DISK)->put('finance/old/f.pdf', "%PDF-1.4\n%eski");
+        $pdf = FinanceDocument::query()->create(['direction' => FinanceDocument::IN, 'source' => 'gmail', 'status' => 'filed', 'original_name' => 'f.pdf', 'mime' => 'application/pdf', 'path' => 'finance/old/f.pdf',
+            'sha256' => hash('sha256', 'f'), 'doc_date' => '2026-10-02', 'counterparty' => 'Google', 'amount' => 100, 'currency' => 'USD']);
+        config(['ai.providers.anthropic.key' => '']);
+        $docs->recheckMail();
+        $this->assertSame('ignored', $pdf->fresh()->status);
+        $this->assertSame(FinanceDocuments::UNVERIFIED, data_get($pdf->fresh()->meta, 'reason'));
+        Storage::disk(FinanceDocuments::DISK)->assertExists('finance/old/f.pdf');
+        $this->assertSame(1, app(GmailInvoices::class)->state()['waiting']);
     }
 
     public function test_a_pdf_is_read_by_the_claude_api_and_its_cost_is_kept(): void
