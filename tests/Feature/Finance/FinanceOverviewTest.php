@@ -125,6 +125,22 @@ class FinanceOverviewTest extends TestCase
         $this->assertSame(1, FinanceDocument::query()->where('meta->reason', FinanceDocuments::UNVERIFIED)->count());
     }
 
+    public function test_a_paper_that_opens_with_the_buyer_still_finds_the_seller_and_both_tax_numbers(): void
+    {
+        $reader = app(FinanceReader::class);
+        $buyerFirst = implode("\n", ['SAYIN', 'Moximu - Yakup Udül', 'Şehzadeler/ Manisa', 'VKN: 1234567890', 'Fatura No: EAR2026000023779',
+            'Fatura Tarihi: 10-11-2026', 'Ödeme Yöntemi: Kredi Kartı İle Ödendi', 'E-Arşiv izni kapsamında elektronik ortamda iletilmiştir.',
+            'Veridyen Bilişim Teknolojileri Sanayi ve Ticaret', 'Limited Şirketi', 'Vergi Dairesi: EGE', 'VKN: 9240513083', 'e-Arşiv Fatura',
+            'Hesaplanan KDV(%20) 436,80TL', 'Vergiler Dahil Toplam Tutar 2.620,80TL', 'Ödenecek Tutar 2.620,80TL']);
+        $read = $reader->fromText($buyerFirst);
+        $this->assertSame('Veridyen Bilişim Teknolojileri Sanayi ve Ticaret', $read['seller']);
+        $this->assertSame(['9240513083', '1234567890'], [$read['seller_tax_no'], $read['buyer_tax_no']]);
+        $this->assertSame([2620.8, 436.8, '2026-11-10'], [$read['amount'], $read['vat'], $read['doc_date']]);
+
+        $sellerFirst = $reader->fromText(implode("\n", ['TURKCELL ILETISIM HIZMETLERI A.S.', 'VKN: 3110045623', 'e-Arsiv Fatura', 'SAYIN', 'YAKUP UDUL', 'TCKN: 12345678901', 'Odenecek Tutar: 10,00 TL']));
+        $this->assertSame(['TURKCELL ILETISIM HIZMETLERI A.S.', '3110045623', '12345678901'], [$sellerFirst['seller'], $sellerFirst['seller_tax_no'], $sellerFirst['buyer_tax_no']]);
+    }
+
     public function test_a_claude_subscription_round_reads_what_no_rule_could_through_the_mcp_tool(): void
     {
         config(['ai.providers.anthropic.key' => '']);

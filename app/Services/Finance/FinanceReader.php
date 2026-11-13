@@ -125,23 +125,42 @@ final class FinanceReader
             $month = array_search(ucfirst(strtolower(substr($m[1], 0, 3))), ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], true);
             $date = $month !== false && checkdate((int) $month, (int) $m[2], (int) $m[3]) ? sprintf('%04d-%02d-%02d', $m[3], $month, $m[2]) : null;
         }
-        preg_match_all('/(?:VKN|TCKN|V\.K\.N|T\.C\.K\.N|Vergi\s*(?:Kimlik\s*)?No|Vergi\s*Numaras[ıi]|TC\s*Kimlik\s*No)\s*[:.]?\s*(\d{10,11})\b/iu', $flat, $taxes);
-        $taxes = array_values(array_unique($taxes[1] ?? []));
+        preg_match_all('/(?:VKN|TCKN|V\.K\.N|T\.C\.K\.N|Vergi\s*(?:Kimlik\s*)?No|Vergi\s*Numaras[ıi]|TC\s*Kimlik\s*No)\s*[:.]?\s*(\d{10,11})\b/iu', $flat, $taxes, PREG_OFFSET_CAPTURE);
+        // The tax number right after "SAYIN" is the buyer's; the other one is the seller's, whichever block comes first.
+        $sayin = preg_match('/\bSAYIN\b/u', $flat, $at, PREG_OFFSET_CAPTURE) === 1 ? $at[0][1] : null;
+        $buyerTax = null;
+        foreach ($taxes[1] ?? [] as [$tax, $offset]) {
+            if ($sayin !== null && $offset > $sayin) {
+                $buyerTax = $tax;
+                break;
+            }
+        }
+        $taxes = array_values(array_unique(array_column($taxes[1] ?? [], 0)));
+        $sellerTax = collect($taxes)->first(fn (string $t): bool => $t !== $buyerTax);
+        $buyerTax ??= $taxes[1] ?? null;
         $lines = array_values(array_filter(array_map('trim', preg_split('/\R/u', $text) ?: []), fn (string $l): bool => mb_strlen($l) > 2));
         $buyer = null;
+        $buyerAt = null;
         foreach ($lines as $i => $line) {
             if (preg_match('/^SAYIN\b\s*:?\s*(.*)$/u', $line, $m) === 1) {
                 $buyer = trim($m[1]) !== '' ? trim($m[1]) : ($lines[$i + 1] ?? null);
+                $buyerAt = trim($m[1]) !== '' ? $i : $i + 1;
                 break;
             }
+        }
+        // Most portals put the seller on top; some (BirFatura, DİA) open with the buyer, the seller is the first firm line after it.
+        $seller = $lines[0] ?? null;
+        if ($buyerAt !== null && $buyerAt <= 1) {
+            $seller = collect(array_slice($lines, $buyerAt + 1))
+                ->first(fn (string $l): bool => preg_match('/\bA\.?\s?Ş\b|\bA\.S\.|\bLTD\b|\bLimited\b|Şirket|\bŞti\b|\bTicaret\b|\bTİC\b|\bTic\.|Vakf|\bInc\b|\bLLC\b|\bGmbH\b/iu', $l) === 1 && ! str_contains($l, ':'));
         }
         $currency = preg_match('/\bUSD\b|US\$|\$\s?\d/u', $flat) === 1 && preg_match('/\bTL\b|\bTRY\b|₺/u', $flat) !== 1 ? 'USD'
             : (preg_match('/\bEUR\b|€/u', $flat) === 1 && preg_match('/\bTL\b|\bTRY\b|₺/u', $flat) !== 1 ? 'EUR' : 'TRY');
 
         return [
             'kind' => $isInvoice ? 'invoice' : 'receipt', 'doc_no' => $no !== null ? mb_substr($no, 0, 80) : null, 'doc_date' => $date,
-            'seller' => isset($lines[0]) ? mb_substr($lines[0], 0, 200) : null, 'seller_tax_no' => $taxes[0] ?? null,
-            'buyer' => $buyer !== null ? mb_substr($buyer, 0, 200) : null, 'buyer_tax_no' => $taxes[1] ?? null,
+            'seller' => $seller !== null ? mb_substr($seller, 0, 200) : null, 'seller_tax_no' => $sellerTax,
+            'buyer' => $buyer !== null ? mb_substr($buyer, 0, 200) : null, 'buyer_tax_no' => $buyerTax,
             'amount' => $amount, 'vat' => $vat, 'currency' => $currency, 'summary' => null, 'cost_usd' => 0.0, 'by' => 'text', 'text' => $text,
         ];
     }
