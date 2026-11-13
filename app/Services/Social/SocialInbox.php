@@ -21,8 +21,14 @@ use Throwable;
  */
 final class SocialInbox
 {
-    /** How far back a first read goes. */
-    public const int FIRST_READ_DAYS = 14;
+    /** Conversations asked from Meta per page (bigger pages with 20 messages each get "reduce the amount of data"). */
+    public const int DM_PAGE = 10;
+
+    /** At most this many pages per run (1.000 conversations); the next run goes on from the newest again. */
+    public const int DM_PAGES = 100;
+
+    /** A conversation first read whose last word is older than this is history: it owes no answer (as WhatsApp's). */
+    public const int HISTORY_DAYS = 3;
 
     public function __construct(private SocialGraph $graph) {}
 
@@ -42,6 +48,7 @@ final class SocialInbox
                     continue;
                 }
                 $seen = null;
+                $errors = [];
                 foreach (['dms', 'comments'] as $part) {
                     try {
                         if ($part === 'dms') {
@@ -50,19 +57,21 @@ final class SocialInbox
                             $this->syncComments($account, $stats);
                         }
                     } catch (SocialGraphException $e) {
-                        $stats['errors'][] = $account->platformLabel().' '.($part === 'dms' ? 'mesajlar' : 'yorumlar').': '.$e->getMessage();
+                        $errors[] = $account->platformLabel().' '.($part === 'dms' ? 'mesajlar' : 'yorumlar').': '.$e->getMessage();
                     } catch (Throwable $e) {
                         Log::warning('Social inbox sync failed.', ['account' => $account->id, 'part' => $part, 'error' => $e->getMessage()]);
-                        $stats['errors'][] = $account->platformLabel().': okunamadı.';
+                        $errors[] = $account->platformLabel().': okunamadı.';
                     }
                 }
-                $meta = (array) ($account->meta ?? []);
+                $stats['errors'] = array_merge($stats['errors'], $errors);
+                $meta = (array) ($account->fresh()?->meta ?? $account->meta ?? []);
                 $meta['inbox_synced_at'] = now()->toIso8601String();
                 // How many DM conversations Meta returned: 0 on Instagram usually means the account's
                 // "Allow access to messages" (Connected tools) is off, which Meta does not report as an error.
                 $meta['inbox_dm_seen'] = $seen;
                 $meta['inbox_token_scopes'] = $seen === 0 ? $this->tokenScopes((string) $account->access_token) : null;
-                $meta['inbox_errors'] = array_values(array_filter($stats['errors'], fn (string $e): bool => str_starts_with($e, $account->platformLabel())));
+                // Only this account's errors (a shared list showed every Facebook page's error on each page).
+                $meta['inbox_errors'] = $errors;
                 $account->forceFill(['meta' => $meta])->save();
             }
         } finally {
@@ -79,36 +88,91 @@ final class SocialInbox
         if ($pageId === '') {
             return null;
         }
-        $query = ['fields' => 'id,updated_time,participants,messages.limit(25){id,message,from,created_time}', 'limit' => 25];
+        // Every conversation Meta gives, page by page (yakup 2026-11-13: "yeni eski ne kadar mesaj varsa"). The first walk
+        // of an account reads them all; later runs stop at the first page whose conversations are all unchanged, since
+        // Meta lists the conversation updated last first. Meta gives the text of only the 20 newest messages of a
+        // conversation (older ones answer "deleted"), so 20 is the whole readable history.
+        $backfilled = data_get($account->meta, 'inbox_dm_backfilled_at') !== null;
+        $base = ['fields' => 'id,updated_time,participants,messages.limit(20){id,message,from,created_time}', 'limit' => self::DM_PAGE];
         if ($account->platform === SocialAccount::INSTAGRAM) {
-            $query['platform'] = 'instagram';
+            $base['platform'] = 'instagram';
         }
-        $data = $this->graph->get($pageId.'/conversations', (string) $account->access_token, $query);
-        $since = now()->subDays(self::FIRST_READ_DAYS);
-        $conversations = (array) ($data['data'] ?? []);
-        foreach ($conversations as $conversation) {
-            $updated = isset($conversation['updated_time']) ? Carbon::parse($conversation['updated_time']) : null;
-            if ($updated !== null && $updated->lt($since) && ! SocialThread::query()->where('social_account_id', $account->id)->where('external_id', (string) $conversation['id'])->exists()) {
-                continue;
+        $seen = 0;
+        $after = null;
+        $complete = false;
+        for ($page = 0; $page < self::DM_PAGES; $page++) {
+            $query = $base + array_filter(['after' => $after]);
+            try {
+                $data = $this->graph->get($pageId.'/conversations', (string) $account->access_token, $query);
+            } catch (SocialGraphException $e) {
+                // "Please reduce the amount of data you're asking for": the same page in smaller steps.
+                if (! str_contains(mb_strtolower($e->getMessage()), 'reduce the amount')) {
+                    throw $e;
+                }
+                $data = $this->graph->get($pageId.'/conversations', (string) $account->access_token, ['limit' => 3] + $query);
             }
-            $other = collect((array) data_get($conversation, 'participants.data', []))
-                ->first(fn ($p): bool => ! $this->isOwn($account, (array) $p));
-            $messages = [];
-            foreach ((array) data_get($conversation, 'messages.data', []) as $m) {
-                $from = (array) ($m['from'] ?? []);
-                $messages[] = [
-                    'id' => (string) ($m['id'] ?? ''), 'text' => (string) ($m['message'] ?? ''),
-                    'dir' => $this->isOwn($account, $from) ? 'out' : 'in',
-                    'author' => (string) ($from['username'] ?? $from['name'] ?? ''), 'at' => (string) ($m['created_time'] ?? ''),
-                ];
+            $conversations = (array) ($data['data'] ?? []);
+            $seen += count($conversations);
+            $changed = false;
+            foreach ($conversations as $conversation) {
+                if ($this->storeConversation($account, (array) $conversation, $stats)) {
+                    $changed = true;
+                }
             }
-            $this->store($account, SocialThread::DM, (string) $conversation['id'], [
-                'author_id' => isset($other['id']) ? (string) $other['id'] : null,
-                'author_name' => isset($other) ? (string) ($other['username'] ?? $other['name'] ?? '') : null,
-            ], $messages, $stats);
+            $after = data_get($data, 'paging.next') !== null ? data_get($data, 'paging.cursors.after') : null;
+            if ($conversations === [] || ! is_string($after) || $after === '') {
+                $complete = true;
+                break;
+            }
+            if ($backfilled && ! $changed) {
+                break;
+            }
+        }
+        if ($complete && ! $backfilled) {
+            $meta = (array) ($account->meta ?? []);
+            $meta['inbox_dm_backfilled_at'] = now()->toIso8601String();
+            $account->forceFill(['meta' => $meta])->save();
         }
 
-        return count($conversations);
+        return $seen;
+    }
+
+    /**
+     * One conversation from Meta into its thread. True when the conversation is new or changed since it was stored.
+     *
+     * @param  array<string, mixed>  $conversation
+     * @param  array{threads: int, messages: int, errors: list<string>}  $stats
+     */
+    private function storeConversation(SocialAccount $account, array $conversation, array &$stats): bool
+    {
+        $externalId = (string) ($conversation['id'] ?? '');
+        if ($externalId === '') {
+            return false;
+        }
+        $updated = isset($conversation['updated_time']) ? Carbon::parse((string) $conversation['updated_time']) : null;
+        $stored = SocialThread::query()->where('social_account_id', $account->id)->where('kind', SocialThread::DM)->where('external_id', $externalId)->first();
+        if ($stored !== null && $updated !== null && $stored->last_at !== null && $stored->last_at->gte($updated)) {
+            return false;
+        }
+        $other = collect((array) data_get($conversation, 'participants.data', []))
+            ->first(fn ($p): bool => ! $this->isOwn($account, (array) $p));
+        $messages = [];
+        foreach ((array) data_get($conversation, 'messages.data', []) as $m) {
+            $from = (array) ($m['from'] ?? []);
+            $text = trim((string) ($m['message'] ?? ''));
+            $messages[] = [
+                // A photo, a voice note, a shared post, a story reply or a like comes with no text.
+                'id' => (string) ($m['id'] ?? ''), 'text' => $text !== '' ? $text : '(fotoğraf, ses, paylaşım veya beğeni)',
+                'dir' => $this->isOwn($account, $from) ? 'out' : 'in',
+                'author' => (string) ($from['username'] ?? $from['name'] ?? ''), 'at' => (string) ($m['created_time'] ?? ''),
+            ];
+        }
+        $this->store($account, SocialThread::DM, $externalId, [
+            'author_id' => isset($other['id']) ? (string) $other['id'] : null,
+            'author_name' => isset($other) ? (string) ($other['username'] ?? $other['name'] ?? '') : null,
+        ], $messages, $stats);
+
+        return true;
     }
 
     /**
@@ -236,7 +300,8 @@ final class SocialInbox
         $isNew = ! $thread->exists;
         $thread->fill(array_filter($attributes, fn ($v): bool => $v !== null && $v !== ''));
         if ($isNew) {
-            $thread->status = SocialThread::OPEN;
+            // A conversation first read with an old last word was dealt with on the phone or never will be: history.
+            $thread->status = Carbon::parse(end($messages)['at'])->lt(now()->subDays(self::HISTORY_DAYS)) ? SocialThread::ANSWERED : SocialThread::OPEN;
             $thread->last_at = now();
             $thread->save();
             $stats['threads']++;
@@ -263,7 +328,8 @@ final class SocialInbox
         if ($lastIn !== null) {
             $thread->last_in_at = Carbon::parse($lastIn['at']);
         }
-        if ($added) {
+        $history = $isNew && $thread->status === SocialThread::ANSWERED;
+        if ($added && ! $history) {
             if ($last['dir'] === 'in' && $thread->status !== SocialThread::IGNORED) {
                 $thread->status = SocialThread::OPEN;
                 $thread->send_error = null;

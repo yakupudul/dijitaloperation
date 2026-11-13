@@ -97,6 +97,46 @@ final class SocialInboxTest extends TestCase
         Queue::assertPushed(DraftSocialReply::class, 2);
     }
 
+    public function test_every_conversation_page_is_read_old_ones_stay_history_and_sohbetler_lists_them_all(): void
+    {
+        Queue::fake();
+        $conversation = fn (string $id, string $at, string $from, string $text): array => [
+            'id' => $id, 'updated_time' => $at,
+            'participants' => ['data' => [['id' => 'IG1', 'username' => 'moximucom'], ['id' => 'U'.$id, 'username' => 'kisi'.$id]]],
+            'messages' => ['data' => [['id' => 'm'.$id, 'message' => $text, 'from' => $from === 'us' ? ['id' => 'IG1', 'username' => 'moximucom'] : ['id' => 'U'.$id, 'username' => 'kisi'.$id], 'created_time' => $at]]],
+        ];
+        Http::fake(function (Request $request) use ($conversation) {
+            if (str_contains($request->url(), '/IG1/media')) {
+                return Http::response(['data' => []]);
+            }
+            if (! str_contains($request->url(), '/PAGE1/conversations')) {
+                return Http::response([], 404);
+            }
+            if (($request->data()['after'] ?? null) === 'P2') {
+                return Http::response(['data' => [$conversation('OLD', '2025-03-01T10:00:00+0000', 'them', 'Merhaba, fiyat?'), $conversation('MINE', '2025-02-01T10:00:00+0000', 'us', '')]]);
+            }
+
+            return Http::response(['data' => [$conversation('NEW', '2026-11-09T08:00:00+0000', 'them', 'Bugün yazdım')],
+                'paging' => ['cursors' => ['after' => 'P2'], 'next' => 'https://graph.facebook.com/next']]);
+        });
+
+        app(SocialInbox::class)->sync();
+
+        $this->assertSame(3, SocialThread::query()->where('kind', 'dm')->count());
+        $this->assertSame(3, data_get($this->instagram->fresh()->meta, 'inbox_dm_seen'));
+        $this->assertNotNull(data_get($this->instagram->fresh()->meta, 'inbox_dm_backfilled_at'));
+        $this->assertSame(SocialThread::OPEN, SocialThread::query()->where('external_id', 'NEW')->sole()->status);
+        $old = SocialThread::query()->where('external_id', 'OLD')->sole();
+        $this->assertSame(SocialThread::ANSWERED, $old->status); // a year-old question is history, not a debt
+        $mine = SocialThread::query()->where('external_id', 'MINE')->sole();
+        $this->assertSame('out', $mine->last_direction); // our own message is kept
+        $this->assertSame('(fotoğraf, ses, paylaşım veya beğeni)', $mine->last_text);
+        Queue::assertPushed(DraftSocialReply::class, 1);
+
+        Livewire::actingAs($this->admin)->withQueryParams(['kanal' => 'instagram'])->test(InboxPage::class)
+            ->assertSee('kisiNEW')->assertSee('kisiOLD')->assertSee('kisiMINE');
+    }
+
     public function test_instagram_with_no_conversations_shows_the_message_access_hint(): void
     {
         Queue::fake();

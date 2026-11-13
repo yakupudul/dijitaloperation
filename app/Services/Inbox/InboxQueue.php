@@ -325,6 +325,32 @@ final class InboxQueue
         );
     }
 
+    /**
+     * Sohbetler (yakup 2026-11-13): every Instagram / Facebook direct-message conversation, answered or not, the newest
+     * first, as WhatsApp's chats are all listed; comments still show only while they wait.
+     *
+     * @return Collection<int, InboxItem>
+     */
+    public function socialChats(string $search = ''): Collection
+    {
+        $query = SocialThread::query()->onEnabledAccount()->with('account')->where('kind', SocialThread::DM);
+        $search = trim($search);
+        if ($search !== '') {
+            $like = '%'.mb_strtolower(mb_substr($search, 0, 80)).'%';
+            $query->where(fn ($q) => $q->whereRaw('lower(author_name) like ?', [$like])->orWhereRaw('lower(last_text) like ?', [$like]));
+        }
+
+        return $query->orderByDesc('last_at')->orderByDesc('id')->limit(self::CHATS)->get()
+            ->map(fn (SocialThread $thread): InboxItem => $this->threadItem($thread))
+            ->reject(fn (InboxItem $item): bool => (bool) $item->lead?->isIrrelevant())->values();
+    }
+
+    /** How many direct-message conversations Sohbetler lists. */
+    public function socialChatCount(): int
+    {
+        return SocialThread::query()->onEnabledAccount()->where('kind', SocialThread::DM)->count();
+    }
+
     /** @return Collection<int, InboxItem> */
     private function threads(): Collection
     {

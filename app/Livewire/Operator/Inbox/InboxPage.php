@@ -479,7 +479,7 @@ final class InboxPage extends Component
             $this->view === 'sohbetler' => $this->chatRows($queue, $items),
             default => $queue->view($this->view, $inChannel),
         };
-        $counts['sohbetler'] = $this->channel === '' ? $queue->chatCount() : $rows->count();
+        $counts['sohbetler'] = $this->channel === '' ? $queue->chatCount() + $queue->socialChatCount() : $rows->count();
         $selected = null;
         if ($this->item !== '') {
             $selected = $rows->firstWhere('key', $this->item) ?? $items->firstWhere('key', $this->item) ?? $queue->find($this->item);
@@ -529,8 +529,11 @@ final class InboxPage extends Component
     private function chatRows(InboxQueue $queue, Collection $items): Collection
     {
         $search = mb_strtolower(trim($this->search));
-        $social = $items->filter(fn (InboxItem $i): bool => $i->type === InboxItem::SOCIAL
-            && ($search === '' || str_contains(mb_strtolower($i->title), $search)));
+        // Every direct-message conversation (answered ones too), plus the comments that wait for a word.
+        $social = $queue->socialChats($this->search);
+        $listed = $social->pluck('key')->flip();
+        $social = $social->concat($items->filter(fn (InboxItem $i): bool => $i->type === InboxItem::SOCIAL && ! isset($listed[$i->key])
+            && ($search === '' || str_contains(mb_strtolower($i->title), $search))));
 
         $rows = $queue->chats($this->search)->concat($social);
         if ($this->channel !== '') {
