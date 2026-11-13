@@ -561,8 +561,13 @@ final class DailyBlog
             $caption = $title."\n\n".($excerpt !== '' ? $excerpt."\n\n" : '').'Rehberin tamamı moximu.com/rehber sayfasında.'."\n\n".'#klinikpazarlama #sağlıkpazarlaması #moximu';
             // LinkedIn gets its own corporate text with the article's address, so the page's link card (cover, title)
             // shows under the post; until the LinkedIn connection is approved it waits on /sosyal as "Metni kopyala".
+            // yakup 2026-11-13 (LinkedIn review): at most one blog post a week goes to LinkedIn, and only a lasting
+            // guide; city/branch articles and refreshes are local search pieces that pull the page off its subject and
+            // a daily link stream lowers the page's reach.
             $link = self::articleUrl($suggestion);
-            $linkedin = $title."\n\n".($excerpt !== '' ? $excerpt."\n\n" : '').($link !== null ? 'Yazının tamamı: '.$link."\n\n" : '').'#klinikpazarlama #sağlıkpazarlaması #dijitalpazarlama';
+            $linkedin = self::linkedinWanted($suggestion, $slot)
+                ? $title."\n\n".($excerpt !== '' ? $excerpt."\n\n" : '').($link !== null ? 'Yazının tamamı: '.$link."\n\n" : '').'#klinikpazarlama #sağlıkpazarlaması #dijitalpazarlama'
+                : null;
             $post = app(SocialPlanner::class)->create([
                 'kind' => 'image', 'pillar' => 'rehber', 'title' => $title, 'caption' => $caption, 'linkedin_text' => $linkedin,
                 'publish_at' => $slot->addMinutes(self::INSTAGRAM_AFTER_MINUTES), 'created_by' => 'blog',
@@ -580,6 +585,18 @@ final class DailyBlog
         } catch (Throwable $e) {
             Log::info('Daily blog Instagram draft skipped.', ['suggestion' => $suggestion->id, 'error' => $e->getMessage()]);
         }
+    }
+
+    /** A lasting guide, and no other blog post with LinkedIn text in the six days before or after this slot. */
+    public static function linkedinWanted(Suggestion $suggestion, CarbonImmutable $slot): bool
+    {
+        if (self::lane($suggestion) !== 'rehber') {
+            return false;
+        }
+
+        return ! \App\Models\SocialPost::query()->where('created_by', 'blog')
+            ->whereNotNull('linkedin_text')->where('linkedin_text', '!=', '')
+            ->whereBetween('publish_at', [$slot->subDays(6), $slot->addDays(6)])->exists();
     }
 
     /** The moximu.com/rehber topic shelf an article belongs on (the site's own category names); null when none fits. */

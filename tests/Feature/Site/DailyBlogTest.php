@@ -138,6 +138,13 @@ final class DailyBlogTest extends SiteTestCase
         app(SocialPlanner::class)->syncTargets($social, DailyBlog::SOCIAL_PLATFORMS);
         $this->assertSame(0, $social->targets()->whereHas('account', fn ($q) => $q->where('platform', 'instagram'))->count(), 'blog posts never go to Instagram');
         $this->assertStringContainsString('https://panorama.com.tr/rehber/yazi-', (string) $social->linkedin_text, 'LinkedIn gets the article link for its card');
+        app(DailyBlog::class)->instagramDraft($local->fresh(), $now->setTime(15, 0));
+        $city = \App\Models\SocialPost::query()->find((int) data_get($local->fresh()->action, 'daily.instagram_id'));
+        $this->assertNotNull($city, 'the city article still gets its Instagram post');
+        $this->assertNull($city->linkedin_text, 'a city article never goes to LinkedIn');
+        $second = $this->idea('Klinik SEO nasıl ölçülür?', Suggestion::APPROVED, $ok + ['daily' => ['lane' => 'rehber']]);
+        $this->assertFalse(DailyBlog::linkedinWanted($second, $now->addDays(3)->setTime(9, 0)), 'one blog post a week on LinkedIn');
+        $this->assertTrue(DailyBlog::linkedinWanted($second, $now->addDays(8)->setTime(9, 0)), 'next week a guide goes again');
     }
 
     public function test_the_sales_paragraph_never_links_a_service_on_a_shared_word_only(): void
