@@ -207,7 +207,7 @@ final class FinancePage extends Component
     public function newJob(?int $brandId = null): void
     {
         $this->jobId = -1;
-        $this->job = ['brand_id' => $brandId ? (string) $brandId : '', 'party' => '', 'party_phone' => '', 'title' => '', 'kind' => 'one_time', 'fee' => '', 'term_months' => '6',
+        $this->job = ['brand_id' => $brandId ? (string) $brandId : '', 'party' => '', 'party_phone' => '', 'title' => '', 'kind' => 'monthly', 'fee' => '', 'term_months' => '6',
             'starts_on' => CarbonImmutable::now(Agreements::TZ)->toDateString(), 'due_day' => (string) min(28, CarbonImmutable::now(Agreements::TZ)->day), 'plan' => 'auto',
             'installments' => [['due_on' => CarbonImmutable::now(Agreements::TZ)->toDateString(), 'amount' => '']], 'services' => [], 'tax_no' => '', 'note' => '', 'fee_since' => '', 'no_invoice' => false];
         $this->tab = 'anlasmalar';

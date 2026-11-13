@@ -26,7 +26,9 @@
         $quick[] = [$thisMonth->addMonthNoOverflow(), 'Gelecek ay'];
     }
 @endphp
-<div {{ $attributes->merge(['class' => 'relative']) }} data-month-picker
+{{-- The key changes with the month: the arrows and other screen parts change the month on the server, and a new key makes
+     Livewire put a fresh picker in place instead of keeping the old one's chosen month (2026-11-13: "Bu ay" did nothing after ‹). --}}
+<div {{ $attributes->merge(['class' => 'relative']) }} data-month-picker wire:key="month-picker-{{ $property }}-{{ $shownKey }}"
      x-data="monthPicker({ month: '{{ $shownKey }}', current: '{{ $thisMonth->format('Y-m') }}', future: {{ $future ? 'true' : 'false' }}, property: '{{ $property }}' })"
      @keydown.escape.window="open = false" @click.outside="open = false">
     <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="dialog"

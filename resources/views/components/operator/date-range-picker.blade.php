@@ -29,7 +29,10 @@
     $rangeLabel = \App\Services\Site\Analysis\SiteRange::format($window['start'], $window['end']);
     $compareLabel = \App\Services\Site\Analysis\SiteRange::format($window['prev_start'], $window['prev_end']);
 @endphp
-<div {{ $attributes->merge(['class' => 'relative']) }} data-date-picker
+{{-- Keyed by the window: when the screen swaps this picker in for another one (Finans: month picker on "Bu ay", this one on
+     Giderler) or the range changes on the server, Livewire puts a fresh picker in place. Without the key it morphed the old
+     picker's Alpine state into this one and every button failed ("days is not defined", 2026-11-13). --}}
+<div {{ $attributes->merge(['class' => 'relative']) }} data-date-picker wire:key="date-picker-{{ $all ? 'all' : $window['start'].'-'.$window['end'] }}"
      x-data="sitePicker({ days: {{ $all ? -2 : ($range->custom() ? 0 : $range->days) }}, start: '{{ $window['start'] }}', end: '{{ $window['end'] }}', compare: '{{ $range->compare }}', last: '{{ $lastDay }}' })"
      @keydown.escape.window="open = false" @click.outside="open = false">
     <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="dialog"

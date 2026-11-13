@@ -15,7 +15,7 @@
         <h1 class="page-title">Finans</h1>
         <div class="flex flex-wrap items-center gap-2">
             @if ($tab === 'bu-ay')
-                <div class="flex items-center gap-0.5" data-finance-month>
+                <div class="flex items-center gap-0.5" data-finance-month wire:key="finance-month-steps">
                     <button type="button" wire:click="shift(-1)" class="btn-quiet h-8 px-2" aria-label="Önceki ay">‹</button>
                     <x-operator.month-picker :month="$monthDate" />
                     <button type="button" wire:click="shift(1)" class="btn-quiet h-8 px-2" aria-label="Sonraki ay">›</button>
