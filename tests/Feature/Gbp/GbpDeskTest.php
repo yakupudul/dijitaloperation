@@ -4,6 +4,7 @@ namespace Tests\Feature\Gbp;
 
 use App\Ai\Agents\GbpBranchPageAgent;
 use App\Enums\CustomerStatus;
+use App\Http\Controllers\Operator\GbpReviewCardController;
 use App\Jobs\Gbp\FillGbpPostQueueJob;
 use App\Livewire\Demo\Gbp\OverviewPage;
 use App\Livewire\Operator\Gbp\Desk\BranchPagesPage;
@@ -333,9 +334,10 @@ final class GbpDeskTest extends TestCase
         $this->assertSame('https://search.google.com/local/writereview?placeid=ChIJtest123', $kit['link']);
         $this->assertStringContainsString($kit['link'], ReviewDesk::requestMessage('Panorama', $kit['link']));
         $this->actingAs($this->admin)->get(route('operator.gbp-review-card', ['assetId' => $this->location->id]))
-            ->assertOk()->assertSee('Panorama Çankaya')->assertSee('Google’da', false)->assertSee('<body class="acik">', false);
-        $this->actingAs($this->admin)->get(route('operator.gbp-review-card', ['assetId' => $this->location->id, 'tema' => 'koyu']))
-            ->assertOk()->assertSee('<body class="koyu">', false);
+            ->assertOk()->assertSee('Panorama Çankaya')->assertSee('Google’da', false)->assertSee('data-review-card', false)->assertDontSee('tema=koyu', false);
+        $this->assertSame('Ankara Gülüş Tasarımı, Çankaya', GbpReviewCardController::place('Dr. Dt. Burçin ÖNCÜL', 'Dr. Dt. Burçin Öncül - Ankara Gülüş Tasarımı', 'Çankaya, Ankara'));
+        $this->assertSame('Buca, İzmir', GbpReviewCardController::place('Avrupadent', 'Avrupadent Buca', 'Buca, İzmir'));
+        $this->assertSame('', GbpReviewCardController::place('Panorama', 'Panorama', ''));
     }
 
     public function test_review_grid_picks_fills_a_shared_reply_previews_and_publishes_in_bulk(): void
