@@ -25,8 +25,7 @@
     </div>
 
     <div class="flex flex-wrap gap-2">
-        <label class="flex items-center gap-2 text-[13px] text-gray-600 dark:text-gray-300">{{ $tr ? 'Başlangıç' : 'From' }}<input type="date" wire:model.live="from" class="{{ $field }}"></label>
-        <label class="flex items-center gap-2 text-[13px] text-gray-600 dark:text-gray-300">{{ $tr ? 'Bitiş' : 'Until' }}<input type="date" wire:model.live="until" class="{{ $field }}"></label>
+        <x-operator.date-range-picker :range="$dateRange" :last-day="\App\Livewire\Operator\Integrations\WordPressActivityPanel::dateFilterToday()" :compare="false" :show-last-day="false" all-label="Tüm zamanlar" class="w-full sm:w-auto" />
         <select aria-label="{{ $tr ? 'İşlem türü' : 'Event type' }}" wire:model.live="kind" class="{{ $field }} w-full sm:w-auto">
             <option value="">{{ $tr ? 'Tüm işlemler' : 'All events' }}</option>
             @foreach(['content' => $tr ? 'İçerik' : 'Content', 'seo' => 'SEO', 'maintenance' => $tr ? 'Bakım' : 'Maintenance', 'settings' => $tr ? 'Ayarlar' : 'Settings', 'access' => $tr ? 'Yetki' : 'Access'] as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach

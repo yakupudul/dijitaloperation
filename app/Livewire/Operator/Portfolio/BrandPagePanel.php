@@ -7,6 +7,7 @@ use App\Models\Brand;
 use App\Services\Marketing\MarketingFunnel;
 use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\BrandPageReader;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Demo\DemoMenu;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
@@ -29,12 +30,26 @@ final class BrandPagePanel extends Component
     #[Locked]
     public int $days = 28;
 
+    /** The brand page's date picker: custom start / end and the comparison (prev | year); empty = last $days days. */
+    #[Locked]
+    public string $start = '';
+
+    #[Locked]
+    public string $end = '';
+
+    #[Locked]
+    public string $compare = SiteRange::COMPARE_PREVIOUS;
+
     public string $message = '';
 
-    public function mount(int $brandId, int $days = 28): void
+    public function mount(int $brandId, int $days = 28, ?string $start = null, ?string $end = null, ?string $compare = null): void
     {
         $this->brandId = $brandId;
-        $this->days = $days;
+        $range = SiteRange::from($days, $start, $end, $compare);
+        $this->days = $range->days;
+        $this->start = (string) $range->start;
+        $this->end = (string) $range->end;
+        $this->compare = $range->compare;
     }
 
     public function placeholder(): string
@@ -65,7 +80,8 @@ final class BrandPagePanel extends Component
         $cards = [];
         try {
             $models = $overview->assetModels($brand);
-            $kpis = $overview->kpis($brand, $models, $overview->assetCards($models), $this->days);
+            $kpis = $overview->kpis($brand, $models, $overview->assetCards($models),
+                SiteRange::from($this->days, $this->start !== '' ? $this->start : null, $this->end !== '' ? $this->end : null, $this->compare));
             $goal = $reader->goal($brand);
             $cards = $reader->cards($brand, $kpis);
         } catch (Throwable $error) {

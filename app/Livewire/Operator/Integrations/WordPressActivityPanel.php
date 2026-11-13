@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator\Integrations;
 
+use App\Livewire\Operator\Concerns\FiltersByDateRange;
 use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use Illuminate\Contracts\View\View;
@@ -12,14 +13,18 @@ use Livewire\WithPagination;
 
 final class WordPressActivityPanel extends Component
 {
+    use FiltersByDateRange;
     use WithPagination;
 
     #[Locked]
     public int $assetId;
 
     public string $from = '';
+
     public string $until = '';
+
     public string $kind = '';
+
     public string $actor = '';
 
     public function mount(int $assetId): void
@@ -28,6 +33,17 @@ final class WordPressActivityPanel extends Component
         $this->assetId = $assetId;
         $this->from = now()->subDays(30)->toDateString();
         $this->until = now()->toDateString();
+    }
+
+    /** @return array{0: string, 1: string} */
+    protected function dateFilterFields(): array
+    {
+        return ['from', 'until'];
+    }
+
+    protected function dateFilterChanged(): void
+    {
+        $this->resetPage('wpActivity');
     }
 
     public function updated(string $property): void
@@ -54,7 +70,9 @@ final class WordPressActivityPanel extends Component
         $counts = (clone $query)->selectRaw('type, COUNT(*) AS total')->groupBy('type')->pluck('total', 'type');
         $connection = CoreConnection::query()->where('digital_asset_id', $this->assetId)->where('type', 'wordpress_connector')->first();
         $delivery = $connection ? DB::table('website_connector_delivery')->where('connection_id', $connection->id)->first() : null;
+
         return view('livewire.operator.integrations.wordpress-activity-panel', [
+            'dateRange' => $this->dateFilterRange(),
             'events' => $query->orderByDesc('occurred_at')->orderByDesc('id')->paginate(25, ['*'], 'wpActivity'),
             'counts' => $counts,
             'delivery' => $delivery,

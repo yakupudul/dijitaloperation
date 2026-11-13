@@ -83,7 +83,8 @@
         {{-- Month navigation --}}
         <div class="{{ $report ? 'flex' : 'hidden md:flex' }} items-center gap-2">
             <button type="button" wire:click="$set('month', '{{ $prev }}')" class="btn-quiet px-2.5" aria-label="Önceki ay">‹</button>
-            <h2 class="min-w-[9rem] text-center text-base font-semibold capitalize text-gray-900 dark:text-white" data-calendar-month>{{ $monthName($monthStart) }}</h2>
+            <h2 class="sr-only">{{ $monthName($monthStart) }}</h2>
+            <x-operator.month-picker :month="$monthStart" data-calendar-month />
             <button type="button" wire:click="$set('month', '{{ $next }}')" class="btn-quiet px-2.5" aria-label="Sonraki ay">›</button>
             @if ($monthStart->format('Y-m') !== substr($today, 0, 7))
                 <button type="button" wire:click="$set('month', '')" class="link-neutral ml-1 text-sm">Bugün</button>

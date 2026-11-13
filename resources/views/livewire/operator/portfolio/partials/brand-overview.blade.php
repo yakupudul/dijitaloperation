@@ -25,7 +25,7 @@
     <livewire:operator.portfolio.brand-findings-card :brand-id="(int) $brandModel->id" :key="'brand-findings-'.$brandModel->id" />
 
     {{-- 1. Aşama 6 (2026-10-22): the month's goal and one card per channel with its top findings and "Hepsini çöz" (loaded after the page) --}}
-    <livewire:operator.portfolio.brand-page-panel lazy :brand-id="(int) $brandModel->id" :days="$days" :key="'brand-page-'.$brandModel->id.'-'.$days" />
+    <livewire:operator.portfolio.brand-page-panel lazy :brand-id="(int) $brandModel->id" :days="$range->days" :start="(string) $range->start" :end="(string) $range->end" :compare="$range->compare" :key="'brand-page-'.$brandModel->id.'-'.$range->days.'-'.$range->start.'-'.$range->end.'-'.$range->compare" />
 
     {{-- Marka eksikleri (yakup, 2026-10-07): amber = missing, gray = filled automatically and not checked yet. Nothing missing → one row. --}}
     @if (! $setupComplete)

@@ -14,6 +14,7 @@ use App\Services\Measurement\Ga4Conversions;
 use App\Services\Meta\MetaScreen;
 use App\Services\Outcomes\Readers\MapsOutcomeReader;
 use App\Services\Site\Analysis\SiteAnalysisReader;
+use App\Services\Site\Analysis\SiteRange;
 use App\Services\Work\OpenWork;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -42,7 +43,7 @@ final class BrandOverviewReader
     public const string KPI_TIMEZONE = 'Europe/Istanbul';
 
     /** Changes whenever rawKpis() changes shape, so a value cached by an older release is never read. */
-    private const string CACHE_VERSION = 'v4';
+    private const string CACHE_VERSION = 'v5';
 
     /** Asset types shown on the brand page (infrastructure types are left out). */
     public const array TYPE_LABELS = [
@@ -131,10 +132,12 @@ final class BrandOverviewReader
      * @param  list<array<string, mixed>>  $cards  output of assetCards()
      * @return list<array{key: string, label: string, source: string, state: string, value: ?string, delta: ?int, note: string, action: ?array{label: string, url: string}}>
      */
-    public function kpis(Brand $brand, Collection $models, array $cards, int $days): array
+    public function kpis(Brand $brand, Collection $models, array $cards, int|SiteRange $range): array
     {
-        $days = self::days($days);
-        $raw = $this->cachedKpis($brand, $models, $cards, $days);
+        // The brand page's date picker gives a SiteRange (preset, custom start–end, comparison); a bare day count is a preset.
+        $range = $range instanceof SiteRange ? $range : new SiteRange(self::days($range));
+        $days = self::compareLabel($range);
+        $raw = $this->cachedKpis($brand, $models, $cards, $range);
 
         $hasData = [];
         $bound = [];
@@ -244,17 +247,17 @@ final class BrandOverviewReader
      * @param  list<array<string, mixed>>  $cards
      * @return array{web: array<string, mixed>, ads: array<string, mixed>, gbp: array<string, mixed>, until: ?int}
      */
-    private function cachedKpis(Brand $brand, Collection $models, array $cards, int $days): array
+    private function cachedKpis(Brand $brand, Collection $models, array $cards, SiteRange $range): array
     {
         $sources = collect($cards)->map(fn (array $c): array => [$c['id'], array_map(
             fn (array $s): array => [$s['binding_id'], $s['state'], $s['last_data_date'], $s['last_success_at']], $c['sources'])])->all();
         $fingerprint = md5((string) json_encode([CarbonImmutable::now(self::KPI_TIMEZONE)->toDateString(), $sources]));
-        $key = 'brand:overview:kpis:'.self::CACHE_VERSION.':'.$brand->id.':'.$days.':'.$fingerprint;
+        $key = 'brand:overview:kpis:'.self::CACHE_VERSION.':'.$brand->id.':'.implode('|', [$range->days, $range->start, $range->end, $range->compare]).':'.$fingerprint;
         $raw = Cache::get($key);
         if (is_array($raw)) {
             return $raw;
         }
-        $raw = $this->rawKpis($brand, $models, $days);
+        $raw = $this->rawKpis($brand, $models, $range);
         $seconds = self::CACHE_MINUTES * 60;
         if ($raw['until'] !== null) {
             $seconds = min($seconds, $raw['until'] - CarbonImmutable::now()->getTimestamp());
@@ -268,22 +271,30 @@ final class BrandOverviewReader
      * @param  Collection<int, DigitalAsset>  $models
      * @return array{web: array<string, mixed>, ads: array<string, mixed>, gbp: array<string, mixed>, until: ?int}
      */
-    private function rawKpis(Brand $brand, Collection $models, int $days): array
+    private function rawKpis(Brand $brand, Collection $models, SiteRange $range): array
     {
+        $days = $range->days;
         $web = ['gsc' => false, 'ga4' => false, 'clicks' => [0, 0], 'sessions' => [0, 0], 'key_events' => [0.0, 0.0], 'daily' => ['clicks' => [], 'sessions' => [], 'key_events' => []]];
-        foreach ($models->where('type', 'website') as $site) {
-            $window = $this->site->window($site, $days);
-            if ($window['gsc'] === [] && $window['ga4'] === []) {
-                continue;
+        // SiteAnalysisReader::window() reads the bound range; the one bound before (if any) comes back afterwards.
+        $bound = SiteRange::current();
+        $range->bind();
+        try {
+            foreach ($models->where('type', 'website') as $site) {
+                $window = $this->site->window($site, $days);
+                if ($window['gsc'] === [] && $window['ga4'] === []) {
+                    continue;
+                }
+                $web['gsc'] = $web['gsc'] || $window['gsc'] !== [];
+                $web['ga4'] = $web['ga4'] || $window['ga4'] !== [];
+                $this->addWindow($brand, $web, $window);
             }
-            $web['gsc'] = $web['gsc'] || $window['gsc'] !== [];
-            $web['ga4'] = $web['ga4'] || $window['ga4'] !== [];
-            $this->addWindow($brand, $web, $window);
+        } finally {
+            $bound !== null ? $bound->bind() : app()->forgetInstance(SiteRange::class);
         }
 
         $ads = ['bound' => false, 'data' => false, 'sources' => [], 'spend' => [], 'conversions' => [0.0, 0.0]];
         $until = null;
-        foreach ($this->googleAdsOverviews($models->where('type', 'google_ads')->values(), $days) as $overview) {
+        foreach ($this->googleAdsOverviews($models->where('type', 'google_ads')->values(), $range) as $overview) {
             if ($overview === null) {
                 continue;
             }
@@ -302,7 +313,7 @@ final class BrandOverviewReader
             $ads['conversions'][1] += (float) ($overview['previous']['conversions'] ?? 0);
         }
         $accounts = $this->metaAccounts($models->where('type', 'meta_ads')->values());
-        $metaTotals = $accounts === [] ? [] : $this->meta->kpiTotals($accounts, $days);
+        $metaTotals = $accounts === [] ? [] : $this->meta->kpiTotals($accounts, $range);
         foreach ($accounts as $assetId => $account) {
             $ads['bound'] = true;
             $ads['sources']['meta'] = 'Meta';
@@ -320,7 +331,7 @@ final class BrandOverviewReader
         }
         $ads['sources'] = array_values($ads['sources']);
 
-        return ['web' => $web, 'ads' => $ads, 'gbp' => $this->gbpKpis($models, $days), 'until' => $until];
+        return ['web' => $web, 'ads' => $ads, 'gbp' => $this->gbpKpis($models, $range), 'until' => $until];
     }
 
     /**
@@ -411,7 +422,7 @@ final class BrandOverviewReader
      * @param  Collection<int, DigitalAsset>  $assets
      * @return array<int, array<string, mixed>|null> asset id => overview (null: not bound)
      */
-    private function googleAdsOverviews(Collection $assets, int $days): array
+    private function googleAdsOverviews(Collection $assets, SiteRange $days): array
     {
         if ($assets->isEmpty()) {
             return [];
@@ -455,7 +466,7 @@ final class BrandOverviewReader
      * @param  Collection<int, DigitalAsset>  $models
      * @return array{bound: bool, data: bool, actions: array{0: int, 1: int}}
      */
-    private function gbpKpis(Collection $models, int $days): array
+    private function gbpKpis(Collection $models, SiteRange $range): array
     {
         $gbp = ['bound' => false, 'data' => false, 'actions' => [0, 0]];
         $profiles = $models->whereIn('type', ['google_business_profile', 'gbp'])->map(fn (DigitalAsset $asset): int => (int) $asset->id)->values()->all();
@@ -472,10 +483,9 @@ final class BrandOverviewReader
         $current = [];
         $previous = [];
         foreach ($byLastDay as $last => $resourceIds) {
-            $end = CarbonImmutable::parse((string) $last);
-            $start = $end->subDays($days - 1);
-            $current += $this->maps->readMany($resourceIds, $start->toDateString(), $end->toDateString());
-            $previous += $this->maps->readMany($resourceIds, $start->subDays($days)->toDateString(), $start->subDay()->toDateString());
+            $w = $range->window(CarbonImmutable::parse((string) $last));
+            $current += $this->maps->readMany($resourceIds, $w['start'], $w['end']);
+            $previous += $this->maps->readMany($resourceIds, $w['prev_start'], $w['prev_end']);
         }
         foreach ($resources as $resourceId) {
             $gbp['data'] = $gbp['data'] || isset($current[$resourceId]) || isset($previous[$resourceId]);
@@ -491,7 +501,7 @@ final class BrandOverviewReader
      * @param  array{label: string, url: string}  $bindAction
      * @return array<string, mixed>
      */
-    private function card(string $key, string $label, string $source, bool $bound, bool $hasData, array $values, callable $format, int $days,
+    private function card(string $key, string $label, string $source, bool $bound, bool $hasData, array $values, callable $format, string $days,
         string $missing, array $bindAction, ?string $hint = null): array
     {
         if (! $bound) {
@@ -505,7 +515,7 @@ final class BrandOverviewReader
 
         return ['key' => $key, 'label' => $label, 'source' => $source, 'state' => 'ok', 'value' => $format($values[0]),
             'delta' => self::change($values[0], $values[1]),
-            'note' => 'önceki '.$days.' gün: '.$format($values[1]).($hint !== null ? ' · '.$hint : ''), 'action' => null];
+            'note' => $days.': '.$format($values[1]).($hint !== null ? ' · '.$hint : ''), 'action' => null];
     }
 
     /**
@@ -513,7 +523,7 @@ final class BrandOverviewReader
      * @param  array{label: string, url: string}  $bindAction
      * @return array<string, mixed>
      */
-    private function spendCard(array $ads, int $days, array $bindAction): array
+    private function spendCard(array $ads, string $days, array $bindAction): array
     {
         $source = $ads['sources'] !== [] ? implode(' + ', $ads['sources']) : 'Google Ads · Meta';
         if (count($ads['spend']) <= 1) {
@@ -528,7 +538,13 @@ final class BrandOverviewReader
         $previous = collect($ads['spend'])->map(fn (array $v, string $currency): string => self::money($v[1], $currency))->implode(' + ');
 
         return ['key' => 'ad_spend', 'label' => 'Reklam harcaması', 'source' => $source, 'state' => 'ok', 'value' => $value, 'delta' => null,
-            'note' => 'önceki '.$days.' gün: '.$previous.' · para birimleri toplanmaz', 'action' => null];
+            'note' => $days.': '.$previous.' · para birimleri toplanmaz', 'action' => null];
+    }
+
+    /** "önceki 28 gün" or "geçen yıl aynı dönem": what the small line under each number compares with. */
+    public static function compareLabel(SiteRange $range): string
+    {
+        return $range->compare === SiteRange::COMPARE_YEAR ? 'geçen yıl aynı dönem' : 'önceki '.$range->days.' gün';
     }
 
     public static function money(float $value, string $currency): string

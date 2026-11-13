@@ -75,14 +75,10 @@
                     @endforeach
                 </select>
             </label>
-            <label class="flex min-w-0 flex-col gap-1">
-                <span class="text-xs text-gray-500">Başlangıç</span>
-                <input type="date" wire:model.live="from" class="{{ $input }} w-full sm:w-auto">
-            </label>
-            <label class="flex min-w-0 flex-col gap-1">
-                <span class="text-xs text-gray-500">Bitiş</span>
-                <input type="date" wire:model.live="to" class="{{ $input }} w-full sm:w-auto">
-            </label>
+            <div class="col-span-2 flex min-w-0 flex-col gap-1">
+                <span class="text-xs text-gray-500">Tarih</span>
+                <x-operator.date-range-picker :range="$dateRange" :last-day="\App\Livewire\Operator\AiJobsPage::dateFilterToday()" :compare="false" :show-last-day="false" all-label="Tüm zamanlar" class="w-full sm:w-auto" />
+            </div>
             <button type="button" wire:click="resetFilters" class="btn-quiet col-span-2 h-9! justify-self-start">Filtreleri temizle</button>
         </div>
     </div>

@@ -240,7 +240,7 @@ final class MetaScreen
      * @param  array<int, Account>  $accounts  accounts()
      * @return array<int, array{current: array<string, float|int|null>, previous: array<string, float|int|null>}> keyed by asset id
      */
-    public function kpiTotals(array $accounts, int $days): array
+    public function kpiTotals(array $accounts, int|SiteRange $days): array
     {
         $accounts = array_column($accounts, null, 'asset_id');
         if ($accounts === [] || ! self::hasTable('meta_ad_daily')) {

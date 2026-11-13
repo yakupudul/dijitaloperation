@@ -41,11 +41,7 @@
             <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
                 <x-operator.quick-access :groups="$quickAccess" />
                 @if ($tab === 'ozet')
-                    <div class="{{ $segmentGroup }}" role="group" aria-label="Dönem" data-period-selector>
-                        @foreach (\App\Services\Operator\BrandOverviewReader::PERIODS as $periodDays => $periodLabel)
-                            <button type="button" wire:click="setPeriod('last_{{ $periodDays }}')" aria-pressed="{{ $days === $periodDays ? 'true' : 'false' }}" class="{{ $segment($days === $periodDays) }}">{{ $periodLabel }}</button>
-                        @endforeach
-                    </div>
+                    <x-operator.date-range-picker :range="$range" :last-day="$lastDay" class="w-full sm:w-auto" data-period-selector />
                 @endif
                 @if ($tab === 'varliklar')
                     <a href="{{ route('operator.asset.create', ['brandId' => $brandModel->id]) }}" wire:navigate class="btn">Varlık ekle</a>

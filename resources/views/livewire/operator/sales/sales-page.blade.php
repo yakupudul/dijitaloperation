@@ -498,7 +498,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <button type="button" wire:click="$set('month', '{{ $reportMonth->subMonth()->format('Y-m') }}')" class="btn-quiet px-2.5" aria-label="Önceki ay">‹</button>
-                        <span class="min-w-[8rem] text-center text-sm font-semibold capitalize text-gray-900 dark:text-white" data-sales-report-month>{{ $reportMonth->locale('tr')->translatedFormat('F Y') }}</span>
+                        <x-operator.month-picker :month="$reportMonth" :future="false" caption="Ay raporu" data-sales-report-month />
                         @if (! $isThisMonth)
                             <button type="button" wire:click="$set('month', '{{ $reportMonth->addMonth()->format('Y-m') }}')" class="btn-quiet px-2.5" aria-label="Sonraki ay">›</button>
                         @endif

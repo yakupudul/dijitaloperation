@@ -24,6 +24,7 @@ use App\Services\Gbp\GbpSuggestions;
 use App\Services\GoogleAds\GoogleAdsSpecialistBindingResolver;
 use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\BrandPageReader;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Integrations\Google\GoogleResourceType;
 use App\Support\Integrations\Google\GoogleScopes;
 use App\Support\Roles;
@@ -184,6 +185,14 @@ final class BrandOverviewTest extends TestCase
         $this->assertSame('₺1.200', $kpis90['ad_spend']['value']);
         $this->assertNull($kpis90['ad_spend']['delta'], 'no previous 90 days of data: no made-up change');
         $this->assertSame(['75', null], [$kpis90['organic_clicks']['value'], $kpis90['organic_clicks']['delta']]);
+
+        // The date picker (yakup 2026-11-13): a custom start–end goes to the channel cards, and "geçen yıl aynı dönem" is named.
+        Livewire::test(BrandShow::class, ['brand' => (string) $this->brand->id])->call('setRange', 28, '2026-09-01', '2026-09-30', 'year')
+            ->assertSeeHtml('data-date-picker')->assertSeeHtml('brand-page-'.$this->brand->id.'-30-2026-09-01-2026-09-30-year');
+        $year = collect(app(BrandOverviewReader::class)->kpis($this->brand, app(BrandOverviewReader::class)->assetModels($this->brand),
+            app(BrandOverviewReader::class)->assetCards(app(BrandOverviewReader::class)->assetModels($this->brand)), SiteRange::from(28, null, null, 'year')))->keyBy('key');
+        $this->assertSame('₺840', $year['ad_spend']['value']);
+        $this->assertStringStartsWith('geçen yıl aynı dönem: ', $year['ad_spend']['note']);
     }
 
     public function test_profile_interactions_use_each_profiles_own_last_day(): void

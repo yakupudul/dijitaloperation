@@ -94,7 +94,7 @@ final class GoogleAdsScreen
      * @param  iterable<DigitalAsset>  $assets
      * @return array<int, array{current: array<string, ?float>, previous: array<string, ?float>, currency: ?string, timezone: string, last_date: ?string}|null> keyed by asset id
      */
-    public function overviews(iterable $assets, int $days = 28): array
+    public function overviews(iterable $assets, int|SiteRange $days = 28): array
     {
         $assets = collect($assets)->keyBy(fn (DigitalAsset $asset): int => (int) $asset->id);
         $out = [];

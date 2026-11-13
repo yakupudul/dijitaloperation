@@ -5,36 +5,51 @@
     'lastDay',
     /** One line under the calendar, e.g. how late the source's data arrives. */
     'note' => null,
+    /** false: a plain date filter (AI işleri, WordPress geçmişi): no comparison label or choice. */
+    'compare' => true,
+    /** The "Son veri" line; false where the last day is simply today. */
+    'showLastDay' => true,
+    /** A filter that may be off (range null): the label of "no date filter", also shown as the first preset. */
+    'allLabel' => null,
 ])
 
 {{--
-    The one date picker of every digital asset screen (Web sitesi, Search Console, Analytics, Google Ads, Meta, İşletme
-    Profili): presets, two-month calendar, custom range, comparison. "Uygula" calls the screen's setRange(days, start,
-    end, compare).
+    The one date picker of the panel (yakup, 2026-11-13: "sistemde tarih filtresi olan her yere bu modeli kur"): every
+    digital asset screen (Web sitesi, Search Console, Analytics, Google Ads, Meta, İşletme Profili), the brand page,
+    AI işleri and the WordPress history. Presets, two-month calendar, custom range and, where it means something, the
+    comparison. "Uygula" calls the screen's setRange(days, start, end, compare). Month screens use x-operator.month-picker.
 --}}
 @php
     $presets = \App\Services\Site\Analysis\SiteRange::PRESETS;
+    $all = $range === null;
+    $range ??= new \App\Services\Site\Analysis\SiteRange(28);
     $window = $range->window(\Carbon\CarbonImmutable::parse($lastDay));
     $rangeLabel = \App\Services\Site\Analysis\SiteRange::format($window['start'], $window['end']);
     $compareLabel = \App\Services\Site\Analysis\SiteRange::format($window['prev_start'], $window['prev_end']);
 @endphp
 <div {{ $attributes->merge(['class' => 'relative']) }} data-date-picker
-     x-data="sitePicker({ days: {{ $range->custom() ? 0 : $range->days }}, start: '{{ $window['start'] }}', end: '{{ $window['end'] }}', compare: '{{ $range->compare }}', last: '{{ $lastDay }}' })"
+     x-data="sitePicker({ days: {{ $all ? -2 : ($range->custom() ? 0 : $range->days) }}, start: '{{ $window['start'] }}', end: '{{ $window['end'] }}', compare: '{{ $range->compare }}', last: '{{ $lastDay }}' })"
      @keydown.escape.window="open = false" @click.outside="open = false">
     <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="dialog"
             class="flex h-11 items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 text-left hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
         <svg class="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
         <span class="flex flex-col leading-tight">
-            <span class="text-xs text-gray-500">{{ $range->label() }}</span>
-            <span class="text-sm font-medium text-gray-900 dark:text-white" data-range-label>{{ $rangeLabel }}</span>
+            <span class="text-xs text-gray-500">{{ $all ? 'Tarih' : $range->label() }}</span>
+            <span class="text-sm font-medium text-gray-900 dark:text-white" data-range-label>{{ $all ? $allLabel : $rangeLabel }}</span>
         </span>
-        <span class="hidden border-l border-gray-200 pl-3 text-xs text-gray-500 sm:inline dark:border-gray-700">karşılaştırma: {{ $compareLabel }}</span>
+        @if ($compare && ! $all)
+            <span class="hidden border-l border-gray-200 pl-3 text-xs text-gray-500 sm:inline dark:border-gray-700">karşılaştırma: {{ $compareLabel }}</span>
+        @endif
         <svg class="h-3.5 w-3.5 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
     </button>
 
     <div x-show="open" x-cloak x-transition.opacity role="dialog" aria-label="Tarih aralığı"
          class="absolute right-0 z-40 mt-2 grid w-[min(760px,92vw)] grid-cols-1 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:grid-cols-[190px_minmax(0,1fr)] dark:border-gray-700 dark:bg-gray-900">
         <div class="flex flex-row flex-wrap gap-1 border-b border-gray-200 p-2 sm:flex-col sm:border-b-0 sm:border-r dark:border-gray-700">
+            @if ($allLabel !== null)
+                <button type="button" @click="all()" :class="days === -2 ? 'bg-gray-50 font-semibold text-gray-700 dark:bg-gray-500/10 dark:text-gray-300' : 'text-gray-700 dark:text-gray-300'"
+                        class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">{{ $allLabel }}</button>
+            @endif
             @foreach ($presets as $presetDays => $presetLabel)
                 <button type="button" @click="preset({{ $presetDays }})" :class="days === {{ $presetDays }} ? 'bg-gray-50 font-semibold text-gray-700 dark:bg-gray-500/10 dark:text-gray-300' : 'text-gray-700 dark:text-gray-300'"
                         class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">{{ $presetLabel }}</button>
@@ -66,13 +81,15 @@
                     </div>
                 </template>
             </div>
-            <div class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-3 text-xs dark:border-gray-700">
-                <span class="font-medium text-gray-700 dark:text-gray-300">Karşılaştır:</span>
-                <label class="flex items-center gap-1.5"><input type="radio" value="prev" x-model="compare"> Önceki dönem</label>
-                <label class="flex items-center gap-1.5"><input type="radio" value="year" x-model="compare"> Geçen yıl aynı dönem</label>
-            </div>
+            @if ($compare)
+                <div class="flex flex-wrap items-center gap-3 border-t border-gray-200 pt-3 text-xs dark:border-gray-700">
+                    <span class="font-medium text-gray-700 dark:text-gray-300">Karşılaştır:</span>
+                    <label class="flex items-center gap-1.5"><input type="radio" value="prev" x-model="compare"> Önceki dönem</label>
+                    <label class="flex items-center gap-1.5"><input type="radio" value="year" x-model="compare"> Geçen yıl aynı dönem</label>
+                </div>
+            @endif
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <span class="text-xs text-gray-500">@if ($note){{ $note }} @endif Son veri {{ \Carbon\CarbonImmutable::parse($lastDay)->format('d.m.Y') }}.</span>
+                <span class="text-xs text-gray-500">@if ($note){{ $note }} @endif @if ($showLastDay)Son veri {{ \Carbon\CarbonImmutable::parse($lastDay)->format('d.m.Y') }}.@endif</span>
                 <span class="flex gap-2">
                     <button type="button" @click="open = false" class="h-9 rounded-lg border border-gray-200 px-3 text-sm dark:border-gray-700">İptal</button>
                     <button type="button" @click="apply()" class="h-9 rounded-lg bg-brand-500 px-3 text-sm font-medium text-white hover:bg-brand-600" data-date-apply>Uygula</button>

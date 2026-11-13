@@ -70,7 +70,7 @@
             </select>
             <div class="flex items-center gap-0.5" data-marketing-month>
                 <button type="button" wire:click="shift(-1)" class="btn-quiet h-8 px-2" aria-label="Önceki ay">‹</button>
-                <span class="min-w-[8.5rem] text-center text-sm font-semibold text-gray-900 dark:text-white">{{ $periodLabel }}</span>
+                <x-operator.month-picker :month="$monthDate" :future="false" :caption="$funnel['span'] > 1 ? $periodLabel : 'Ay'" />
                 <button type="button" wire:click="shift(1)" class="btn-quiet h-8 px-2" aria-label="Sonraki ay" @disabled($isThisMonth)>›</button>
             </div>
             <a href="{{ route('operator.social') }}" wire:navigate class="btn h-8 px-3 text-[13px]" data-marketing-social-link>Gönderi planı</a>

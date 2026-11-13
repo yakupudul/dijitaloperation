@@ -151,6 +151,20 @@ final class AiJobsTest extends TestCase
             ->set('operation', '')->set('user', (string) $this->admin->id)->assertSee('Çalışan iş')->assertDontSee('Biten iş');
     }
 
+    public function test_the_date_picker_filters_by_a_preset_a_custom_range_and_all_time(): void
+    {
+        $this->row(['label' => 'Bugünkü iş', 'started_at' => now()]);
+        $this->row(['label' => 'Eski iş', 'started_at' => now()->subDays(20)]);
+
+        $this->actingAs($this->member);
+        $today = AiJobsPage::dateFilterToday();
+        Livewire::test(AiJobsPage::class)->assertSee('Tüm zamanlar')->assertSee('Eski iş')
+            ->call('setRange', 7)->assertSet('to', $today)->assertSee('Bugünkü iş')->assertDontSee('Eski iş')
+            ->call('setRange', 28, now('Europe/Istanbul')->subDays(21)->toDateString(), now('Europe/Istanbul')->subDays(19)->toDateString())
+            ->assertSee('Eski iş')->assertDontSee('Bugünkü iş')
+            ->call('setRange', 0)->assertSet('from', '')->assertSet('to', '')->assertSee('Bugünkü iş')->assertSee('Eski iş');
+    }
+
     public function test_stop_asks_a_running_multi_call_job_to_stop_between_calls(): void
     {
         config(['queue.default' => 'database']);

@@ -510,10 +510,16 @@ class BrandShow extends Component
             ->latest()->limit(100)->get();
     }
 
-    /** Selected Özet period in days (28 / 90), from the shared period preset. */
+    /** The brand page's numbers read Search Console, GA4, Ads and profiles by SiteRange, so "geçen yıl aynı dönem" works here. */
+    public function supportsYearOverYearComparison(): bool
+    {
+        return true;
+    }
+
+    /** Selected Özet period in days, from the date picker (a custom range counts its days). */
     public function overviewDays(): int
     {
-        return $this->period === 'last_90' ? 90 : 28;
+        return $this->pickerRange()->days;
     }
 
     public function render(): View
@@ -556,6 +562,8 @@ class BrandShow extends Component
         // the page); Özet itself keeps the period, the Yolculuk strip and the services.
         return [
             'days' => $this->overviewDays(),
+            'range' => $this->pickerRange(),
+            'lastDay' => $this->periodPickerMaxDate(),
             'serviceSummary' => $overview->services($services, count($services)),
             'journey' => $this->journey($brand),
         ];

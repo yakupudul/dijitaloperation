@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Operator;
 
+use App\Livewire\Operator\Concerns\FiltersByDateRange;
 use App\Models\AiLiveOperation;
 use App\Models\User;
 use App\Services\Ai\AiLiveOperations;
@@ -30,6 +31,7 @@ use Throwable;
 #[Title('AI işleri')]
 final class AiJobsPage extends Component
 {
+    use FiltersByDateRange;
     use WithPagination;
 
     public const string TIMEZONE = 'Europe/Istanbul';
@@ -64,6 +66,12 @@ final class AiJobsPage extends Component
             $this->resetPage();
             $this->selected = [];
         }
+    }
+
+    protected function dateFilterChanged(): void
+    {
+        $this->resetPage();
+        $this->selected = [];
     }
 
     public function show(int $id): void
@@ -127,6 +135,7 @@ final class AiJobsPage extends Component
 
         return view('livewire.operator.ai-jobs', [
             'rows' => $rows,
+            'dateRange' => $this->dateFilterRange(),
             'detailData' => $detail,
             'users' => $userIds === [] ? [] : User::query()->whereIn('id', $userIds)->pluck('name', 'id')->all(),
             'userOptions' => User::query()->orderBy('name')->pluck('name', 'id')->all(),

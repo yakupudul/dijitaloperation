@@ -17,7 +17,7 @@
             @if ($tab !== 'anlasmalar')
                 <div class="flex items-center gap-0.5" data-finance-month>
                     <button type="button" wire:click="shift(-1)" class="btn-quiet h-8 px-2" aria-label="Önceki ay">‹</button>
-                    <span class="min-w-[8.5rem] text-center text-sm font-semibold text-gray-900 dark:text-white">{{ $monthLabel }}</span>
+                    <x-operator.month-picker :month="$monthDate" />
                     <button type="button" wire:click="shift(1)" class="btn-quiet h-8 px-2" aria-label="Sonraki ay">›</button>
                 </div>
             @endif
