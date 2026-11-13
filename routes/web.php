@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\OperatorResetPasswordController;
 use App\Http\Controllers\Auth\OperatorTwoFactorChallengeController;
 use App\Http\Controllers\Calendar\CalendarFeedController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
+use App\Http\Controllers\Integrations\LinkedInOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
 use App\Http\Controllers\Integrations\WhatsAppBackupController;
 use App\Http\Controllers\Integrations\WhatsAppExportController;
@@ -86,6 +87,14 @@ Route::middleware(['web', 'auth'])->group(function (): void {
     Route::get('/integrations/meta/sosyal/authorize', [MetaOAuthController::class, 'authorizeSocial'])
         ->middleware('throttle:10,1')
         ->name('integrations.meta.social.authorize');
+
+    // LinkedIn şirket sayfası (Sosyal › Hesaplar): this callback URL goes into the LinkedIn app's Auth settings.
+    Route::get('/integrations/linkedin/authorize', [LinkedInOAuthController::class, 'authorize'])
+        ->middleware('throttle:10,1')
+        ->name('integrations.linkedin.authorize');
+
+    Route::get('/integrations/linkedin/callback', [LinkedInOAuthController::class, 'callback'])
+        ->name('integrations.linkedin.callback');
 
     Route::get('/integrations/meta/{integration}/authorize', [MetaOAuthController::class, 'authorize'])
         ->name('integrations.meta.authorize');

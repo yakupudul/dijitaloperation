@@ -12,8 +12,9 @@ use Throwable;
 /**
  * Sends approved social posts at their time (ADR-083). Instagram: image, carousel (2-10), Reels and Story through
  * media containers (a video container is checked again on the next run until Instagram finishes it). Facebook Page:
- * photo, several photos in one post, video and photo story. LinkedIn: no API access yet, so its row turns "manual"
- * and waits on the screen as "copy and open". A post that failed is retried up to three times when the cause is
+ * photo, several photos in one post, video and photo story. LinkedIn company page through LinkedInApi once it is
+ * connected (a video is checked again until LinkedIn makes it AVAILABLE); without a usable LinkedIn token its row
+ * turns "manual" and waits on the screen as "copy and open". A post that failed is retried up to three times when the cause is
  * temporary; otherwise it stays "Yayınlanamadı" with Meta's own message.
  */
 class SocialPublisher
@@ -21,7 +22,7 @@ class SocialPublisher
     /** Frame used as the Reels cover when the post carries no cover image (Instagram `thumb_offset`, ms). */
     private const REELS_COVER_MS = 5000;
 
-    public function __construct(private readonly SocialGraph $graph) {}
+    public function __construct(private readonly SocialGraph $graph, private readonly LinkedInApi $linkedin) {}
 
     /** Publishes everything due. @return array{published: int, failed: int, processing: int} */
     public function run(): array
@@ -89,6 +90,7 @@ class SocialPublisher
             $outcome = match ($account->platform) {
                 SocialAccount::INSTAGRAM => $this->instagram($post, $target, $account),
                 SocialAccount::FACEBOOK => $this->facebook($post, $account),
+                SocialAccount::LINKEDIN => $this->linkedin->publish($post, $target, $account),
                 default => throw new SocialGraphException('Bu kanal desteklenmiyor.'),
             };
         } catch (SocialGraphException $e) {

@@ -9,6 +9,8 @@ use App\Models\SocialPostTarget;
 use App\Models\SocialThread;
 use App\Models\User;
 use App\Services\Social\InstagramFeed;
+use App\Services\Social\LinkedInApi;
+use App\Services\Social\LinkedInConnector;
 use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
@@ -29,7 +31,7 @@ use Throwable;
 /**
  * Sosyal medya (`/sosyal`, ADR-083): the agency's own Instagram, Facebook and LinkedIn. "Plan" shows the coming weeks
  * as cards with the visual, text, channels and time; the Admin approves a whole week with one click, or edits / skips
- * one post. Approved posts go out at their time; LinkedIn waits as "copy and open" until its API access exists.
+ * one post. Approved posts go out at their time; LinkedIn too once "LinkedIn'i bağla" is done, before that as "copy and open".
  * "Hesaplar" connects Meta and adds the LinkedIn page; "Yeni gönderi" uploads a post by hand. Instagram / Facebook
  * messages and comments are answered in the Gelen kutusu (Aşama 2, 2026-11-07).
  */
@@ -106,6 +108,11 @@ final class SocialPage extends Component
 
     public string $linkedinUrl = 'https://www.linkedin.com/company/moximu/';
 
+    public string $linkedinClientId = '';
+
+    /** Write-only: the stored LinkedIn Client Secret never enters Livewire state. */
+    public string $linkedinClientSecret = '';
+
     public function mount(): void
     {
         // Mesajlar moved to the Gelen kutusu (Aşama 2, 2026-11-07); the old address still works.
@@ -133,6 +140,7 @@ final class SocialPage extends Component
         $this->watchlist = implode("\n", app(SocialTrendWatch::class)->accounts());
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
         $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
+        $this->linkedinClientId = (string) (AgencySetting::query()->value('social_linkedin_client_id') ?? '');
         $this->newTime = now(SocialPlanner::TIMEZONE)->addDay()->setTime(11, 30)->format('Y-m-d\TH:i');
     }
 
@@ -395,6 +403,31 @@ final class SocialPage extends Component
         $this->socialAppSecret = '';
     }
 
+    /** LinkedIn developer app (Auth tab): Client ID and Client Secret, needed before "LinkedIn'i bağla". */
+    public function saveLinkedinApp(): void
+    {
+        $this->authorizeAdmin();
+        $id = trim($this->linkedinClientId);
+        $secret = trim($this->linkedinClientSecret);
+        $setting = AgencySetting::query()->first() ?? new AgencySetting;
+        if ($id === '') {
+            $setting->forceFill(['social_linkedin_client_id' => null, 'social_linkedin_client_secret' => null])->save();
+            $this->message = 'LinkedIn uygulaması kaldırıldı; LinkedIn gönderileri “kopyala ve aç” olarak bekler.';
+        } else {
+            $this->validate([
+                'linkedinClientId' => ['required', 'string', 'regex:/^[A-Za-z0-9]{8,40}$/'],
+                'linkedinClientSecret' => [$setting->social_linkedin_client_secret ? 'nullable' : 'required', 'string', 'min:8', 'max:200'],
+            ], [
+                'linkedinClientId.regex' => 'Client ID, LinkedIn uygulamasının Auth sekmesindeki harf ve rakamlardan oluşan koddur.',
+                'linkedinClientSecret.required' => 'Primary Client Secret gerekli (Auth sekmesi).',
+            ]);
+            $setting->forceFill(['social_linkedin_client_id' => $id] + ($secret !== '' ? ['social_linkedin_client_secret' => $secret] : []))->save();
+            $this->message = 'LinkedIn uygulaması kaydedildi. Şimdi “LinkedIn’i bağla” ile Moximu sayfasının yöneticisi olarak giriş yapın.';
+        }
+        $this->linkedinClientId = $id;
+        $this->linkedinClientSecret = '';
+    }
+
     public function addLinkedin(): void
     {
         $this->authorizeAdmin();
@@ -485,6 +518,10 @@ final class SocialPage extends Component
             'metaAppId' => app(SocialGraph::class)->appId(),
             'ownSocialApp' => SocialGraph::ownApp() !== null,
             'lastAttempt' => SocialMetaConnector::lastAttempt(),
+            'linkedinApp' => LinkedInApi::app() !== null,
+            'linkedinCallback' => LinkedInConnector::redirectUri(),
+            'linkedinScopes' => LinkedInConnector::SCOPES,
+            'linkedinAttempt' => LinkedInConnector::lastAttempt(),
         ]);
     }
 

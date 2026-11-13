@@ -290,17 +290,88 @@
                     </details>
                 @endif
 
-                @if ($canWrite)
-                    <form wire:submit="addLinkedin" class="card space-y-3 p-5" data-linkedin>
-                        <h2 class="section-title">LinkedIn şirket sayfası{{ $li->isNotEmpty() ? ' · eklendi' : '' }}</h2>
-                        <p class="text-sm text-gray-600 dark:text-gray-300">LinkedIn şirket sayfalarına otomatik paylaşım için LinkedIn’in ayrıca onay verdiği bir izin gerekiyor (Community Management API, şirket doğrulamasıyla haftalar sürebiliyor). O gelene kadar LinkedIn gönderileri saatinde Plan’ın başında “Metni kopyala · Görseli indir · LinkedIn’i aç · Paylaştım” olarak belirir; paylaşmak 20 saniye sürer.</p>
-                        <div class="grid gap-2 sm:grid-cols-2">
-                            <input type="text" wire:model="linkedinName" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900" placeholder="Ad">
-                            <input type="url" wire:model="linkedinUrl" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900" placeholder="https://www.linkedin.com/company/…">
-                        </div>
-                        <button type="submit" class="btn">{{ $li->isNotEmpty() ? 'Güncelle' : 'LinkedIn sayfasını ekle' }}</button>
-                    </form>
-                @endif
+                @php
+                    $liAccount = $li->first();
+                    $liLive = $liAccount !== null && ! $liAccount->isManual();
+                    $liEnds = $liAccount?->token_expires_at;
+                    $liStep = fn (bool $done): string => $done ? 'tone-ok' : 'tone-look';
+                    $liBadge = 'flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gray-200 text-sm font-semibold dark:border-gray-800';
+                @endphp
+                <div class="card space-y-5 p-5" data-linkedin>
+                    <div>
+                        <h2 class="section-title">LinkedIn şirket sayfası{{ $liLive ? ' · otomatik paylaşım açık' : '' }}</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                            @if ($liLive)
+                                {{ $liAccount->name }} bağlı. LinkedIn metni olan onaylı gönderiler Instagram’la aynı saatte LinkedIn’de de kendiliğinden paylaşılır (görsel, çoklu görsel ve video; hikâyeler LinkedIn’e gitmez).
+                                @if ($liEnds)
+                                    Bağlantı {{ $liEnds->timezone($tz)->format('d.m.Y') }} tarihine kadar geçerli{{ $liAccount->refresh_token ? ' ve süresi dolmadan kendiliğinden yenilenir' : '; bitmeden “LinkedIn’i yeniden bağla”ya basmanız yeterli' }}.
+                                @endif
+                            @else
+                                Şirket sayfasına otomatik paylaşım için LinkedIn’in ayrıca onay verdiği izin gerekir (Community Management API). Aşağıdaki dört adım bir kez yapılır; o zamana kadar LinkedIn gönderileri Plan’ın başında “Metni kopyala · LinkedIn’i aç · Paylaştım” olarak bekler.
+                            @endif
+                        </p>
+                        @if ($liLive && $liEnds && ! $liAccount->refresh_token && $liEnds->isBefore(now()->addDays(10)))
+                            <p class="tone-look mt-2 rounded-lg px-3 py-2 text-sm" data-linkedin-expiring>LinkedIn bağlantısı {{ $liEnds->timezone($tz)->format('d.m.Y') }} tarihinde bitiyor; aşağıdan yeniden bağlayın.</p>
+                        @endif
+                    </div>
+                    <ol class="space-y-4">
+                        <li class="flex gap-3" data-step="linkedin-app">
+                            <span @class([$liBadge, $liStep($linkedinApp)])>{{ $linkedinApp ? '✓' : '1' }}</span>
+                            <div class="min-w-0 space-y-1 text-sm">
+                                <p class="font-semibold">LinkedIn’de uygulama açın ve sayfaya doğrulatın</p>
+                                <p class="text-gray-600 dark:text-gray-300"><a href="https://www.linkedin.com/developers/apps/new" target="_blank" rel="noopener" class="underline">LinkedIn Developers › Create app ↗</a>: ad “Moximu”, LinkedIn Page alanına <b>Moximu</b> şirket sayfası, gizlilik sayfası olarak sitenin gizlilik sayfası, logo olarak Moximu logosu. Oluşunca <b>Settings</b> sekmesinde <b>Verify</b>’a basın, çıkan bağlantıyı Moximu sayfasının süper yöneticisi olarak açıp onaylayın.</p>
+                            </div>
+                        </li>
+                        <li class="flex gap-3" data-step="linkedin-product">
+                            <span @class([$liBadge, $liStep($liLive)])>{{ $liLive ? '✓' : '2' }}</span>
+                            <div class="min-w-0 space-y-1 text-sm">
+                                <p class="font-semibold">“Community Management API” iznini isteyin</p>
+                                <p class="text-gray-600 dark:text-gray-300">Uygulamanın <b>Products</b> sekmesinde <b>Community Management API › Request access</b>. Bu ürün uygulamadaki tek ürün olmalı (başka ürün eklemeyin). Formda şirketin yasal adı, adresi ve kullanım amacı sorulur: “Kendi şirket sayfamızda gönderi paylaşmak”. LinkedIn birkaç gün içinde onaylar; onay gelmeden 4. adım “izin yok” der.</p>
+                            </div>
+                        </li>
+                        <li class="flex gap-3" data-step="linkedin-keys">
+                            <span @class([$liBadge, $liStep($linkedinApp)])>{{ $linkedinApp ? '✓' : '3' }}</span>
+                            <div class="min-w-0 space-y-2 text-sm">
+                                <p class="font-semibold">Dönüş adresini ekleyin, anahtarları buraya kaydedin</p>
+                                <p class="text-gray-600 dark:text-gray-300"><b>Auth</b> sekmesinde <b>Authorized redirect URLs</b>’e şunu ekleyin: <code class="text-xs">{{ $linkedinCallback }}</code>. Aynı sekmedeki <b>Client ID</b> ve <b>Primary Client Secret</b>’ı aşağıya yapıştırın.</p>
+                                @if ($canWrite)
+                                    <div class="flex flex-wrap gap-2">
+                                        <input type="text" wire:model="linkedinClientId" autocomplete="off" placeholder="Client ID" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                                        <input type="password" wire:model="linkedinClientSecret" autocomplete="off" placeholder="{{ $linkedinApp ? 'Client Secret (kayıtlı)' : 'Primary Client Secret' }}" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                                        <button type="button" wire:click="saveLinkedinApp" class="btn" data-linkedin-save>Kaydet</button>
+                                    </div>
+                                    @error('linkedinClientId')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                                    @error('linkedinClientSecret')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                                @endif
+                            </div>
+                        </li>
+                        <li class="flex gap-3" data-step="linkedin-login">
+                            <span @class([$liBadge, $liStep($liLive)])>{{ $liLive ? '✓' : '4' }}</span>
+                            <div class="min-w-0 space-y-2 text-sm">
+                                <p class="font-semibold">LinkedIn ile giriş yapın</p>
+                                <p class="text-gray-600 dark:text-gray-300">Moximu sayfasının süper yöneticisi olan kendi LinkedIn hesabınızla girip izin verin. Sayfa kendiliğinden seçilir.</p>
+                                @if ($canWrite && $linkedinApp)
+                                    <a href="{{ route('integrations.linkedin.authorize') }}" class="btn-primary inline-flex" data-linkedin-connect>{{ $liLive ? 'LinkedIn’i yeniden bağla' : 'LinkedIn’i bağla' }}</a>
+                                @endif
+                                @if ($linkedinAttempt)
+                                    <p @class(['rounded-lg px-3 py-2', 'tone-ok' => $linkedinAttempt['ok'], 'tone-look' => ! $linkedinAttempt['ok']]) data-linkedin-attempt>Son deneme {{ \Illuminate\Support\Carbon::parse($linkedinAttempt['at'])->timezone($tz)->format('d.m.Y H:i') }}: {{ $linkedinAttempt['text'] }}</p>
+                                @endif
+                            </div>
+                        </li>
+                    </ol>
+                    @if ($canWrite && ! $liLive)
+                        <details class="text-sm text-gray-600 dark:text-gray-300">
+                            <summary class="cursor-pointer">Onay gelene kadar sayfayı elle ekle (kopyala ve aç)</summary>
+                            <form wire:submit="addLinkedin" class="mt-2 space-y-2">
+                                <div class="grid gap-2 sm:grid-cols-2">
+                                    <input type="text" wire:model="linkedinName" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900" placeholder="Ad">
+                                    <input type="url" wire:model="linkedinUrl" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900" placeholder="https://www.linkedin.com/company/…">
+                                </div>
+                                <button type="submit" class="btn">{{ $li->isNotEmpty() ? 'Güncelle' : 'LinkedIn sayfasını ekle' }}</button>
+                            </form>
+                        </details>
+                    @endif
+                </div>
             </section>
         @endif
     </div>
