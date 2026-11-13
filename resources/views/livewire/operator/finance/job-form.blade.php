@@ -94,6 +94,14 @@
                 @if ($err('job.due_day'))<p class="mt-1 text-xs text-red-600">{{ $err('job.due_day') }}</p>@endif
             </div>
         @endif
+        @if (in_array($kind, ['monthly', 'term', 'yearly', 'partnership'], true) && ! $schedule)
+            <div data-finance-next-fee>
+                <label class="{{ $label }}" for="job-next-fee">Sonra çıkacağı ücret (₺)</label>
+                <input id="job-next-fee" type="text" inputmode="numeric" wire:model="job.next_fee" class="{{ $input }}" placeholder="Boş: artış konuşulmadı">
+                <input type="text" wire:model="job.next_fee_when" class="{{ $input }} mt-1.5" placeholder="Ne olunca (Google Ads başlayınca)" aria-label="Artış ne olunca">
+                <p class="mt-1 text-xs text-gray-500">Özet'te "sırada bekleyen artışlar" olarak görünür. Ücreti değiştirdiğinde kendiliğinden silinir.</p>
+            </div>
+        @endif
         @if (! $isNew && ! $schedule && $kind !== 'one_time')
             <div>
                 <label class="{{ $label }}" for="job-since">Yeni ücret ne zamandan beri</label>

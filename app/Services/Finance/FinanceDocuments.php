@@ -225,7 +225,30 @@ final class FinanceDocuments
      */
     public function inOurName(array $read): bool
     {
-        return $this->ours($read['seller'] ?? null, $read['seller_tax_no'] ?? null) || $this->ours($read['buyer'] ?? null, $read['buyer_tax_no'] ?? null);
+        return $this->ours($read['seller'] ?? null, $read['seller_tax_no'] ?? null) || $this->ours($read['buyer'] ?? null, $read['buyer_tax_no'] ?? null)
+            || (isset($read['text']) && $this->mentionsUs((string) $read['text']));
+    }
+
+    /** A paper's own text names us: our vergi / TC no, or every word of one of our names (marks and case aside). */
+    public function mentionsUs(string $text): bool
+    {
+        $own = $this->settings->all();
+        if ($own['own_tax_no'] !== '' && str_contains((string) preg_replace('/\D+/', ' ', $text), $own['own_tax_no'])) {
+            return true;
+        }
+        $key = self::key($text);
+        foreach ($own['own_names'] as $mine) {
+            $words = array_values(array_filter(array_map(fn (string $w): string => self::key($w), preg_split('/\s+/u', $mine) ?: [])));
+            // "yakup" and "udul" both somewhere in the text is not enough for a long page: they must stand together.
+            if ($words !== [] && str_contains($key, implode('', $words))) {
+                return true;
+            }
+            if (count($words) > 1 && str_contains($key, implode('', array_reverse($words)))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** Our vergi / TC no, or one of our names with all its words in the name (in any order: "UDÜL YAKUP"). */
@@ -266,8 +289,8 @@ final class FinanceDocuments
             $mine = $doc->direction === FinanceDocument::OUT && $doc->status !== 'ignored' ? true : null;
             if ($mine === null) {
                 $bytes = $this->bytes($doc);
-                $byRule = $bytes !== null && (str_starts_with(ltrim($bytes), '<?xml') || str_ends_with(strtolower((string) $doc->original_name), '.xml'));
-                $read = $bytes !== null && ($byRule || ! $held) ? $this->reader->read($bytes, (string) $doc->mime, (string) $doc->original_name, ['from' => data_get($doc->meta, 'from'), 'subject' => data_get($doc->meta, 'subject')]) : null;
+                // The reader takes the text of a PDF by rule when the API cannot be used, so every paper is tried each time.
+                $read = $bytes !== null ? $this->reader->read($bytes, (string) $doc->mime, (string) $doc->original_name, ['from' => data_get($doc->meta, 'from'), 'subject' => data_get($doc->meta, 'subject')]) : null;
                 if ($read === null && $bytes !== null && strlen($bytes) <= FinanceReader::AI_MAX_BYTES) {
                     // Cannot be read now: until it is known to be ours it is not shown.
                     if ($doc->status !== 'ignored') {
@@ -283,7 +306,15 @@ final class FinanceDocuments
                 $meta = (array) $doc->meta;
                 $was = (string) ($meta['was'] ?? $doc->status);
                 unset($meta['reason'], $meta['was']);
-                $doc->forceFill(['status' => $doc->status === 'ignored' ? $was : $doc->status, 'meta' => ['mine' => true] + $meta])->save();
+                $doc->forceFill(['status' => $doc->status === 'ignored' ? $was : $doc->status, 'meta' => ['mine' => true, 'read_by' => $read['by'] ?? ($meta['read_by'] ?? null)] + $meta]);
+                if (isset($read) && $read !== null && $doc->counterparty === null && $doc->amount === null) {
+                    // A paper kept unread: what was read now is written on it.
+                    $this->classify($doc, $read, []);
+                }
+                $doc->save();
+                if ($doc->wasChanged('counterparty')) {
+                    $this->learn($doc);
+                }
 
                 continue;
             }
@@ -330,7 +361,17 @@ final class FinanceDocuments
         // From the mailbox only a paper in our own name is taken (yakup 2026-11-13: "fatura benim adıma düzenlenmemişse
         // kesinlikle alma"). One that could not be read is not taken either: the mail is read again later.
         if ($source === 'gmail' && $read === null && strlen($bytes) <= FinanceReader::AI_MAX_BYTES) {
-            throw new UnreadDocument('Belge okunamadı; sonra yeniden denenecek.');
+            // Kept with its file but out of sight until a later read (the API, or a Claude subscription round through
+            // the MCP tool `finance`) says whose paper it is.
+            $path = 'finance/'.now('Europe/Istanbul')->format('Y/m').'/'.Str::uuid().'.'.$ext;
+            Storage::disk(self::DISK)->put($path, $bytes);
+
+            return FinanceDocument::query()->create([
+                'source' => $source, 'status' => 'ignored', 'direction' => FinanceDocument::IN, 'doc_date' => now('Europe/Istanbul')->toDateString(), 'path' => $path,
+                'original_name' => mb_substr($name, 0, 250), 'mime' => mb_substr($mime, 0, 120), 'size' => strlen($bytes), 'sha256' => $sha,
+                'external_id' => isset($hint['external_id']) ? mb_substr((string) $hint['external_id'], 0, 190) : null,
+                'meta' => array_filter(['from' => $hint['from'] ?? null, 'subject' => $hint['subject'] ?? null, 'reason' => self::UNVERIFIED, 'was' => 'new']),
+            ]);
         }
         $notMine = $source === 'gmail' && ($read === null || ! $this->inOurName($read));
         // A mail attachment or a WhatsApp photo that is no finance document is not kept at all; only its mark stays, so

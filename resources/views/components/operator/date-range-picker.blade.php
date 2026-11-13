@@ -13,6 +13,10 @@
     'allLabel' => null,
     /** true: also "Bu ay" and "Bu yıl" (screens that count money by calendar: Finans). */
     'calendar' => false,
+    /** Last day that may be chosen (Y-m-d) when later days than lastDay mean something (Finans özet: payments to come). */
+    'maxDay' => null,
+    /** The small line over the range in the button; null = the preset's name or "Özel aralık". */
+    'caption' => null,
 ])
 
 {{--
@@ -33,13 +37,13 @@
      Giderler) or the range changes on the server, Livewire puts a fresh picker in place. Without the key it morphed the old
      picker's Alpine state into this one and every button failed ("days is not defined", 2026-11-13). --}}
 <div {{ $attributes->merge(['class' => 'relative']) }} data-date-picker wire:key="date-picker-{{ $all ? 'all' : $window['start'].'-'.$window['end'] }}"
-     x-data="sitePicker({ days: {{ $all ? -2 : ($range->custom() ? 0 : $range->days) }}, start: '{{ $window['start'] }}', end: '{{ $window['end'] }}', compare: '{{ $range->compare }}', last: '{{ $lastDay }}' })"
+     x-data="sitePicker({ days: {{ $all ? -2 : ($range->custom() ? 0 : $range->days) }}, start: '{{ $window['start'] }}', end: '{{ $window['end'] }}', compare: '{{ $range->compare }}', last: '{{ $lastDay }}', max: '{{ $maxDay ?? $lastDay }}' })"
      @keydown.escape.window="open = false" @click.outside="open = false">
     <button type="button" @click="open = !open" :aria-expanded="open.toString()" aria-haspopup="dialog"
             class="flex h-11 items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 text-left hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:hover:bg-gray-800">
         <svg class="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
         <span class="flex flex-col leading-tight">
-            <span class="text-xs text-gray-500">{{ $all ? 'Tarih' : $range->label() }}</span>
+            <span class="text-xs text-gray-500">{{ $caption ?? ($all ? 'Tarih' : $range->label()) }}</span>
             <span class="text-sm font-medium text-gray-900 dark:text-white" data-range-label>{{ $all ? $allLabel : $rangeLabel }}</span>
         </span>
         @if ($compare && ! $all)
@@ -62,6 +66,9 @@
             @if ($calendar)
                 <button type="button" @click="thisMonth()" :class="days === -3 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Bu ay</button>
             @endif
+            @if ($calendar && $maxDay !== null && $maxDay > $lastDay)
+                <button type="button" @click="nextMonth()" :class="days === -5 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Gelecek ay</button>
+            @endif
             <button type="button" @click="lastMonth()" :class="days === -1 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Geçen ay</button>
             @if ($calendar)
                 <button type="button" @click="thisYear()" :class="days === -4 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Bu yıl</button>
@@ -75,7 +82,7 @@
                 </label>
                 <span class="pb-2 text-gray-400">–</span>
                 <label class="flex-1 text-xs text-gray-500">Bitiş
-                    <input type="date" x-model="end" @change="days = 0" :min="start" :max="last" class="mt-1 block h-9 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
+                    <input type="date" x-model="end" @change="days = 0" :min="start" :max="max" class="mt-1 block h-9 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
                 </label>
             </div>
             <div class="-mb-1 flex items-center justify-between">

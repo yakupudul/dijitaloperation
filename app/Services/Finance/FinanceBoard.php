@@ -23,19 +23,30 @@ final class FinanceBoard
 
     public function __construct(private readonly Agreements $agreements, private readonly FinanceSettings $settings) {}
 
-    /**
-     * @return array{month: CarbonImmutable, rows: Collection<int, array<string, mixed>>, late: Collection<int, array<string, mixed>>,
-     *     totals: array{expected: int, received: int, open: int, late: int}, spend: array<string, mixed>, checks: array<string, Collection>, upcoming: list<array<string, mixed>>,
-     *     receipts: Collection<int, FinanceDocument>, fresh: int}
-     */
+    /** One calendar month of {@see period()}: the reminders, Moxi and the MCP tool ask by month. */
     public function month(CarbonImmutable $month): array
     {
+        return $this->period($month->startOfMonth(), $month->endOfMonth());
+    }
+
+    /**
+     * Özet (yakup 2026-11-13: "web sitesi ekranındaki gibi kapsamlı tarih seçimi"): every payment due in the days asked,
+     * the months not begun shown as what the running agreements will ask for, and what is still open from before.
+     *
+     * @return array{month: CarbonImmutable, from: CarbonImmutable, to: CarbonImmutable, rows: Collection<int, array<string, mixed>>, late: Collection<int, array<string, mixed>>,
+     *     totals: array{expected: int, received: int, open: int, late: int}, spend: array<string, mixed>, checks: array<string, Collection>, upcoming: list<array<string, mixed>>,
+     *     receipts: Collection<int, FinanceDocument>, fresh: int, payers: Collection<int, array<string, mixed>>, next: ?array<string, mixed>, flow: array<string, mixed>,
+     *     goal: array<string, mixed>, mrr: array<string, mixed>}
+     */
+    public function period(CarbonImmutable $from, CarbonImmutable $to): array
+    {
         $today = CarbonImmutable::now(self::TZ)->startOfDay();
-        $from = $month->startOfMonth();
-        $to = $month->endOfMonth();
+        // Days are days in Istanbul, whatever zone the caller's dates are in.
+        $from = CarbonImmutable::parse($from->toDateString(), self::TZ)->startOfDay();
+        $to = CarbonImmutable::parse($to->toDateString(), self::TZ)->endOfDay();
         $isFuture = $from->gt($today);
         $active = Agreement::query()->with('brand:id,name,customer_id')->whereIn('status', ['active', 'paused'])->get();
-        if (! $isFuture) {
+        if ($from->lte($today)) {
             foreach ($active->where('status', 'active') as $agreement) {
                 $this->agreements->ensurePayments($agreement);
             }
@@ -45,13 +56,15 @@ final class FinanceBoard
             ->filter(fn (AgreementPayment $p): bool => $p->agreement !== null && ($p->agreement->status !== 'ended' || $p->received() > 0 || $p->agreement->kind === 'one_time' || $p->agreement->isSchedule()));
         $invoiced = FinanceDocument::query()->where('direction', FinanceDocument::OUT)->where('status', '!=', 'ignored')->whereIn('payment_id', $stored->pluck('id'))->get()->groupBy('payment_id');
         $rows = $stored->map(fn (AgreementPayment $p): array => $this->row($p, $today, $invoiced->get($p->id)))->values();
-        // A month that has not begun: what the running agreements will ask for, shown without being written.
-        if ($from->gt($today->startOfMonth())) {
-            $have = $stored->pluck('agreement_id')->flip();
+        // Months that have not begun: what the running agreements will ask for, shown without being written.
+        $month = max($from->startOfMonth(), $today->startOfMonth()->addMonthNoOverflow());
+        for ($guard = 0; $month->lte($to) && $guard < 36; $month = $month->addMonthNoOverflow(), $guard++) {
+            $have = $stored->filter(fn (AgreementPayment $p): bool => $p->due_on->format('Y-m') === $month->format('Y-m'))->pluck('agreement_id')->flip();
             foreach ($active->where('status', 'active') as $agreement) {
-                if (! isset($have[$agreement->id]) && $this->billsIn($agreement, $from) && (int) $agreement->fee > 0) {
-                    $rows->push(['id' => null, 'agreement' => $agreement, 'name' => $agreement->name(), 'what' => $this->what($agreement), 'title' => $from->locale('tr')->isoFormat('MMMM YYYY'),
-                        'amount' => (int) $agreement->fee, 'received' => 0, 'open' => (int) $agreement->fee, 'due' => $agreement->dueIn($from), 'state' => 'coming', 'days_late' => 0, 'invoices' => collect(), 'note' => null]);
+                $due = $agreement->dueIn($month);
+                if (! isset($have[$agreement->id]) && $this->billsIn($agreement, $month) && (int) $agreement->fee > 0 && $due->betweenIncluded($from, $to)) {
+                    $rows->push(['id' => null, 'agreement' => $agreement, 'name' => $agreement->name(), 'what' => $this->what($agreement), 'title' => $month->locale('tr')->isoFormat('MMMM YYYY'),
+                        'amount' => (int) $agreement->fee, 'received' => 0, 'open' => (int) $agreement->fee, 'due' => $due, 'state' => 'coming', 'days_late' => 0, 'invoices' => collect(), 'note' => null]);
                 }
             }
         }
@@ -62,14 +75,139 @@ final class FinanceBoard
             'expected' => (int) $rows->sum('amount'), 'received' => (int) $rows->sum('received'), 'open' => (int) $rows->sum('open'),
             'late' => (int) $late->sum('open') + (int) $rows->where('state', 'late')->sum('open'),
         ];
+        $rows = $rows->sortBy(fn (array $r): string => ['late' => '0', 'partial' => '1', 'due' => '2', 'coming' => '3', 'paid' => '4'][$r['state']].$r['due']->toDateString())->values();
 
         return [
-            'month' => $from, 'rows' => $rows->sortBy(fn (array $r): string => ['late' => '0', 'partial' => '1', 'due' => '2', 'coming' => '3', 'paid' => '4'][$r['state']].$r['due']->toDateString())->values(),
+            'month' => $from->startOfMonth(), 'from' => $from, 'to' => $to->startOfDay(), 'rows' => $rows,
             'late' => $late, 'totals' => $totals, 'spend' => $this->spend($from), 'checks' => $this->checks($stored, $today),
             'upcoming' => $isFuture ? [] : $this->upcoming($today, $active),
             'receipts' => FinanceDocument::query()->with('agreement.brand:id,name', 'payment')->where('direction', FinanceDocument::RECEIPT)->where('status', 'new')->orderByDesc('id')->limit(20)->get(),
             'fresh' => FinanceDocument::query()->where('status', 'new')->where('direction', '!=', FinanceDocument::RECEIPT)->count(),
+            'payers' => $this->payers($rows, $today), 'next' => $this->nextDay($rows, $today), 'flow' => $this->flow($rows, $from, $to->startOfDay(), $today),
+            'goal' => $this->goal($from, $to), 'mrr' => $this->income($active), 'spent' => $this->spendBetween($from->toDateString(), $to->toDateString()),
         ];
+    }
+
+    /**
+     * The period's money by payer, for the one bar at the top: what came, what is late, what comes on the next big day
+     * and what comes later. Biggest first inside each.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array{name: string, amount: int, received: int, open: int, state: string}>
+     */
+    private function payers(Collection $rows, CarbonImmutable $today): Collection
+    {
+        $next = $this->nextDay($rows, $today)['day'] ?? null;
+
+        return $rows->groupBy(fn (array $r): string => (string) $r['agreement']->id)->map(function (Collection $set) use ($next): array {
+            $open = (int) $set->sum('open');
+            $state = $open <= 0 ? 'in' : ($set->contains(fn (array $r): bool => $r['state'] === 'late') ? 'late'
+                : ($next !== null && $set->contains(fn (array $r): bool => $r['open'] > 0 && $r['due']->isSameDay($next)) ? 'next' : 'later'));
+
+            return ['name' => $set->first()['name'], 'amount' => (int) $set->sum('amount'), 'received' => (int) $set->sum('received'), 'open' => $open, 'state' => $state];
+        })->sortBy(fn (array $p): string => ['in' => '0', 'late' => '1', 'next' => '2', 'later' => '3'][$p['state']].str_pad((string) (99_999_999 - $p['amount']), 8, '0', STR_PAD_LEFT))->values();
+    }
+
+    /**
+     * The first day from today with money still to come, and how much and from how many.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return ?array{day: CarbonImmutable, amount: int, count: int, in_days: int}
+     */
+    private function nextDay(Collection $rows, CarbonImmutable $today): ?array
+    {
+        $open = $rows->filter(fn (array $r): bool => $r['open'] > 0 && $r['due']->gte($today));
+        $day = $open->min(fn (array $r): string => $r['due']->toDateString());
+        if ($day === null) {
+            return null;
+        }
+        $set = $open->filter(fn (array $r): bool => $r['due']->toDateString() === $day);
+
+        return ['day' => CarbonImmutable::parse($day, self::TZ), 'amount' => (int) $set->sum('open'), 'count' => $set->count(), 'in_days' => (int) $today->diffInDays(CarbonImmutable::parse($day, self::TZ))];
+    }
+
+    /**
+     * The period's calendar: money that came in (by the day it came) and money still to come (by its day), per day for a
+     * stretch up to two months, else per month.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array{by: string, cells: list<array<string, mixed>>, max: int, came: int}
+     */
+    private function flow(Collection $rows, CarbonImmutable $from, CarbonImmutable $to, CarbonImmutable $today): array
+    {
+        $daily = $from->diffInDays($to) < 62;
+        $key = fn (CarbonImmutable $d): string => $daily ? $d->toDateString() : $d->format('Y-m');
+        $came = AgreementPayment::query()->with('agreement.brand:id,name')->whereNotNull('paid_on')
+            ->whereDate('paid_on', '>=', $from->toDateString())->whereDate('paid_on', '<=', $to->toDateString())->get()
+            ->filter(fn (AgreementPayment $p): bool => $p->agreement !== null && $p->received() > 0);
+        $cells = [];
+        for ($d = $from, $guard = 0; $d->lte($to) && $guard < 400; $d = $daily ? $d->addDay() : $d->addMonthNoOverflow()->startOfMonth(), $guard++) {
+            $cells[$key($d)] = ['key' => $key($d), 'label' => $daily ? (string) $d->day : $d->locale('tr')->isoFormat('MMM'), 'date' => $d, 'in' => 0, 'due' => 0, 'in_names' => [], 'due_names' => [],
+                'today' => $daily ? $d->isSameDay($today) : $d->format('Y-m') === $today->format('Y-m'), 'past' => $daily ? $d->lt($today) : $d->format('Y-m') < $today->format('Y-m')];
+        }
+        foreach ($came as $p) {
+            $k = $key(CarbonImmutable::parse($p->paid_on->toDateString(), self::TZ));
+            if (isset($cells[$k])) {
+                $cells[$k]['in'] += $p->received();
+                $cells[$k]['in_names'][] = $p->agreement->name();
+            }
+        }
+        foreach ($rows->filter(fn (array $r): bool => $r['open'] > 0) as $r) {
+            $k = $key($r['due']);
+            if (isset($cells[$k])) {
+                $cells[$k]['due'] += $r['open'];
+                $cells[$k]['due_names'][] = $r['name'];
+            }
+        }
+        $cells = array_values($cells);
+
+        return ['by' => $daily ? 'day' : 'month', 'cells' => $cells, 'max' => max(1, (int) collect($cells)->max(fn (array $c): int => max($c['in'], $c['due']))), 'came' => (int) $came->sum(fn (AgreementPayment $p): int => $p->received())];
+    }
+
+    /**
+     * The customer goal (yakup 2026-11-13: "2027 sonuna kadar 100 klinikle çalışmak istiyorum"): every payer with a
+     * running agreement is one, and those whose agreement began in the period are the new ones.
+     *
+     * @return array{target: int, by: string, count: int, new: list<string>}
+     */
+    private function goal(CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $running = Agreement::query()->with('brand:id,name,customer_id')->where('status', 'active')->whereNotIn('kind', ['one_time'])->get();
+        $payers = $running->groupBy(fn (Agreement $a): string => $a->brand_id !== null ? 'b'.$a->brand_id : 'p'.self::payerKey($a->payer()));
+        [$a0, $b0] = [$from->toDateString(), $to->toDateString()];
+        $new = $payers->filter(fn (Collection $set): bool => $set->every(fn (Agreement $a): bool => ($a->contract_on ?? $a->starts_on) !== null
+            && ($a->contract_on ?? $a->starts_on)->toDateString() >= $a0 && ($a->contract_on ?? $a->starts_on)->toDateString() <= $b0))
+            ->map(fn (Collection $set): string => $set->first()->name())->values()->all();
+        $goal = (array) $this->settings->get('goal');
+
+        return ['target' => max(1, (int) ($goal['count'] ?? 100)), 'by' => (string) ($goal['label'] ?? '2027 sonu'), 'count' => $payers->count(), 'new' => $new];
+    }
+
+    /**
+     * What the running agreements bring a month (a yearly one counts its twelfth), and the raises that wait on
+     * something (an ad channel to begin, a site to go live).
+     *
+     * @param  Collection<int, Agreement>  $active
+     * @return array{monthly: int, raises: list<array{name: string, plus: int, when: string}>, with_raises: int}
+     */
+    private function income(Collection $active): array
+    {
+        $running = $active->where('status', 'active');
+        $monthly = (int) $running->sum(fn (Agreement $a): int => match ($a->kind) {
+            'monthly', 'term', 'partnership' => (int) $a->fee,
+            'yearly' => (int) round((int) $a->fee / 12),
+            default => 0,
+        });
+        $raises = $running->filter(fn (Agreement $a): bool => (int) $a->next_fee > (int) $a->fee)
+            ->map(fn (Agreement $a): array => ['name' => $a->name(), 'plus' => (int) $a->next_fee - (int) $a->fee, 'when' => (string) $a->next_fee_when])
+            ->sortByDesc('plus')->values()->all();
+
+        return ['monthly' => $monthly, 'raises' => $raises, 'with_raises' => $monthly + (int) array_sum(array_column($raises, 'plus'))];
+    }
+
+    private static function payerKey(string $name): string
+    {
+        return FinanceDocuments::key($name);
     }
 
     /**

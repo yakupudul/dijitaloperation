@@ -15,10 +15,10 @@
         <h1 class="page-title">Finans</h1>
         <div class="flex flex-wrap items-center gap-2">
             @if ($tab === 'bu-ay')
-                <div class="flex items-center gap-0.5" data-finance-month wire:key="finance-month-steps">
-                    <button type="button" wire:click="shift(-1)" class="btn-quiet h-8 px-2" aria-label="Önceki ay">‹</button>
-                    <x-operator.month-picker :month="$monthDate" />
-                    <button type="button" wire:click="shift(1)" class="btn-quiet h-8 px-2" aria-label="Sonraki ay">›</button>
+                <div class="flex items-center gap-0.5" data-finance-period wire:key="finance-period-steps">
+                    <button type="button" wire:click="shift(-1)" class="btn-quiet h-11 px-2" aria-label="Önceki dönem">‹</button>
+                    <x-operator.date-range-picker :range="$dateRange" :last-day="\App\Livewire\Operator\Finance\FinancePage::dateFilterToday()" :max-day="$maxDay" :caption="$rangeCaption" :compare="false" :show-last-day="false" :calendar="true" data-finance-range />
+                    <button type="button" wire:click="shift(1)" class="btn-quiet h-11 px-2" aria-label="Sonraki dönem">›</button>
                 </div>
             @elseif ($tab !== 'anlasmalar')
                 <x-operator.date-range-picker :range="$dateRange" :last-day="\App\Livewire\Operator\Finance\FinancePage::dateFilterToday()" :compare="false" :show-last-day="false" :calendar="true" all-label="Tüm zamanlar" class="w-full sm:w-auto" data-finance-range />
@@ -37,17 +37,71 @@
         @endforeach
     </nav>
 
-    {{-- ───────────── Bu ay ───────────── --}}
+    {{-- ───────────── Özet ───────────── --}}
     @if ($tab === 'bu-ay')
-        @php $t = $board['totals']; @endphp
-        <section class="metric-strip mt-4 grid-cols-2 lg:grid-cols-4" data-finance-totals>
-            @foreach ([['Bu ay alınacak', $t['expected'], 'KDV hariç'], ['Gelen', $t['received'], $t['expected'] > 0 ? '%'.(int) round($t['received'] * 100 / $t['expected']).' tamam' : ''], ['Kalan', $t['open'], $monthLabel.' içinde'], ['Geciken', $t['late'], $board['late']->isNotEmpty() ? 'önceki aylar dahil' : 'gecikme yok']] as [$name, $value, $sub])
-                <div class="bg-white p-4 dark:bg-gray-900">
-                    <p class="text-[13px] text-gray-500">{{ $name }}</p>
-                    <p @class(['mt-1 text-[26px] leading-none font-semibold tracking-[-0.03em] tabular-nums', 'text-error-600' => $name === 'Geciken' && $value > 0, 'text-gray-900 dark:text-white' => ! ($name === 'Geciken' && $value > 0)])>{{ $tlf($value) }}</p>
-                    <p class="mt-1.5 text-xs text-gray-500">{{ $sub }}</p>
+        @php
+            $t = $board['totals'];
+            $next = $board['next'];
+            $goal = $board['goal'];
+            $income = $board['mrr'];
+            $barFill = ['in' => 'bg-second', 'late' => 'bg-error-300', 'next' => 'bg-second/25', 'later' => 'bg-gray-200 dark:bg-white/10'];
+            $nextWords = $next === null ? null : ($next['in_days'] === 0 ? 'bugün' : ($next['in_days'] === 1 ? 'yarın' : $next['in_days'].' gün sonra'));
+        @endphp
+        <section class="mt-6 grid gap-x-12 gap-y-8 lg:grid-cols-[minmax(0,1fr)_340px]" data-finance-hero>
+            <div class="min-w-0">
+                <p class="text-[15px] text-gray-600 dark:text-gray-400">{{ $periodName }} müşterilerinden alacağın</p>
+                <div class="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                    <p class="text-[44px] leading-none font-medium tracking-[-0.035em] tabular-nums text-gray-900 sm:text-[56px] dark:text-white" data-finance-expected>{{ $tlf($t['expected']) }}</p>
+                    <p class="text-[15px] text-gray-600 dark:text-gray-400">
+                        <span class="font-semibold text-second">{{ $tlf($t['received']) }} geldi</span>{{ $t['open'] > 0 ? ', '.$tlf($t['open']).' yolda' : '' }}.
+                        @if ($next)<span class="whitespace-nowrap">Sıradaki gün {{ $day($next['day']) }}, {{ $nextWords }}: {{ $tlf($next['amount']) }}.</span>@endif
+                    </p>
                 </div>
-            @endforeach
+                @if ($board['payers']->isNotEmpty())
+                    <div class="mt-6 flex h-11 gap-[3px]" role="img" aria-label="Alacağın müşterilere göre dağılımı" data-finance-bar>
+                        @foreach ($board['payers'] as $p)
+                            <div class="min-w-[6px] rounded-md {{ $barFill[$p['state']] }}" style="flex: {{ max(1, $p['amount']) }} 1 0" title="{{ $p['name'] }}: {{ $tlf($p['amount']) }}{{ $p['received'] > 0 && $p['open'] > 0 ? ' ('.$tlf($p['received']).' geldi)' : '' }}"></div>
+                        @endforeach
+                    </div>
+                    <div class="mt-2 hidden gap-[3px] sm:flex">
+                        @foreach ($board['payers'] as $p)
+                            <div class="min-w-[6px] overflow-hidden text-xs leading-[17px]" style="flex: {{ max(1, $p['amount']) }} 1 0">
+                                @if ($p['amount'] >= $t['expected'] * 0.05)
+                                    <span class="block truncate font-medium text-gray-800 dark:text-gray-200">{{ $p['name'] }}</span>
+                                    <span class="block truncate tabular-nums text-gray-500">{{ $tlf($p['amount']) }}</span>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-gray-600 dark:text-gray-400">
+                        <span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-second"></span>Geldi</span>
+                        @if ($board['payers']->contains('state', 'late'))<span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-error-300"></span>Günü geçti</span>@endif
+                        @if ($next)<span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-second/25"></span>{{ $day($next['day']) }}'de gelecek</span>@endif
+                        @if ($board['payers']->contains('state', 'later'))<span class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-gray-200 dark:bg-white/10"></span>Daha sonra</span>@endif
+                    </div>
+                @else
+                    <p class="mt-4 text-sm text-gray-500">Bu günlerde ödeme günü olan iş yok. "İş ekle" ile anlaşmaları girdiğinde burası dolar.</p>
+                @endif
+            </div>
+
+            <aside class="min-w-0" data-finance-goal>
+                <div class="flex items-baseline justify-between gap-3">
+                    <p class="text-[15px] text-gray-600 dark:text-gray-400">{{ $goal['by'] }} hedefi</p>
+                    <p class="text-[15px]"><span class="text-[28px] font-semibold tracking-[-0.02em] tabular-nums text-gray-900 dark:text-white">{{ $goal['count'] }}</span><span class="text-gray-500"> / {{ $goal['target'] }} müşteri</span></p>
+                </div>
+                @php $newCount = count($goal['new']); $oldCount = max(0, $goal['count'] - $newCount); @endphp
+                <div class="mt-3 grid grid-cols-[repeat(20,minmax(0,1fr))] gap-[5px]" role="img" aria-label="{{ $goal['target'] }} müşteri hedefinin {{ $goal['count'] }} tanesi dolu, {{ $newCount }} tanesi bu dönemde geldi">
+                    @for ($i = 0; $i < min(200, max($goal['target'], $goal['count'])); $i++)
+                        <span @class(['aspect-square rounded-full', 'bg-second' => $i < $oldCount, 'bg-accent' => $i >= $oldCount && $i < $goal['count'], 'bg-gray-100 dark:bg-white/10' => $i >= $goal['count']])></span>
+                    @endfor
+                </div>
+                <p class="mt-3 text-[13px] leading-5 text-gray-600 dark:text-gray-400">
+                    @if ($newCount > 0)
+                        <span class="mr-1 rounded-[5px] bg-accent px-1.5 py-px font-semibold text-gray-900">+{{ $newCount }} bu dönem</span>{{ implode(', ', array_slice($goal['new'], 0, 4)) }}{{ $newCount > 4 ? ' ve '.($newCount - 4).' müşteri daha' : '' }}.
+                    @endif
+                    Süren her anlaşma bir nokta; {{ max(0, $goal['target'] - $goal['count']) }} nokta kaldı.
+                </p>
+            </aside>
         </section>
 
         @if ($board['receipts']->isNotEmpty())
@@ -69,12 +123,16 @@
             </section>
         @endif
 
-        @foreach ([['Bu ay kimden ne alacağım', $board['rows'], 'rows', 'Bu ay için ödeme satırı yok. İş eklediğinde ödeme günleri burada görünür.'], ['Önceki aylardan açık kalanlar', $board['late'], 'late', null]] as [$heading, $list, $listKey, $empty])
+        @foreach ([['Önce bunları topla', $board['late'], 'late', null], ['Dönemin ödemeleri', $board['rows'], 'rows', 'Bu günlerde ödeme satırı yok. İş eklediğinde ödeme günleri burada görünür.']] as [$heading, $list, $listKey, $empty])
             @continue($list->isEmpty() && $empty === null)
             <section class="card mt-4" data-finance-list="{{ $listKey }}">
                 <div class="flex flex-wrap items-baseline gap-x-3 px-4 pt-4">
                     <h2 class="section-title">{{ $heading }}</h2>
                     <span class="section-count">{{ $list->count() }}</span>
+                    @if ($listKey === 'late')
+                        <span class="ml-auto text-[15px] font-semibold tabular-nums text-error-600" data-finance-late-total>{{ $tlf($list->sum('open')) }} gecikmede</span>
+                        <p class="basis-full text-[13px] text-gray-500">Önceki aylardan açık kalanlar. Hatırlat, WhatsApp'ta hazır mesajı açar; göndermeyi sen yaparsın.</p>
+                    @endif
                 </div>
                 @if ($list->isEmpty())
                     <p class="px-4 pb-5 pt-2 text-sm text-gray-500">{{ $empty }}</p>
@@ -156,6 +214,24 @@
         @endforeach
 
         <div class="mt-4 grid gap-4 lg:grid-cols-2">
+            <section class="card p-4" data-finance-income>
+                <p class="text-[15px] text-gray-600 dark:text-gray-400">Aylık düzenli gelir</p>
+                <p class="mt-1 text-[34px] leading-none font-medium tracking-[-0.03em] tabular-nums text-gray-900 dark:text-white">{{ $tlf($income['monthly']) }}</p>
+                <p class="mt-1.5 text-[13px] text-gray-500">Süren anlaşmaların aylık karşılığı; yıllık olanın on ikide biri sayılır.</p>
+                @if ($income['raises'] !== [])
+                    <p class="mt-4 text-[13px] font-semibold text-gray-900 dark:text-white">Sırada bekleyen artışlar</p>
+                    @foreach ($income['raises'] as $r)
+                        <div class="flex items-start justify-between gap-3 border-b border-gray-200 py-2.5 last:border-b-0 dark:border-gray-800">
+                            <div class="min-w-0"><p class="text-sm font-medium text-gray-900 dark:text-white">{{ $r['name'] }}</p>@if ($r['when'] !== '')<p class="text-[13px] text-gray-500">{{ $r['when'] }}</p>@endif</div>
+                            <span class="shrink-0 text-sm font-semibold tabular-nums text-second">+{{ $tlf($r['plus']) }}</span>
+                        </div>
+                    @endforeach
+                    <p class="mt-2 text-[13px] text-gray-600 dark:text-gray-400">Hepsi açılınca <span class="font-semibold text-gray-900 dark:text-white">{{ $tlf($income['with_raises']) }} / ay</span>.</p>
+                @else
+                    <p class="mt-4 text-[13px] text-gray-500">Konuşulmuş bir artış yoksa burası boş kalır. İşin formundaki "Sonra çıkacağı ücret" alanına yazdığında burada görünür.</p>
+                @endif
+            </section>
+
             <section class="card p-4" data-finance-upcoming>
                 <h2 class="section-title">Yaklaşanlar</h2>
                 @forelse ($board['upcoming'] as $item)
@@ -171,25 +247,50 @@
                     <p class="mt-2 text-sm text-gray-500">Önümüzdeki haftalarda biten dönem, yıllık yenileme ya da yenilenecek abonelik görünmüyor.</p>
                 @endforelse
             </section>
-
-            <section class="card p-4" data-finance-spend>
-                @php $s = $board['spend']; $max = max(1, (float) $s['by_category']->max()); @endphp
-                <div class="flex flex-wrap items-baseline justify-between gap-2">
-                    <h2 class="section-title">Dijital harcama</h2>
-                    <button type="button" wire:click="$set('tab', 'giderler')" class="btn-quiet">Giderleri aç</button>
-                </div>
-                <p class="mt-1 text-[26px] leading-none font-semibold tracking-[-0.03em] tabular-nums text-gray-900 dark:text-white">{{ $s['approx'] ? '≈ ' : '' }}{{ $tlf($s['total_try']) }}</p>
-                <p class="mt-1.5 text-xs text-gray-500">{{ $s['count'] }} belge{{ $s['previous_try'] > 0 ? ' · geçen ay '.$tlf($s['previous_try']) : '' }}{{ $s['approx'] ? ' · dolar tutarları Ayarlar › AI\'daki kurla çevrildi' : '' }}{{ $s['unconverted'] !== [] ? ' · '.implode(', ', $s['unconverted']).' toplama katılmadı' : '' }}</p>
-                @forelse ($s['by_category'] as $name => $sum)
-                    <div class="mt-3">
-                        <div class="flex justify-between text-[13px]"><span class="text-gray-700 dark:text-gray-300">{{ $name }}</span><span class="tabular-nums text-gray-900 dark:text-white">{{ $tlf($sum) }}</span></div>
-                        <div class="mt-1 h-1.5 rounded-full bg-gray-100 dark:bg-white/10"><div class="h-1.5 rounded-full bg-second" style="width: {{ max(2, (int) round($sum * 100 / $max)) }}%"></div></div>
-                    </div>
-                @empty
-                    <p class="mt-3 text-sm text-gray-500">Bu ay gider belgesi yok. Gmail'i bağladığında faturalar kendiliğinden gelir; elle de ekleyebilirsin.</p>
-                @endforelse
-            </section>
         </div>
+
+        @php $flow = $board['flow']; @endphp
+        @if ($flow['cells'] !== [])
+            <section class="card mt-4 p-4" data-finance-flow>
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 class="section-title">Takvim</h2>
+                    <span class="text-[13px] text-gray-500">Üstte gelen para ({{ $tlf($flow['came']) }}), altta beklenen ödeme</span>
+                </div>
+                <div class="mt-4 overflow-x-auto">
+                    <div class="grid min-w-[560px] gap-[2px]" style="grid-template-columns: repeat({{ count($flow['cells']) }}, minmax(0, 1fr))">
+                        @foreach ($flow['cells'] as $c)
+                            <div class="flex flex-col items-center gap-1.5">
+                                <div class="flex h-14 w-[70%] items-end" title="{{ $c['in'] > 0 ? $tlf($c['in']).' geldi: '.implode(', ', array_unique($c['in_names'])) : '' }}">
+                                    @if ($c['in'] > 0)<div class="w-full rounded-t bg-second" style="height: {{ max(3, (int) round($c['in'] * 56 / $flow['max'])) }}px"></div>@endif
+                                </div>
+                                <span @class(['w-6 rounded-md text-center text-xs leading-[22px] tabular-nums', 'bg-second font-semibold text-white' => $c['today'], 'text-gray-400' => ! $c['today'] && $c['past'], 'text-gray-600 dark:text-gray-300' => ! $c['today'] && ! $c['past']])>{{ $c['label'] }}</span>
+                                <div class="flex h-16 w-[70%] items-start" title="{{ $c['due'] > 0 ? $tlf($c['due']).' bekleniyor: '.implode(', ', array_unique($c['due_names'])) : '' }}">
+                                    @if ($c['due'] > 0)<div @class(['w-full rounded-b', 'bg-error-300' => $c['past'] && ! $c['today'], 'bg-second/25' => ! $c['past'] || $c['today']]) style="height: {{ max(3, (int) round($c['due'] * 64 / $flow['max'])) }}px"></div>@endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+                @php $notable = collect($flow['cells'])->filter(fn ($c) => $c['in'] > 0 || $c['due'] > 0)->sortByDesc(fn ($c) => max($c['in'], $c['due']))->take(4)->sortBy('key'); @endphp
+                @if ($notable->isNotEmpty())
+                    <div class="mt-4 grid gap-4 text-[13px] sm:grid-cols-2 lg:grid-cols-4">
+                        @foreach ($notable as $c)
+                            @php $when = $flow['by'] === 'day' ? $day($c['date']) : $c['date']->locale('tr')->isoFormat('MMMM YYYY'); @endphp
+                            <div>
+                                @if ($c['in'] > 0)<p class="text-gray-500">{{ $when }} geldi</p><p class="font-medium text-gray-900 dark:text-white">{{ \Illuminate\Support\Str::limit(implode(', ', array_unique($c['in_names'])), 60) }} · {{ $tlf($c['in']) }}</p>@endif
+                                @if ($c['due'] > 0)<p @class(['text-gray-500', 'mt-1' => $c['in'] > 0])>{{ $when }} bekleniyor</p><p class="font-medium text-gray-900 dark:text-white">{{ count(array_unique($c['due_names'])) > 1 ? count(array_unique($c['due_names'])).' müşteri' : ($c['due_names'][0] ?? '') }} · {{ $tlf($c['due']) }}</p>@endif
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </section>
+        @endif
+
+        @php $s = $board['spent']; @endphp
+        <p class="mt-4 text-[13px] text-gray-500" data-finance-spend>
+            Bu günlerin giderleri {{ $s['approx'] ? '≈ ' : '' }}{{ $tlf($s['total_try']) }}, {{ $s['count'] }} belge{{ $fresh > 0 ? '; '.$fresh.' belge bakılmayı bekliyor' : '' }}.
+            <button type="button" wire:click="$set('tab', 'giderler')" class="font-medium text-second underline-offset-2 hover:underline">Giderleri aç</button>
+        </p>
 
         @if ($board['checks']['no_invoice']->isNotEmpty() || $board['checks']['no_money']->isNotEmpty())
             <section class="card mt-4 p-4" data-finance-checks>

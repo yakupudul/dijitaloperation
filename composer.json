@@ -24,6 +24,7 @@
         "moxdop/meta-ads": "*",
         "moxdop/website": "*",
         "predis/predis": "^3.5",
+        "smalot/pdfparser": "^2.11",
         "spatie/laravel-permission": "^8.3",
         "symfony/yaml": "^7.4"
     },

@@ -13,6 +13,8 @@ use App\Services\Operator\AgencySettingService;
 final class FinanceSettings
 {
     public const array DEFAULTS = ['own_tax_no' => '', 'own_names' => ['moximu', 'yakup udül'], 'vat' => 20, 'inflation' => 0.0, 'gmail' => [],
+        // The customer goal on Finans › Özet (yakup 2026-11-13: "2027 sonuna kadar 100 klinikle çalışmak istiyorum").
+        'goal' => ['count' => 100, 'label' => '2027 sonu'],
         // Monthly list prices (₺, KDV hariç) the "liste" column counts with: moximu.com's public prices of 2026-11-03.
         'list' => ['seo_gbp' => 14000, 'seo' => 12000, 'gbp' => 6000, 'google_ads' => 9000, 'meta_ads' => 9000, 'ads_with_package' => 6000]];
 

@@ -4,13 +4,16 @@
  */
 document.addEventListener('alpine:init', () => {
     Alpine.data('sitePicker', (init) => ({
-        open: false, days: init.days, start: init.start, end: init.end, compare: init.compare, last: init.last || init.end, picking: 'start', view: null,
+        open: false, days: init.days, start: init.start, end: init.end, compare: init.compare, last: init.last || init.end, max: init.max || init.last || init.end, picking: 'start', view: null,
         iso(d) { return d.toISOString().slice(0, 10); },
         parse(v) { const [y, m, d] = v.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); },
         preset(n) { this.view = null; this.days = n; const e = this.parse(this.last); this.end = this.iso(e); e.setUTCDate(e.getUTCDate() - (n - 1)); this.start = this.iso(e); },
         lastMonth() { this.view = null; const l = this.parse(this.last); const s = new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth() - 1, 1)); const e = new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), 0)); this.days = -1; this.start = this.iso(s); this.end = this.iso(e); },
-        thisMonth() { this.view = null; const l = this.parse(this.last); this.days = -3; this.start = this.iso(new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), 1))); this.end = this.last; },
-        thisYear() { this.view = null; const l = this.parse(this.last); this.days = -4; this.start = this.iso(new Date(Date.UTC(l.getUTCFullYear(), 0, 1))); this.end = this.last; },
+        /** Calendar ranges end on their own last day where later days may be chosen (max), else on the last data day. */
+        upTo(d) { const v = this.iso(d); return v < this.max ? v : this.max; },
+        thisMonth() { this.view = null; const l = this.parse(this.last); this.days = -3; this.start = this.iso(new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), 1))); this.end = this.upTo(new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth() + 1, 0))); },
+        nextMonth() { this.view = null; const l = this.parse(this.last); this.days = -5; this.start = this.iso(new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth() + 1, 1))); this.end = this.upTo(new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth() + 2, 0))); },
+        thisYear() { this.view = null; const l = this.parse(this.last); this.days = -4; this.start = this.iso(new Date(Date.UTC(l.getUTCFullYear(), 0, 1))); this.end = this.upTo(new Date(Date.UTC(l.getUTCFullYear(), 11, 31))); },
         custom() { this.days = 0; this.picking = 'start'; },
         all() { this.days = -2; this.apply(); },
         pick(v) {
@@ -23,7 +26,7 @@ document.addEventListener('alpine:init', () => {
         step(by) {
             const e = this.view ? this.parse(this.view) : this.parse(this.end || this.last);
             const next = this.iso(new Date(Date.UTC(e.getUTCFullYear(), e.getUTCMonth() + by, 1)));
-            this.view = next.slice(0, 7) > this.last.slice(0, 7) ? this.last : next;
+            this.view = next.slice(0, 7) > this.max.slice(0, 7) ? this.max : next;
         },
         months() {
             const names = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
@@ -35,7 +38,7 @@ document.addEventListener('alpine:init', () => {
                 for (let i = 0; i < lead; i++) { cells.push({ key: 'b' + i, day: 0 }); }
                 for (let d = 1; d <= count; d++) {
                     const v = this.iso(new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), d)));
-                    cells.push({ key: v, day: d, iso: v, future: v > this.last });
+                    cells.push({ key: v, day: d, iso: v, future: v > this.max });
                 }
                 return { key: this.iso(first), title: names[first.getUTCMonth()] + ' ' + first.getUTCFullYear(), cells };
             });

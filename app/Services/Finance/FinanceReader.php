@@ -9,15 +9,18 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Smalot\PdfParser\Parser as PdfParser;
 use Throwable;
 
 /**
  * Reads what a finance file says. An e-fatura / e-arşiv XML (UBL-TR) is read by rule, with no AI: number, day, seller,
  * buyer, total, KDV. A PDF or a photo is read by the Claude API, which also says what the file is (fatura, dekont or
- * neither). When the API cannot be used the file is still kept; the operator types what it says.
+ * neither). A PDF that carries its text (every e-arşiv / e-fatura PDF does) is also read by rule from that text when the
+ * API cannot be used (yakup 2026-11-13: "adıma olan tüm faturaları istiyorum"), so the monthly API limit never holds
+ * the mailbox back. When neither works the file is still kept; the operator types what it says.
  *
  * @phpstan-type Read array{kind: string, doc_no: ?string, doc_date: ?string, seller: ?string, seller_tax_no: ?string, buyer: ?string, buyer_tax_no: ?string,
- *     amount: ?float, vat: ?float, currency: string, summary: ?string, cost_usd: float, by: string}
+ *     amount: ?float, vat: ?float, currency: string, summary: ?string, cost_usd: float, by: string, text?: string}
  */
 final class FinanceReader
 {
@@ -43,8 +46,104 @@ final class FinanceReader
         if ($mime === null) {
             return null;
         }
+        if ($mime !== 'application/pdf') {
+            return $this->ai($bytes, $mime, $context);
+        }
+        $text = $this->pdfText($bytes);
+        if ($this->held() !== null) {
+            return $text !== null ? $this->fromText($text) : null;
+        }
+        $read = $this->ai($bytes, $mime, $context);
+        if ($read !== null && $text !== null) {
+            $read['text'] = $text; // the names in the text also tell whose paper it is
+        }
 
-        return $this->ai($bytes, $mime, $context);
+        return $read ?? ($text !== null ? $this->fromText($text) : null);
+    }
+
+    /** The text a PDF carries, null for a scan or a file that cannot be parsed. */
+    public function pdfText(string $bytes): ?string
+    {
+        try {
+            $text = (new PdfParser)->parseContent($bytes)->getText();
+        } catch (Throwable) {
+            return null;
+        }
+        $text = trim((string) preg_replace("/[ \t\x{00A0}]+/u", ' ', (string) mb_convert_encoding($text, 'UTF-8', 'UTF-8')));
+
+        return mb_strlen($text) >= 60 ? mb_substr($text, 0, 20000) : null;
+    }
+
+    /**
+     * An invoice read from its text by rule: the GİB e-arşiv / e-fatura layout (Fatura No, Fatura Tarihi, VKN / TCKN,
+     * SAYIN, Ödenecek Tutar) and the usual English one (Invoice number, Date, Total / Amount due). Null when the text
+     * does not look like a finance paper at all, so nothing is decided from a page that only happens to have text.
+     *
+     * @return ?Read
+     */
+    public function fromText(string $text): ?array
+    {
+        $flat = (string) preg_replace('/\s+/u', ' ', $text);
+        $lower = mb_strtolower(strtr($flat, ['İ' => 'i', 'I' => 'ı']));
+        $isInvoice = (bool) preg_match('/fatura|invoice|makbuz|receipt|e-arşiv|e-ar[sş]iv/u', $lower);
+        $isReceipt = (bool) preg_match('/dekont|havale|eft|fast işlem|para transferi/u', $lower);
+        if (! $isInvoice && ! $isReceipt) {
+            return null;
+        }
+        $number = function (string $raw): ?float {
+            $raw = trim($raw);
+            if (preg_match('/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+(,\d{1,2})$/', $raw) === 1) {
+                $raw = str_replace(['.', ','], ['', '.'], $raw);
+            } else {
+                $raw = str_replace(',', '', $raw);
+            }
+
+            return is_numeric($raw) && (float) $raw >= 0 && (float) $raw < 1e11 ? round((float) $raw, 2) : null;
+        };
+        $find = function (array $labels) use ($flat, $number): ?float {
+            foreach ($labels as $label) {
+                if (preg_match('/'.$label.'[^0-9]{0,40}?([0-9][0-9.,]*[0-9])/iu', $flat, $m) === 1 && ($v = $number($m[1])) !== null && $v > 0) {
+                    return $v;
+                }
+            }
+
+            return null;
+        };
+        $amount = $find(['[ÖO]denecek\s*Tutar', 'Vergiler\s*Dahil\s*Toplam\s*Tutar', 'Genel\s*Toplam', 'Amount\s*due', 'Total\s*due', 'Amount\s*paid', 'Toplam\s*Tutar', 'Grand\s*total', 'Total']);
+        $vat = $find(['Hesaplanan\s*KDV\s*\(?%?\s*\d*\)?', 'KDV\s*Tutar[ıi]', 'VAT\s*amount']);
+        $no = null;
+        if (preg_match('/(?:Fatura|Belge|Invoice|Receipt)\s*(?:No|Numaras[ıi]|number|#)\s*[:.]?\s*([A-Z0-9][A-Z0-9\-]{3,40})/iu', $flat, $m) === 1) {
+            $no = $m[1];
+        } elseif (preg_match('/\b([A-Z0-9]{3}20\d{11})\b/', $flat, $m) === 1) {
+            $no = $m[1];
+        }
+        $date = null;
+        if (preg_match('/(?:Fatura\s*Tarihi|Düzenlenme\s*Tarihi|Belge\s*Tarihi|İşlem\s*Tarihi|Date\s*(?:of\s*issue|issued|paid)?)\s*[:.]?\s*(\d{1,2})[-.\/](\d{1,2})[-.\/](\d{4})/iu', $flat, $m) === 1
+            || preg_match('/\b(\d{2})[-.\/](\d{2})[-.\/](20\d{2})\b/', $flat, $m) === 1) {
+            $date = checkdate((int) $m[2], (int) $m[1], (int) $m[3]) ? sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]) : null;
+        } elseif (preg_match('/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})\b/i', $flat, $m) === 1) {
+            $month = array_search(ucfirst(strtolower(substr($m[1], 0, 3))), ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], true);
+            $date = $month !== false && checkdate((int) $month, (int) $m[2], (int) $m[3]) ? sprintf('%04d-%02d-%02d', $m[3], $month, $m[2]) : null;
+        }
+        preg_match_all('/(?:VKN|TCKN|V\.K\.N|T\.C\.K\.N|Vergi\s*(?:Kimlik\s*)?No|Vergi\s*Numaras[ıi]|TC\s*Kimlik\s*No)\s*[:.]?\s*(\d{10,11})\b/iu', $flat, $taxes);
+        $taxes = array_values(array_unique($taxes[1] ?? []));
+        $lines = array_values(array_filter(array_map('trim', preg_split('/\R/u', $text) ?: []), fn (string $l): bool => mb_strlen($l) > 2));
+        $buyer = null;
+        foreach ($lines as $i => $line) {
+            if (preg_match('/^SAYIN\b\s*:?\s*(.*)$/u', $line, $m) === 1) {
+                $buyer = trim($m[1]) !== '' ? trim($m[1]) : ($lines[$i + 1] ?? null);
+                break;
+            }
+        }
+        $currency = preg_match('/\bUSD\b|US\$|\$\s?\d/u', $flat) === 1 && preg_match('/\bTL\b|\bTRY\b|₺/u', $flat) !== 1 ? 'USD'
+            : (preg_match('/\bEUR\b|€/u', $flat) === 1 && preg_match('/\bTL\b|\bTRY\b|₺/u', $flat) !== 1 ? 'EUR' : 'TRY');
+
+        return [
+            'kind' => $isInvoice ? 'invoice' : 'receipt', 'doc_no' => $no !== null ? mb_substr($no, 0, 80) : null, 'doc_date' => $date,
+            'seller' => isset($lines[0]) ? mb_substr($lines[0], 0, 200) : null, 'seller_tax_no' => $taxes[0] ?? null,
+            'buyer' => $buyer !== null ? mb_substr($buyer, 0, 200) : null, 'buyer_tax_no' => $taxes[1] ?? null,
+            'amount' => $amount, 'vat' => $vat, 'currency' => $currency, 'summary' => null, 'cost_usd' => 0.0, 'by' => 'text', 'text' => $text,
+        ];
     }
 
     /** @return ?Read */

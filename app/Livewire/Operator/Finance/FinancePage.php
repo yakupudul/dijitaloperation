@@ -42,16 +42,16 @@ final class FinancePage extends Component
     /** Papers listed on one screen; a longer stretch says so and asks for a narrower one. */
     public const int LIST_LIMIT = 300;
 
-    public const array TABS = ['bu-ay' => 'Bu ay', 'anlasmalar' => 'Anlaşmalar', 'giderler' => 'Giderler', 'faturalar' => 'Faturalar'];
+    public const array TABS = ['bu-ay' => 'Özet', 'anlasmalar' => 'Anlaşmalar', 'giderler' => 'Giderler', 'faturalar' => 'Faturalar'];
 
     #[Url(as: 'sekme', except: 'bu-ay')]
     public string $tab = 'bu-ay';
 
-    /** The month shown (Y-m); empty = this month. */
+    /** An old link's month (Y-m): opens Özet on that month's days. */
     #[Url(as: 'ay', except: '')]
     public string $month = '';
 
-    /** Giderler and Faturalar: the days shown (Y-m-d); both empty = tüm zamanlar. */
+    /** The days shown (Y-m-d). Both empty: Özet shows this month, Giderler and Faturalar tüm zamanlar. */
     #[Url(as: 'bas', except: '')]
     public string $from = '';
 
@@ -121,12 +121,20 @@ final class FinancePage extends Component
         }
     }
 
+    /** ‹ › beside the picker on Özet: the same stretch one month (or one stretch) earlier or later. */
     public function shift(int $by): void
     {
-        $this->month = $this->monthDate()->addMonths($by)->format('Y-m');
-        if ($this->month === CarbonImmutable::now(Agreements::TZ)->format('Y-m')) {
-            $this->month = '';
+        [$from, $to] = $this->overviewDays();
+        if ($from->day === 1 && $to->isSameDay($to->endOfMonth())) {
+            $months = (int) $from->diffInMonths($to->addDay());
+            $from = $from->addMonthsNoOverflow($by * max(1, $months));
+            $to = $from->addMonthsNoOverflow(max(1, $months))->subDay();
+        } else {
+            $days = (int) $from->diffInDays($to) + 1;
+            [$from, $to] = [$from->addDays($by * $days), $to->addDays($by * $days)];
         }
+        $this->from = $from->toDateString();
+        $this->to = $to->toDateString();
         $this->closeRow();
     }
 
@@ -209,7 +217,7 @@ final class FinancePage extends Component
         $this->jobId = -1;
         $this->job = ['brand_id' => $brandId ? (string) $brandId : '', 'party' => '', 'party_phone' => '', 'title' => '', 'kind' => 'monthly', 'fee' => '', 'term_months' => '6',
             'starts_on' => CarbonImmutable::now(Agreements::TZ)->toDateString(), 'due_day' => (string) min(28, CarbonImmutable::now(Agreements::TZ)->day), 'plan' => 'auto',
-            'installments' => [['due_on' => CarbonImmutable::now(Agreements::TZ)->toDateString(), 'amount' => '']], 'services' => [], 'tax_no' => '', 'note' => '', 'fee_since' => '', 'no_invoice' => false];
+            'installments' => [['due_on' => CarbonImmutable::now(Agreements::TZ)->toDateString(), 'amount' => '']], 'services' => [], 'tax_no' => '', 'note' => '', 'fee_since' => '', 'no_invoice' => false, 'next_fee' => '', 'next_fee_when' => ''];
         $this->tab = 'anlasmalar';
     }
 
@@ -221,7 +229,7 @@ final class FinancePage extends Component
             'fee' => (string) $a->fee, 'term_months' => (string) ($a->term_months ?? '6'), 'starts_on' => (string) $a->starts_on?->toDateString(), 'due_day' => (string) $a->due_day, 'plan' => $a->plan ?: 'auto',
             'installments' => $a->payments->filter(fn (AgreementPayment $p): bool => $p->paid_on === null && (int) $p->paid_amount === 0)
                 ->map(fn (AgreementPayment $p): array => ['due_on' => $p->due_on->toDateString(), 'amount' => (string) $p->amount, 'label' => (string) $p->label])->values()->all(),
-            'services' => (array) $a->services, 'tax_no' => (string) $a->tax_no, 'note' => (string) $a->note, 'fee_since' => '', 'no_invoice' => (bool) $a->no_invoice];
+            'services' => (array) $a->services, 'tax_no' => (string) $a->tax_no, 'note' => (string) $a->note, 'fee_since' => '', 'no_invoice' => (bool) $a->no_invoice, 'next_fee' => (string) ($a->next_fee ?? ''), 'next_fee_when' => (string) $a->next_fee_when];
     }
 
     public function addInstallment(): void
@@ -431,9 +439,14 @@ final class FinancePage extends Component
     {
         $month = $this->monthDate();
         $data = ['tabs' => self::TABS, 'monthDate' => $month, 'isThisMonth' => $this->month === '', 'tlf' => fn (int|float $v): string => $this->tl($v)];
+        $data['maxDay'] = CarbonImmutable::now(Agreements::TZ)->addYear()->endOfYear()->toDateString();
         $data['fresh'] = FinanceDocument::query()->where('status', 'new')->where('direction', '!=', FinanceDocument::RECEIPT)->count();
         if ($this->tab === 'bu-ay') {
-            $data['board'] = $board->month($month);
+            [$from, $to] = $this->overviewDays();
+            $data['board'] = $board->period($from, $to);
+            $data['dateRange'] = new SiteRange(28, $from->toDateString(), $to->toDateString());
+            $data['rangeCaption'] = $this->caption($from, $to);
+            $data['periodName'] = $this->periodName($from, $to);
             $data['openPayment'] = $this->openRow > 0 ? AgreementPayment::query()->with('agreement.brand')->find($this->openRow) : null;
             $data['reminder'] = $data['openPayment'] !== null && $this->rowPanel === 'remind'
                 ? ['text' => $board->reminderText($data['openPayment']), 'phone' => $board->phoneOf($data['openPayment']->agreement)] : null;
@@ -507,6 +520,55 @@ final class FinancePage extends Component
         }
 
         return new SiteRange($days, $this->from, $this->to);
+    }
+
+    /** Özet's days: the chosen stretch, an old link's month, else this month. */
+    private function overviewDays(): array
+    {
+        $day = fn (string $v): ?CarbonImmutable => preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) === 1 ? rescue(fn () => CarbonImmutable::parse($v, Agreements::TZ), null, false) : null;
+        [$from, $to] = [$day($this->from), $day($this->to)];
+        if ($from !== null && $to !== null && $from->lte($to)) {
+            return [$from->startOfDay(), $to->startOfDay()];
+        }
+        $month = $this->monthDate();
+
+        return [$month->startOfMonth(), $month->endOfMonth()->startOfDay()];
+    }
+
+    /** The small line in the picker: Bu ay, Geçen ay, Gelecek ay, Bu yıl or the month's name; null = the picker says. */
+    private function caption(CarbonImmutable $from, CarbonImmutable $to): ?string
+    {
+        $now = CarbonImmutable::now(Agreements::TZ);
+        if ($from->day === 1 && $to->isSameDay($to->endOfMonth()) && $from->isSameMonth($to)) {
+            return match ($from->format('Y-m')) {
+                $now->format('Y-m') => 'Bu ay',
+                $now->subMonthNoOverflow()->format('Y-m') => 'Geçen ay',
+                $now->addMonthNoOverflow()->format('Y-m') => 'Gelecek ay',
+                default => 'Ay',
+            };
+        }
+        if ($from->isSameDay($now->startOfYear()) && ($to->isSameDay($now->endOfYear()) || $to->isSameDay($now))) {
+            return 'Bu yıl';
+        }
+
+        return null;
+    }
+
+    /** "Kasım'da", "bu dönemde": the words the totals are said with. */
+    private function periodName(CarbonImmutable $from, CarbonImmutable $to): string
+    {
+        if ($from->day === 1 && $to->isSameDay($to->endOfMonth()) && $from->isSameMonth($to)) {
+            $name = $from->locale('tr')->isoFormat('MMMM');
+            $last = mb_substr($name, -1);
+            $suffix = in_array($last, ['k', 'p', 't', 'ç', 'ş', 's', 'h', 'f'], true) ? 'ta' : 'da';
+            preg_match('/[aıoueiöü](?=[^aıoueiöü]*$)/u', mb_strtolower($name), $m);
+            $front = isset($m[0]) && in_array($m[0], ['e', 'i', 'ö', 'ü'], true);
+            $suffix = $front ? str_replace('a', 'e', $suffix) : $suffix;
+
+            return $from->year !== CarbonImmutable::now(Agreements::TZ)->year ? $name.' '.$from->year.' içinde' : $name.'\''.$suffix;
+        }
+
+        return 'Bu dönemde';
     }
 
     private function monthDate(): CarbonImmutable

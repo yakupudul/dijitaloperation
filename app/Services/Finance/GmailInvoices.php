@@ -4,7 +4,6 @@ namespace App\Services\Finance;
 
 use App\Models\FinanceDocument;
 use App\Services\Integrations\Google\GoogleWorkspace;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -16,7 +15,8 @@ use Throwable;
  * Gmail'den faturalar (yakup 2026-11-12: "e-posta adresime bağlayayım, gelen tüm faturaları sisteme çekebileyim"). The
  * mailbox is only read: mails that carry a PDF, XML or ZIP and speak of an invoice, a receipt or a payment. Each
  * attachment goes to FinanceDocuments, which keeps what is a finance document and only marks the rest. The first runs
- * walk back to 1 January of this year a page at a time; after that each run looks at the last days. Nothing is read
+ * walk the whole mailbox back to its first mail a page at a time (yakup 2026-11-13: "adıma olan tüm faturaları
+ * istiyorum"); after that each run looks at the last days. Nothing is read
  * twice: a message is known by its id.
  */
 final class GmailInvoices
@@ -78,9 +78,13 @@ final class GmailInvoices
             $old = $this->documents->recheckMail();
             $more = $old['left'] > 0;
             $held = $this->reader->held();
+            if (! ($kept['all_history'] ?? false)) {
+                // The first walk went back only to 1 January; the whole mailbox is walked once more (known mails are skipped).
+                $kept = ['from' => 'all', 'backfill_done' => false, 'backfill_token' => null, 'all_history' => true] + $kept;
+            }
             $backfill = ! ($kept['backfill_done'] ?? false);
-            $from = (string) ($kept['from'] ?? CarbonImmutable::now('Europe/Istanbul')->startOfYear()->format('Y/m/d'));
-            $query = self::QUERY.($backfill ? ' after:'.$from : ' newer_than:5d');
+            $from = (string) ($kept['from'] ?? 'all');
+            $query = self::QUERY.($backfill ? ($from !== 'all' ? ' after:'.$from : '') : ' newer_than:5d');
             $response = $this->request()->get(self::API.'/messages', array_filter(['q' => $query, 'maxResults' => $batch, 'pageToken' => $backfill ? ($kept['backfill_token'] ?? null) : null]));
             if (! $response->successful()) {
                 throw new \RuntimeException($response->status() === 403 ? 'Gmail izni yok ya da Gmail API kapalı (HTTP 403).' : 'Gmail okunamadı (HTTP '.$response->status().').');
@@ -90,7 +94,7 @@ final class GmailInvoices
                 if ($id === '' || $this->seen($id)) {
                     continue;
                 }
-                $kept_ = $this->message($id, $held !== null);
+                $kept_ = $this->message($id);
                 if ($kept_ === null) {
                     $more = $waiting = true; // a PDF waits for the Claude API; the message is read again later
 
@@ -111,7 +115,8 @@ final class GmailInvoices
                 $more = $more || ! $kept['backfill_done'];
             }
             $kept['synced_at'] = now()->toIso8601String();
-            $kept['last_error'] = $held !== null && ($waiting || $old['left'] > 0) ? 'PDF\'ler okunamadı: '.$held.'.' : null;
+            // A paper the rule could not read waits out of sight for a Claude subscription round; that is no error.
+            $kept['last_error'] = null;
             $this->settings->put(['gmail' => $kept]);
 
             return ['ok' => true, 'messages' => $messages, 'documents' => $found, 'more' => $more, 'error' => $kept['last_error']];
@@ -126,11 +131,11 @@ final class GmailInvoices
         }
     }
 
-    /** Reads the mailbox again from 1 January (or the given day): for "baştan oku". Known messages are still skipped. */
+    /** Reads the mailbox again from its first mail (or the given day): for "baştan oku". Known messages are still skipped. */
     public function restart(?string $from = null): void
     {
-        $day = $from !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) === 1 ? str_replace('-', '/', $from) : CarbonImmutable::now('Europe/Istanbul')->startOfYear()->format('Y/m/d');
-        $this->settings->put(['gmail' => ['from' => $day, 'backfill_done' => false, 'backfill_token' => null] + (array) $this->settings->get('gmail')]);
+        $day = $from !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) === 1 ? str_replace('-', '/', $from) : 'all';
+        $this->settings->put(['gmail' => ['from' => $day, 'backfill_done' => false, 'backfill_token' => null, 'all_history' => true] + (array) $this->settings->get('gmail')]);
     }
 
     private function seen(string $id): bool
@@ -138,8 +143,8 @@ final class GmailInvoices
         return Cache::has('finance.gmail.seen.'.$id) || FinanceDocument::query()->where('external_id', 'like', 'gmail:'.$id.':%')->exists();
     }
 
-    /** @return ?int documents kept from the message; null when it must be read again later (a PDF and no API) */
-    private function message(string $id, bool $apiHeld): ?int
+    /** @return ?int documents kept from the message; null when it must be read again later */
+    private function message(string $id): ?int
     {
         $response = $this->request()->get(self::API.'/messages/'.rawurlencode($id), ['format' => 'full']);
         if (! $response->successful()) {
@@ -161,10 +166,6 @@ final class GmailInvoices
         $parts = array_slice($parts, 0, 8);
         if ($parts === []) {
             return 0;
-        }
-        $hasXml = collect($parts)->contains(fn (array $p): bool => str_ends_with(strtolower($p['name']), '.xml') || str_ends_with(strtolower($p['name']), '.zip'));
-        if ($apiHeld && ! $hasXml) {
-            return null;
         }
         $files = [];
         foreach ($parts as $part) {
