@@ -125,7 +125,7 @@ class SocialPosts extends Tool
             'publish_at' => $p->publish_at->timezone($tz)->format('Y-m-d H:i'), 'caption' => $p->caption, 'linkedin_text' => $p->linkedin_text,
             'media' => array_map(fn (array $m): string => $m['url'], $p->mediaItems()), 'created_by' => $p->created_by,
             'channels' => $p->targets->map(fn (SocialPostTarget $t): array => [
-                'platform' => $t->account?->platform, 'status' => $t->status, 'permalink' => $t->permalink, 'error' => $t->error,
+                'platform' => $t->account?->platform, 'status' => $t->status, 'permalink' => $t->permalink, 'error' => $t->error, 'insights' => $t->insights, 'insights_at' => $t->insights_at?->toIso8601String(),
             ])->values()->all(),
         ];
 

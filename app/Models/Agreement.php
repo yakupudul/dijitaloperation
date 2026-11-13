@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Services\Social\ClientPosts;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Anlaşma: what a brand pays and how (yakup 2026-11-07 "Markalara çalışma durumunu gireyim… aylık / 6 aylık / tek
@@ -28,6 +30,14 @@ class Agreement extends Model
     public const array PLANS = ['auto' => 'Her dönem kendiliğinden', 'schedule' => 'Taksitli (tarihleri ben girerim)'];
 
     public const array STATUSES = ['active' => 'Sürüyor', 'paused' => 'Durduruldu', 'ended' => 'Bitti'];
+
+    /** Hoş geldiniz (yakup 2026-11-13): a clinic's first agreement prepares its welcome post for his approval. */
+    protected static function booted(): void
+    {
+        static::created(function (Agreement $agreement): void {
+            DB::afterCommit(fn () => app(ClientPosts::class)->welcome($agreement));
+        });
+    }
 
     protected function casts(): array
     {

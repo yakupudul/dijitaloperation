@@ -889,6 +889,120 @@ final class BrandCover
         $this->disc((int) ($cx + $r * 0.25), (int) ($cy - $r * 0.05), max(2, (int) ($r * 0.22)), '#FFFFFF');
     }
 
+    /* ------------------------------------------------ client and review cards */
+
+    /**
+     * Hoş geldiniz (yakup 2026-11-13): the plain welcome post of a new clinic, 1080 × 1350. Only the greeting, the
+     * clinic's own name and its field; no numbers, no method, no sales line.
+     */
+    public function welcomeCard(string $name, string $field): string
+    {
+        [$width, $height] = [self::PORTRAIT_WIDTH, self::PORTRAIT_HEIGHT];
+        $this->canvas($width, $height, self::GROUND);
+        $this->mark(88, 72, 46);
+        $this->text('Moximu', 'Inter-SemiBold', 36, 148, 108, self::INK);
+        $size = 128;
+        do {
+            $lines = $this->wrap($name.'.', 'InterDisplay-Light', $size, 904);
+            $size -= 8;
+        } while (count($lines) > 2 && $size > 64);
+        $size += 8;
+        $top = 250 + $size;
+        $this->text('Hoş geldiniz,', 'InterDisplay-Light', $size, 84, $top, self::INK);
+        foreach ($lines as $line) {
+            $top += (int) round($size * 1.04);
+            $this->text($line, 'InterDisplay-Light', $size, 84, $top, self::GREY);
+        }
+        $this->text('Güveniniz için teşekkür ederiz. Bugün birlikte', 'Inter-Regular', 34, 88, $top + 92, self::MUTED);
+        $this->text('çalışmaya başladık.', 'Inter-Regular', 34, 88, $top + 140, self::MUTED);
+        $this->fade(0, 830, $width, $height, '#E6F1EA', '#0B3B35');
+        $this->disc(163, 1135, 75, '#FFFFFF');
+        $this->mark(121, 1093, 84);
+        $this->rect(238, 1134, 330, 1137, '#FFFFFF');
+        $title = self::cut($name, 30);
+        $sub = self::cut($field, 38);
+        $w = max($this->width($title, 'Inter-SemiBold', 36), $this->width($sub, 'Inter-Regular', 27)) + 88;
+        $this->rounded(330, 1062, 330 + $w, 1208, 73, '#FFFFFF');
+        $this->text($title, 'Inter-SemiBold', 36, 374, 1128, self::INK);
+        $this->text($sub, 'Inter-Regular', 27, 374, 1170, self::MUTED);
+
+        return $this->jpeg($width, $height);
+    }
+
+    /**
+     * A Google review written for Moximu by a hekim (yakup 2026-11-13: "hekim yorumu yaptıysa gönderiyi otomatik
+     * hazırla"), 1080 × 1350: the review word for word, the stars it gave and the reviewer's public name.
+     */
+    public function reviewCard(string $comment, string $author, int $stars): string
+    {
+        [$width, $height] = [self::PORTRAIT_WIDTH, self::PORTRAIT_HEIGHT];
+        $this->canvas($width, $height, '#0E4A43');
+        $this->mark(88, 72, 46);
+        $this->text('Moximu', 'Inter-SemiBold', 36, 148, 108, '#FFFFFF');
+        $label = 'Google yorumu';
+        $this->text($label, 'Inter-Regular', 30, 992 - $this->width($label, 'Inter-Regular', 30), 108, '#9FCFC3');
+        for ($i = 0; $i < 5; $i++) {
+            $this->star(110 + $i * 58, 262, 22, $i < $stars ? self::YELLOW : '#2F6A62');
+        }
+        $text = '“'.trim(preg_replace('/\s+/u', ' ', $comment) ?? '').'”';
+        $size = 70;
+        do {
+            $lines = $this->wrap($text, 'InterDisplay-Light', $size, 904);
+            $size -= 4;
+        } while (count($lines) * $size * 1.16 > 700 && $size > 34);
+        $size += 4;
+        if (count($lines) * $size * 1.16 > 700) {
+            $lines = array_slice($lines, 0, (int) floor(700 / ($size * 1.16)));
+            $lines[count($lines) - 1] = rtrim((string) end($lines), ' .,”').'…”';
+        }
+        $top = 330;
+        foreach ($lines as $line) {
+            $top += (int) round($size * 1.16);
+            $this->text($line, 'InterDisplay-Light', $size, 86, $top, '#FFFFFF');
+        }
+        $this->rect(88, 1120, 992, 1121, '#2F6A62');
+        $this->text(self::cut($author, 40), 'Inter-SemiBold', 36, 88, 1190, '#FFFFFF');
+        $this->text('Google İşletme Profili yorumu', 'Inter-Regular', 27, 88, 1236, '#9FCFC3');
+
+        return $this->jpeg($width, $height);
+    }
+
+    private function canvas(int $width, int $height, string $ground): void
+    {
+        if (! function_exists('imagecreatetruecolor') || ! function_exists('imagettftext')) {
+            throw new RuntimeException('GD with FreeType is not available.');
+        }
+        $s = self::SCALE;
+        $this->img = imagecreatetruecolor($width * $s, $height * $s);
+        imagealphablending($this->img, true);
+        imagesavealpha($this->img, false);
+        $this->rect(0, 0, $width, $height, $ground);
+    }
+
+    /** A vertical soft fade from $from to $to (the teal lower part of the welcome card). */
+    private function fade(int $x1, int $y1, int $x2, int $y2, string $from, string $to): void
+    {
+        [$r1, $g1, $b1] = sscanf(ltrim($from, '#'), '%02x%02x%02x');
+        [$r2, $g2, $b2] = sscanf(ltrim($to, '#'), '%02x%02x%02x');
+        $s = self::SCALE;
+        $rows = ($y2 - $y1) * $s;
+        for ($i = 0; $i < $rows; $i++) {
+            $t = ($i / max(1, $rows - 1)) ** 0.8;
+            $c = imagecolorallocate($this->img, (int) round($r1 + ($r2 - $r1) * $t), (int) round($g1 + ($g2 - $g1) * $t), (int) round($b1 + ($b2 - $b1) * $t));
+            imageline($this->img, $x1 * $s, $y1 * $s + $i, $x2 * $s - 1, $y1 * $s + $i, $c);
+        }
+    }
+
+    private function jpeg(int $width, int $height): string
+    {
+        $out = imagecreatetruecolor($width, $height);
+        imagecopyresampled($out, $this->img, 0, 0, 0, 0, $width, $height, $width * self::SCALE, $height * self::SCALE);
+        ob_start();
+        imagejpeg($out, null, 90);
+
+        return (string) ob_get_clean();
+    }
+
     private function mark(int $x, int $y, int $size): void
     {
         $mark = imagecreatefrompng(resource_path('covers/moximu/mark.png'));

@@ -1425,6 +1425,10 @@ Artisan::command('moxdop:content:autopilot {--site= : One website asset id}', fu
     }
     // Günlük blog (yakup 2026-11-12): moximu.com's own line, published at its slots without a click; no job of its own.
     $daily = $this->option('site') === null ? app(DailyBlog::class)->run($actor) : ['started' => 0, 'sent' => 0];
+    // Hekim yorumu (yakup 2026-11-13): a hekim's new Google review on Moximu's own profile becomes a post for his approval.
+    if ($this->option('site') === null) {
+        app(\App\Services\Social\ClientPosts::class)->reviews();
+    }
     $this->info($planned.' yeni tarih planlandı. Günlük blog: '.$daily['started'].' yazı başladı, '.$daily['sent'].' yazı yayına planlandı.');
 })->purpose('Date every site\'s next articles (one every two days), write them and AI-check them for the daily send');
 
@@ -1920,6 +1924,19 @@ Schedule::command('moxdop:social:publish')
     ->withoutOverlapping(15)
     ->runInBackground()
     ->name('social-publish');
+
+// Instagram ölçümü (büyüme yol haritası, yakup 2026-11-13): reach, saves, sends, likes, comments and views of every
+// published Instagram post, every 3 hours in its first two days, then daily up to 30 days.
+Artisan::command('moxdop:social:insights', function (): void {
+    $stats = app(\App\Services\Social\SocialInsights::class)->run();
+    $this->info('Okunan: '.$stats['read'].' · okunamayan: '.$stats['failed']);
+})->purpose('Read reach, saves, sends, likes, comments and views of published Instagram posts.');
+
+Schedule::command('moxdop:social:insights')
+    ->hourlyAt(17)
+    ->withoutOverlapping(30)
+    ->runInBackground()
+    ->name('social-insights');
 
 // ADR-083 (2. aşama): Instagram ve Facebook mesajları ile yorumları her 10 dakikada okunur; kişinin son sözü için
 // cevap taslağı yazılır, Admin tek tıkla gönderir.

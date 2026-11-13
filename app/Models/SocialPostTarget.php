@@ -63,6 +63,6 @@ class SocialPostTarget extends Model
     /** @return array<string, string> */
     protected function casts(): array
     {
-        return ['published_at' => 'datetime'];
+        return ['published_at' => 'datetime', 'insights' => 'array', 'insights_at' => 'datetime'];
     }
 }

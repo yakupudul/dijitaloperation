@@ -52,6 +52,7 @@
                     <span class="text-gray-500">· {{ $target->statusLabel() }}</span>
                     @if ($target->permalink)<a href="{{ $target->permalink }}" target="_blank" rel="noopener" class="underline">Aç ↗</a>@endif
                     @if ($target->error)<span class="text-error-600">· {{ $target->error }}</span>@endif
+                    @if ($insight = \App\Services\Social\SocialInsights::line($target))<span class="text-gray-500" title="Instagram ölçümü, {{ $target->insights_at?->timezone('Europe/Istanbul')->format('d.m H:i') }}">· {{ $insight }}</span>@endif
                 </li>
             @endforeach
         </ul>

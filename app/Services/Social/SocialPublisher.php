@@ -20,6 +20,8 @@ use Throwable;
 class SocialPublisher
 {
     /** Frame used as the Reels cover when the post carries no cover image (Instagram `thumb_offset`, ms). */
+    public const int IG_HASHTAGS = 5;
+
     private const REELS_COVER_MS = 5000;
 
     public function __construct(private readonly SocialGraph $graph, private readonly LinkedInApi $linkedin) {}
@@ -141,6 +143,20 @@ class SocialPublisher
         }
     }
 
+    /**
+     * Instagram takes at most five hashtags (since December 2025); the first five stay, the rest go, so a long tag line
+     * never stops a post.
+     */
+    public static function igCaption(string $caption): string
+    {
+        $seen = 0;
+        $out = (string) preg_replace_callback('/(^|\s)#[\p{L}\p{N}_]+/u', static function (array $m) use (&$seen): string {
+            return ++$seen <= self::IG_HASHTAGS ? $m[0] : '';
+        }, $caption);
+
+        return $seen <= self::IG_HASHTAGS ? $caption : rtrim((string) preg_replace('/[ \t]+$/mu', '', $out));
+    }
+
     /** @return array{status: string, id?: string, permalink?: ?string, container?: string} */
     private function instagram(SocialPost $post, SocialPostTarget $target, SocialAccount $account): array
     {
@@ -153,7 +169,7 @@ class SocialPublisher
 
         $container = $target->container_id;
         if ($container === null || $container === '') {
-            $caption = $post->kind === 'story' ? null : (string) $post->caption;
+            $caption = $post->kind === 'story' ? null : self::igCaption((string) $post->caption);
             $container = match ($post->kind) {
                 'carousel' => $this->igCarousel($ig, $token, $media, $caption),
                 // A Reels post may carry an image after the video: it is the cover shown on the profile grid
