@@ -351,6 +351,11 @@ final class DailyBlog
                     }
                 }
                 $action = (array) $pick->fresh()->action;
+                // The guide's topic shelf (/rehber/konu/...), not WordPress's "Genel".
+                $shelf = self::shelf((string) data_get($action, 'article.title', $pick->title));
+                if (! $refresh && $shelf !== null && empty($action['article']['categories']) && BrandCover::styleOf(Brand::query()->find($site->brand_id)) === BrandCover::MOXIMU_REHBER) {
+                    $action['article']['categories'] = [['name' => $shelf]];
+                }
                 $action['daily'] = array_merge((array) ($action['daily'] ?? []), ['slot' => $slot->format('Y-m-d H:i'), 'sent_at' => now()->toIso8601String()]);
                 $pick->forceFill(['action' => $action])->save();
                 $planner->sendDraft($pick->fresh(), $actor, $refresh ? null : $slot);
@@ -569,6 +574,26 @@ final class DailyBlog
         } catch (Throwable $e) {
             Log::info('Daily blog Instagram draft skipped.', ['suggestion' => $suggestion->id, 'error' => $e->getMessage()]);
         }
+    }
+
+    /** The moximu.com/rehber topic shelf an article belongs on (the site's own category names); null when none fits. */
+    public static function shelf(string $title): ?string
+    {
+        $t = SeoText::fold($title);
+        foreach ([
+            'Mevzuat' => '/yonetmelik|mevzuat|yasak|tanitim kural/',
+            'Meta reklam' => '/\b(meta|instagram|facebook)\b/',
+            'Google Ads' => '/google ads|\breklam|kampanya|tiklama|butce/',
+            'Google İşletme Profili' => '/isletme profili|harita|yorum|google karti/',
+            'Web sitesi' => '/web sitesi|\bsite(si|niz)?\b|form/',
+            'SEO' => '/\bseo\b|arama|siralama|search console/',
+        ] as $name => $pattern) {
+            if (preg_match($pattern, $t) === 1) {
+                return $name;
+            }
+        }
+
+        return null;
     }
 
     /** The article's public address once it is out: an updated page keeps its own, a new post lives under /rehber/. */

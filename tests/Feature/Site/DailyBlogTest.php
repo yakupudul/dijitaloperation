@@ -119,6 +119,9 @@ final class DailyBlogTest extends SiteTestCase
         $write = ExternalWriteAction::query()->where('action', ExternalWriteAction::ACTION_ARTICLE_DRAFTS)->orderBy('id')->first();
         $draft = $write->request_payload['drafts'][0]['draft'];
         $this->assertTrue($draft['schedule']);
+        $this->assertSame('Google İşletme Profili', DailyBlog::shelf('Google İşletme Profili nasıl kurulur?'));
+        $this->assertSame('Google Ads', DailyBlog::shelf('Google reklam kâr ve zarar hesaplama nasıl yapılır?'));
+        $this->assertSame('SEO', DailyBlog::shelf('Klinik SEO nasıl ölçülür?'));
         $this->assertSame('2026-11-13T06:00:00+00:00', $draft['post_date']);
         $html = (string) data_get($guide->fresh()->action, 'article.html');
         $this->assertStringContainsString('https://panorama.com.tr/hizmetlerimiz/google-isletme-profili/', $html);
