@@ -172,7 +172,12 @@ function mx_webp_swap(string $html): string
     }
     [$baseurl, $basedir] = mx_webp_dirs();
     $missing = [];
-    $html = (string) preg_replace_callback('~'.preg_quote($baseurl, '~').'(/[^"\'\s,)]+?\.(?:png|jpe?g))(?=["\'\s,)])~i', static function (array $m) use ($baseurl, $basedir, &$missing): string {
+    // <meta> tags (og:image, twitter:image) keep the JPG/PNG: LinkedIn and some other link previews do not read WebP and
+    // fall back to a small thumbnail (yakup 2026-11-13).
+    $html = (string) preg_replace_callback('~<meta\b[^>]*>|'.preg_quote($baseurl, '~').'(/[^"\'\s,)]+?\.(?:png|jpe?g))(?=["\'\s,)])~i', static function (array $m) use ($baseurl, $basedir, &$missing): string {
+        if (! isset($m[1]) || $m[1] === '') {
+            return $m[0];
+        }
         $file = $basedir.$m[1];
         if (is_file($file.'.webp')) {
             return $baseurl.$m[1].'.webp';
