@@ -11,6 +11,7 @@ use App\Services\WhatsApp\Backup\WhatsAppBackupImporter;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -61,13 +62,15 @@ final class ConversationArchive
     {
         $term = mb_substr(trim($q), 0, 100);
         $digits = preg_replace('/\D+/', '', $term);
+        // PostgreSQL's like is case-sensitive; a name is found however it is typed.
+        $like = DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
         $rows = $this->scope($source)
-            ->when($term !== '', fn (Builder $query) => $query->where(function (Builder $nested) use ($term, $digits): void {
-                $nested->where('contact_name', 'like', '%'.$term.'%');
+            ->when($term !== '', fn (Builder $query) => $query->where(function (Builder $nested) use ($term, $digits, $like): void {
+                $nested->where('contact_name', $like, '%'.$term.'%');
                 if (strlen((string) $digits) >= 4) {
                     $nested->orWhere('contact_id', 'like', '%'.$digits.'%');
                 }
-                $customers = Customer::query()->where('name', 'like', '%'.$term.'%')->limit(50)->pluck('id');
+                $customers = Customer::query()->where('name', $like, '%'.$term.'%')->limit(50)->pluck('id');
                 if ($customers->isNotEmpty()) {
                     $nested->orWhereIn('customer_id', $customers);
                 }
