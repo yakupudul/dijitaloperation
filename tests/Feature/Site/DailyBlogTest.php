@@ -109,6 +109,7 @@ final class DailyBlogTest extends SiteTestCase
         $this->assertSame(0, app(ContentAutopilot::class)->ready()->count(), 'the daily click never takes this line');
 
         $now = CarbonImmutable::parse('2026-11-13 07:30', 'Europe/Istanbul');
+        $this->travelTo($now); // the slot has to be in the future for the post to go scheduled
         $sent = app(DailyBlog::class)->publish($this->site, $this->admin, $now);
 
         $this->assertSame(2, $sent, json_encode([$guide->fresh()->action['daily'] ?? null, $local->fresh()->action['daily'] ?? null], JSON_UNESCAPED_UNICODE));
@@ -123,6 +124,25 @@ final class DailyBlogTest extends SiteTestCase
         $this->assertStringContainsString('https://panorama.com.tr/hizmetlerimiz/google-isletme-profili/', $html);
         $this->assertStringContainsString('ücretsiz ön değerlendirme', $html);
         $this->assertSame('2026-11-14 09:00', app(DailyBlog::class)->freeSlots($this->site, $now)[0]->format('Y-m-d H:i'), 'the next free slot is tomorrow morning');
+    }
+
+    public function test_the_sales_paragraph_never_links_a_service_on_a_shared_word_only(): void
+    {
+        $this->page('/hizmetlerimiz/google-isletme-profili/', 'Google İşletme Profili · Moximu');
+        $this->page('/hizmetlerimiz/google-ads/', 'Google Ads yönetimi · Moximu');
+        $this->page('/ucretsiz-klinik-analizi/', 'Ücretsiz ön değerlendirme');
+        $linked = $this->idea('Google Ads danışmanına nasıl ulaşılır?');
+        $action = $linked->action;
+        $action['article']['html'] .= '<p><a href="https://panorama.com.tr/hizmetlerimiz/google-ads/">Google Ads</a></p>';
+        $linked->forceFill(['action' => $action])->save();
+        app(DailyBlog::class)->decorate($linked, $this->site);
+        $html = (string) data_get($linked->fresh()->action, 'article.html');
+        $this->assertStringNotContainsString('google-isletme-profili', $html, 'only "google" is shared: no Business Profile link');
+        $this->assertStringContainsString('ücretsiz ön değerlendirme', $html);
+
+        $plain = $this->idea('Google Ads hesabında ilk optimizasyon');
+        app(DailyBlog::class)->decorate($plain, $this->site);
+        $this->assertStringContainsString('/hizmetlerimiz/google-ads/', (string) data_get($plain->fresh()->action, 'article.html'));
     }
 
     public function test_without_its_own_cover_the_article_waits_instead_of_taking_a_site_photo(): void

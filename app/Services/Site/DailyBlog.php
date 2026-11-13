@@ -496,16 +496,21 @@ final class DailyBlog
         $pages = Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)->get(['id', 'url', 'path', 'title']);
         $topic = SeoText::fold(implode(' ', [(string) data_get($action, 'article.title', $suggestion->title), (string) ($action['query'] ?? ''), (string) ($action['service'] ?? '')]));
         $topicWords = preg_split('/[^a-z0-9]+/', $topic, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        $service = $pages->filter(fn (Page $p): bool => preg_match('#^/(hizmetlerimiz|klinik|kurumlar|sehirler)/[^/]+/(seo/)?$#', (string) $p->path) === 1 && ! str_contains($html, rtrim((string) $p->path, '/')))
-            ->map(function (Page $p) use ($topicWords): array {
+        // Words every service page shares ("google", "klinik", "yönetimi") say nothing about the subject: an article on
+        // Google Ads once got the Business Profile page because "google" was the only match.
+        $generic = ['google', 'klinik', 'klinikler', 'kliniginiz', 'icin', 'hizmet', 'hizmetlerimiz', 'hizmeti', 'yonetimi', 'yonetim', 'moximu', 'nasil', 'neden', 'nedir'];
+        $best = $pages->filter(fn (Page $p): bool => preg_match('#^/(hizmetlerimiz|klinik|kurumlar|sehirler)/[^/]+/(seo/)?$#', (string) $p->path) === 1)
+            ->map(function (Page $p) use ($topicWords, $generic): array {
                 $words = preg_split('/[^a-z0-9]+/', SeoText::fold($p->title.' '.$p->path), -1, PREG_SPLIT_NO_EMPTY) ?: [];
                 $score = 0;
                 foreach (array_unique($words) as $w) {
-                    $score += mb_strlen($w) >= 3 && in_array($w, $topicWords, true) ? (str_starts_with((string) $p->path, '/hizmetlerimiz/') ? 3 : 2) : 0;
+                    $score += mb_strlen($w) >= 3 && ! in_array($w, $generic, true) && in_array($w, $topicWords, true) ? (str_starts_with((string) $p->path, '/hizmetlerimiz/') ? 3 : 2) : 0;
                 }
 
                 return ['page' => $p, 'score' => $score];
             })->filter(fn (array $c): bool => $c['score'] > 0)->sortByDesc('score')->first()['page'] ?? null;
+        // The article already links its own service page: no second, weaker one.
+        $service = $best !== null && ! str_contains($html, rtrim((string) $best->path, '/')) ? $best : null;
         $free = $pages->first(fn (Page $p): bool => str_contains(SeoText::fold((string) $p->title), 'on degerlendirme') || str_contains((string) $p->path, 'ucretsiz'));
         if ($service === null && $free === null) {
             return;
@@ -513,7 +518,7 @@ final class DailyBlog
         $parts = [];
         if ($service !== null) {
             $name = trim((string) preg_replace('/\s*[·|:].*$/u', '', (string) $service->title));
-            $parts[] = 'Bu konuyu kendi kliniğinizde nasıl uyguladığımızı <a href="'.e((string) $service->url).'">'.e($name).'</a> sayfasında anlattık.';
+            $parts[] = 'Bu işi kliniğiniz için nasıl yaptığımızı <a href="'.e((string) $service->url).'">'.e($name).'</a> sayfasında anlattık.';
         }
         if ($free !== null) {
             $parts[] = 'Önce kliniğinizin bugünkü durumunu görmek isterseniz <a href="'.e((string) $free->url).'">ücretsiz ön değerlendirme</a> isteyebilirsiniz; klinik adınız yeterlidir.';
