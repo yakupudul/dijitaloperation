@@ -19,7 +19,10 @@ class SocialAccount extends Model
 
     public const string LINKEDIN = 'linkedin';
 
-    public const array PLATFORMS = [self::INSTAGRAM, self::FACEBOOK, self::LINKEDIN];
+    /** The agency's Threads profile: short text posts through the Threads API once "Threads'i bağla" stored a token. */
+    public const string THREADS = 'threads';
+
+    public const array PLATFORMS = [self::INSTAGRAM, self::FACEBOOK, self::LINKEDIN, self::THREADS];
 
     protected $guarded = [];
 
@@ -37,6 +40,7 @@ class SocialAccount extends Model
             self::INSTAGRAM => 'Instagram',
             self::FACEBOOK => 'Facebook',
             self::LINKEDIN => 'LinkedIn',
+            self::THREADS => 'Threads',
             default => (string) $this->platform,
         };
     }
@@ -67,6 +71,7 @@ class SocialAccount extends Model
             self::INSTAGRAM => $this->username ? 'https://www.instagram.com/'.$this->username.'/' : null,
             self::FACEBOOK => 'https://www.facebook.com/'.$this->external_id,
             self::LINKEDIN => $this->meta['url'] ?? null,
+            self::THREADS => $this->username ? 'https://www.threads.net/@'.$this->username : null,
             default => null,
         };
     }

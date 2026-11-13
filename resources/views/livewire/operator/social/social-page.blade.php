@@ -378,6 +378,68 @@
                         </details>
                     @endif
                 </div>
+
+                @php
+                    $thAccount = $accounts->where('platform', 'threads')->first();
+                    $thLive = $thAccount !== null && ! $thAccount->isManual() && ! ($thAccount->token_expires_at?->isPast() ?? false);
+                @endphp
+                <div class="card space-y-5 p-5" data-threads>
+                    <div>
+                        <h2 class="section-title">Threads{{ $thLive ? ' · otomatik paylaşım açık' : '' }}</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                            @if ($thLive)
+                                {{ $thAccount->displayName() }} bağlı. Blog yazıları yayınlandığında kısa metin ve bağlantı olarak Threads’te de paylaşılır. Bağlantı {{ $thAccount->token_expires_at?->timezone($tz)->format('d.m.Y') }} tarihine kadar geçerli ve bitmeden kendiliğinden yenilenir.
+                            @else
+                                Blog yazıları Instagram yerine Threads’te kısa metin olarak paylaşılır. Aşağıdaki dört adım bir kez yapılır; Meta incelemesi beklenmez.
+                            @endif
+                        </p>
+                    </div>
+                    <ol class="space-y-4 text-sm">
+                        <li class="flex gap-3" data-step="threads-profile">
+                            <span @class([$liBadge, $liStep($thLive)])>{{ $thLive ? '✓' : '1' }}</span>
+                            <div class="min-w-0 space-y-1">
+                                <p class="font-semibold">Threads profilini açın</p>
+                                <p class="text-gray-600 dark:text-gray-300">Telefonda Threads uygulamasını indirip <b>@moximucom</b> Instagram hesabıyla girin. Profil zaten varsa bu adımı geçin.</p>
+                            </div>
+                        </li>
+                        <li class="flex gap-3" data-step="threads-usecase">
+                            <span @class([$liBadge, $liStep($threadsApp)])>{{ $threadsApp ? '✓' : '2' }}</span>
+                            <div class="min-w-0 space-y-1">
+                                <p class="font-semibold">Meta uygulamasına Threads’i ekleyin</p>
+                                <p class="text-gray-600 dark:text-gray-300"><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener" class="underline">Meta for Developers › Uygulamalarım ↗</a>: sosyal medya için kullandığımız uygulamada <b>Kullanım alanları › Kullanım alanı ekle › Threads API’ye eriş</b>. Ardından <b>Threads API’ye eriş › Ayarlar</b> sayfasında üç “Yönlendirme / geri çağırma URL” alanına şunu yazın: <code class="text-xs">{{ $threadsCallback }}</code>. <b>İzinler</b> bölümünde <b>threads_content_publish</b>’i ekleyin.</p>
+                            </div>
+                        </li>
+                        <li class="flex gap-3" data-step="threads-tester">
+                            <span @class([$liBadge, $liStep($thLive)])>{{ $thLive ? '✓' : '3' }}</span>
+                            <div class="min-w-0 space-y-1">
+                                <p class="font-semibold">Hesabı test kullanıcısı yapın ve kimlikleri kaydedin</p>
+                                <p class="text-gray-600 dark:text-gray-300"><b>Uygulama rolleri › Roller › Kişi ekle › Threads test kullanıcısı</b>: <b>moximucom</b>. Sonra Threads uygulamasında <b>Ayarlar › Hesap › Web sitesi izinleri › Davetler</b>’den daveti kabul edin. Threads ayarları sayfasındaki <b>Threads uygulama kimliği</b> ve <b>Threads uygulama gizli anahtarı</b>’nı (Meta uygulama kimliğinden farklıdır) aşağıya yapıştırın.</p>
+                                @if ($canWrite)
+                                    <div class="mt-2 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                                        <input type="text" wire:model="threadsAppId" autocomplete="off" placeholder="Threads uygulama kimliği" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                                        <input type="password" wire:model="threadsAppSecret" autocomplete="off" placeholder="{{ $threadsApp ? 'Gizli anahtar (kayıtlı)' : 'Threads uygulama gizli anahtarı' }}" class="rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                                        <button type="button" wire:click="saveThreadsApp" class="btn" data-threads-save>Kaydet</button>
+                                    </div>
+                                    @error('threadsAppId')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                                    @error('threadsAppSecret')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                                @endif
+                            </div>
+                        </li>
+                        <li class="flex gap-3" data-step="threads-login">
+                            <span @class([$liBadge, $liStep($thLive)])>{{ $thLive ? '✓' : '4' }}</span>
+                            <div class="min-w-0 space-y-2">
+                                <p class="font-semibold">Threads ile giriş yapın</p>
+                                <p class="text-gray-600 dark:text-gray-300">@moximucom hesabıyla girip izin verin.</p>
+                                @if ($canWrite && $threadsApp)
+                                    <a href="{{ route('integrations.threads.authorize') }}" class="btn-primary inline-flex" data-threads-connect>{{ $thLive ? 'Threads’i yeniden bağla' : 'Threads’i bağla' }}</a>
+                                @endif
+                                @if ($threadsAttempt)
+                                    <p @class(['rounded-lg px-3 py-2', 'tone-ok' => $threadsAttempt['ok'], 'tone-look' => ! $threadsAttempt['ok']]) data-threads-attempt>Son deneme {{ \Illuminate\Support\Carbon::parse($threadsAttempt['at'])->timezone($tz)->format('d.m.Y H:i') }}: {{ $threadsAttempt['text'] }}</p>
+                                @endif
+                            </div>
+                        </li>
+                    </ol>
+                </div>
             </section>
         @endif
     </div>

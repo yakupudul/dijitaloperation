@@ -28,7 +28,7 @@ class SocialPlanner
     public const int MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
     /**
-     * @param  array{kind: string, caption?: ?string, linkedin_text?: ?string, pillar?: ?string, title?: ?string, source_url?: ?string, publish_at: string|CarbonInterface, created_by?: string, platforms?: ?list<string>}  $data
+     * @param  array{kind: string, caption?: ?string, linkedin_text?: ?string, threads_text?: ?string, pillar?: ?string, title?: ?string, source_url?: ?string, publish_at: string|CarbonInterface, created_by?: string, platforms?: ?list<string>}  $data
      * @param  list<array{bytes: string, name: string}>  $files
      */
     public function create(array $data, array $files): SocialPost
@@ -55,6 +55,7 @@ class SocialPlanner
                 'title' => isset($data['title']) ? Str::limit(trim((string) $data['title']), 190, '') : null,
                 'caption' => $this->clean($data['caption'] ?? null, 2200),
                 'linkedin_text' => $this->clean($data['linkedin_text'] ?? null, 3000),
+                'threads_text' => $this->clean($data['threads_text'] ?? null, 1000),
                 'source_url' => $data['source_url'] ?? null,
                 'publish_at' => $publishAt->utc(),
                 'media' => [],
@@ -98,6 +99,10 @@ class SocialPlanner
             }
             if ($a->platform === SocialAccount::LINKEDIN) {
                 return $post->kind !== 'story' && trim((string) $post->linkedin_text) !== '';
+            }
+            if ($a->platform === SocialAccount::THREADS) {
+                // Threads gets a post only as its own short text.
+                return trim((string) $post->threads_text) !== '';
             }
 
             return true;

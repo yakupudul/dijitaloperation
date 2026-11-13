@@ -8,6 +8,7 @@ use App\Http\Controllers\Calendar\CalendarFeedController;
 use App\Http\Controllers\Integrations\GoogleOAuthController;
 use App\Http\Controllers\Integrations\LinkedInOAuthController;
 use App\Http\Controllers\Integrations\MetaOAuthController;
+use App\Http\Controllers\Integrations\ThreadsOAuthController;
 use App\Http\Controllers\Integrations\WhatsAppBackupController;
 use App\Http\Controllers\Integrations\WhatsAppExportController;
 use App\Http\Controllers\Integrations\WhatsAppSignupController;
@@ -26,8 +27,8 @@ use App\Livewire\Operator\AssetDataSourcesPage;
 use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
 use App\Livewire\Operator\PublicDiscoveryIndex;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
-use App\Livewire\Operator\WhatsApp\Inbox as WhatsAppInbox;
 use App\Livewire\Operator\WhatsApp\Conversations as WhatsAppConversations;
+use App\Livewire\Operator\WhatsApp\Inbox as WhatsAppInbox;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
@@ -96,6 +97,14 @@ Route::middleware(['web', 'auth'])->group(function (): void {
 
     Route::get('/integrations/linkedin/callback', [LinkedInOAuthController::class, 'callback'])
         ->name('integrations.linkedin.callback');
+
+    // Threads (Sosyal › Hesaplar): this callback URL goes into the Threads use case of the Meta app.
+    Route::get('/integrations/threads/authorize', [ThreadsOAuthController::class, 'authorize'])
+        ->middleware('throttle:10,1')
+        ->name('integrations.threads.authorize');
+
+    Route::get('/integrations/threads/callback', [ThreadsOAuthController::class, 'callback'])
+        ->name('integrations.threads.callback');
 
     Route::get('/integrations/meta/{integration}/authorize', [MetaOAuthController::class, 'authorize'])
         ->name('integrations.meta.authorize');

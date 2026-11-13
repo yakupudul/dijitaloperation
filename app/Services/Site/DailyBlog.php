@@ -5,6 +5,7 @@ namespace App\Services\Site;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Models\Page;
+use App\Models\SocialPost;
 use App\Models\Suggestion;
 use App\Models\User;
 use App\Models\WhatsAppMessage;
@@ -538,7 +539,7 @@ final class DailyBlog
      * (the article is live by then) and stays outside the daily post line.
      */
     /** @var list<string> where an article's social post goes; never Instagram */
-    public const array SOCIAL_PLATFORMS = ['facebook', 'linkedin'];
+    public const array SOCIAL_PLATFORMS = ['facebook', 'linkedin', 'threads'];
 
     public function instagramDraft(Suggestion $suggestion, CarbonImmutable $slot, ?int $approver = null): void
     {
@@ -570,6 +571,8 @@ final class DailyBlog
                 : null;
             $post = app(SocialPlanner::class)->create([
                 'kind' => 'image', 'pillar' => 'rehber', 'title' => $title, 'caption' => $caption, 'linkedin_text' => $linkedin,
+                // Threads (once connected) gets the article as a short text: what it says in a sentence, then the link.
+                'threads_text' => $excerpt !== '' && $link !== null ? $excerpt."\n\n".$link : null,
                 'publish_at' => $slot->addMinutes(self::INSTAGRAM_AFTER_MINUTES), 'created_by' => 'blog',
                 // yakup 2026-11-13: blog covers no longer go to Instagram (local search titles crowd the profile and
                 // say nothing to a hekim elsewhere); Facebook and LinkedIn keep them.
@@ -594,7 +597,7 @@ final class DailyBlog
             return false;
         }
 
-        return ! \App\Models\SocialPost::query()->where('created_by', 'blog')
+        return ! SocialPost::query()->where('created_by', 'blog')
             ->whereNotNull('linkedin_text')->where('linkedin_text', '!=', '')
             ->whereBetween('publish_at', [$slot->subDays(6), $slot->addDays(6)])->exists();
     }

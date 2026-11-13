@@ -42,6 +42,7 @@ use Illuminate\Database\Eloquent\Model;
 #[Hidden([
     'social_meta_app_secret',
     'social_linkedin_client_secret',
+    'social_threads_app_secret',
     'ai_openai_admin_key',
     'mail_password',
     'push_ntfy_token',
@@ -87,6 +88,7 @@ class AgencySetting extends Model
             'backup_remote_password' => 'encrypted',
             'social_meta_app_secret' => 'encrypted',
             'social_linkedin_client_secret' => 'encrypted',
+            'social_threads_app_secret' => 'encrypted',
             'ai_openai_free_quota' => 'boolean',
             'ai_openai_admin_key' => 'encrypted',
             'ai_workers' => 'array',

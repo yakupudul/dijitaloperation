@@ -25,7 +25,7 @@ class SocialPublisher
 
     private const REELS_COVER_MS = 5000;
 
-    public function __construct(private readonly SocialGraph $graph, private readonly LinkedInApi $linkedin) {}
+    public function __construct(private readonly SocialGraph $graph, private readonly LinkedInApi $linkedin, private readonly ThreadsApi $threads) {}
 
     /** Publishes everything due. @return array{published: int, failed: int, processing: int} */
     public function run(): array
@@ -100,6 +100,7 @@ class SocialPublisher
                 SocialAccount::INSTAGRAM => $this->instagram($post, $target, $account),
                 SocialAccount::FACEBOOK => $this->facebook($post, $account),
                 SocialAccount::LINKEDIN => $this->linkedin->publish($post, $target, $account),
+                SocialAccount::THREADS => $this->threads->publish($post, $account),
                 default => throw new SocialGraphException('Bu kanal desteklenmiyor.'),
             };
         } catch (SocialGraphException $e) {

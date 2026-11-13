@@ -16,6 +16,7 @@ use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
 use App\Services\Social\SocialSchedule;
 use App\Services\Social\SocialTrendWatch;
+use App\Services\Social\ThreadsApi;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -113,6 +114,11 @@ final class SocialPage extends Component
 
     public string $linkedinClientId = '';
 
+    public string $threadsAppId = '';
+
+    /** Write-only: the stored Threads app secret never enters Livewire state. */
+    public string $threadsAppSecret = '';
+
     /** Write-only: the stored LinkedIn Client Secret never enters Livewire state. */
     public string $linkedinClientSecret = '';
 
@@ -145,6 +151,7 @@ final class SocialPage extends Component
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
         $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
         $this->linkedinClientId = (string) (AgencySetting::query()->value('social_linkedin_client_id') ?? '');
+        $this->threadsAppId = (string) (AgencySetting::query()->value('social_threads_app_id') ?? '');
         $this->newTime = now(SocialPlanner::TIMEZONE)->addDay()->setTime(11, 30)->format('Y-m-d\TH:i');
     }
 
@@ -407,6 +414,32 @@ final class SocialPage extends Component
         $this->socialAppSecret = '';
     }
 
+    /** Threads app of the Meta app (Threads use case › Settings): its own app ID and secret, needed before "Threads'i bağla". */
+    public function saveThreadsApp(): void
+    {
+        $this->authorizeAdmin();
+        $id = trim($this->threadsAppId);
+        $secret = trim($this->threadsAppSecret);
+        $setting = AgencySetting::query()->first() ?? new AgencySetting;
+        if ($id === '' && $secret === '') {
+            $setting->forceFill(['social_threads_app_id' => null, 'social_threads_app_secret' => null])->save();
+            $this->message = 'Threads uygulaması kaldırıldı.';
+        } else {
+            $this->validate([
+                'threadsAppId' => ['required', 'string', 'regex:/^\d{8,24}$/'],
+                'threadsAppSecret' => [$setting->social_threads_app_secret ? 'nullable' : 'required', 'string', 'min:8', 'max:200'],
+            ], [
+                'threadsAppId.regex' => 'Threads uygulama kimliği yalnız rakamlardan oluşur (Threads ayarlarındaki “Threads uygulama kimliği”).',
+                'threadsAppSecret.required' => 'Threads uygulama gizli anahtarı gerekli.',
+            ]);
+            $setting->forceFill(['social_threads_app_id' => $id] + ($secret !== '' ? ['social_threads_app_secret' => $secret] : []))->save();
+            $this->message = 'Threads uygulaması kaydedildi. Şimdi “Threads’i bağla” ile giriş yapın.';
+        }
+        $this->threadsAppId = $id;
+        $this->threadsAppSecret = '';
+        $this->messageTone = 'success';
+    }
+
     /** LinkedIn developer app (Auth tab): Client ID and Client Secret, needed before "LinkedIn'i bağla". */
     public function saveLinkedinApp(): void
     {
@@ -526,6 +559,9 @@ final class SocialPage extends Component
             'linkedinCallback' => LinkedInConnector::redirectUri(),
             'linkedinScopes' => LinkedInConnector::SCOPES,
             'linkedinAttempt' => LinkedInConnector::lastAttempt(),
+            'threadsApp' => ThreadsApi::app() !== null,
+            'threadsCallback' => ThreadsApi::redirectUri(),
+            'threadsAttempt' => ThreadsApi::lastAttempt(),
         ]);
     }
 
