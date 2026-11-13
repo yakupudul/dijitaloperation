@@ -83,3 +83,11 @@ add_shortcode( 'np_oda_rehberi', function () {
 add_shortcode( 'np_bilgi_seridi', function () {
 	return np_facts();
 } );
+
+// Site başka bir adrese taşındığında kalıcı bağlantı kuralları bir kez yenilenir (robots.txt kök adreste böyle açılır).
+add_action( 'init', function () {
+	if ( get_option( 'np_rw_home' ) !== home_url() ) {
+		update_option( 'np_rw_home', home_url() );
+		flush_rewrite_rules( false );
+	}
+}, 99 );
