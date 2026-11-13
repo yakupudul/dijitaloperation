@@ -309,6 +309,46 @@ class FinanceAreaTest extends TestCase
         $this->assertTrue($gmail->state()['backfill_done']);
     }
 
+    public function test_from_the_mailbox_only_papers_in_our_own_name_are_taken(): void
+    {
+        $docs = app(FinanceDocuments::class);
+        // Written to someone else: nothing of it is kept but a mark, so the mail is not read again.
+        $other = $docs->keepSet([['bytes' => $this->invoiceXml('9998887776', 'Hostinger Bilişim', '5554443332', 'Başka Klinik Ltd', '600.00', '100.00'), 'name' => 'a.xml']], ['source' => 'gmail', 'external_id' => 'gmail:m9:a']);
+        $this->assertSame('ignored', $other[0]->status);
+        $this->assertNull($other[0]->path);
+        $this->assertNull($other[0]->counterparty);
+        $this->assertNull($other[0]->amount);
+        $this->assertSame(FinanceDocuments::NOT_MINE, data_get($other[0]->meta, 'reason'));
+        Livewire::test(FinancePage::class)->set('tab', 'faturalar')->set('direction', 'yok')->assertDontSee('a.xml')->call('restoreDoc', $other[0]->id);
+        $this->assertSame('ignored', $other[0]->fresh()->status);
+
+        // Written to "UDÜL YAKUP" (no vergi no typed yet) and one we wrote as Moximu: both are taken.
+        $mine = $docs->keepSet([['bytes' => $this->invoiceXml('9998887776', 'Hostinger Bilişim', '22222222222', 'UDÜL YAKUP', '700.00', '100.00'), 'name' => 'b.xml']], ['source' => 'gmail', 'external_id' => 'gmail:m9:b']);
+        $this->assertSame('new', $mine[0]->status);
+        $this->assertNotNull($mine[0]->path);
+        $wrote = $docs->keepSet([['bytes' => $this->invoiceXml('33333333333', 'Moximu Dijital', '5554443332', 'Başka Klinik Ltd', '800.00', '100.00'), 'name' => 'c.xml']], ['source' => 'gmail', 'external_id' => 'gmail:m9:c']);
+        $this->assertSame(FinanceDocument::OUT, $wrote[0]->direction);
+        $this->assertNotSame('ignored', $wrote[0]->status);
+
+        // The same paper uploaded by hand is the operator's own choice.
+        $hand = $docs->keep($this->invoiceXml('9998887776', 'Hostinger Bilişim', '5554443332', 'Başka Klinik Ltd', '900.00', '100.00'), 'd.xml');
+        $this->assertNotSame('ignored', $hand[0]->status);
+
+        // One taken before the rule is read once more and dropped with its file.
+        $xml = $this->invoiceXml('9998887776', 'Natro', '5554443332', 'Başka Klinik Ltd', '950.00', '100.00');
+        Storage::disk(FinanceDocuments::DISK)->put('finance/old/e.xml', $xml);
+        $old = FinanceDocument::query()->create(['direction' => FinanceDocument::IN, 'source' => 'gmail', 'status' => 'filed', 'original_name' => 'e.xml', 'mime' => 'text/xml', 'path' => 'finance/old/e.xml',
+            'sha256' => hash('sha256', $xml), 'doc_date' => '2026-10-01', 'counterparty' => 'Natro', 'amount' => 950, 'currency' => 'TRY', 'meta' => ['subject' => 'Fatura']]);
+        $done = $docs->recheckMail();
+        $this->assertSame(1, $done['dropped']);
+        $this->assertSame(0, $done['left']);
+        $this->assertSame('ignored', $old->fresh()->status);
+        $this->assertNull($old->fresh()->amount);
+        Storage::disk(FinanceDocuments::DISK)->assertMissing('finance/old/e.xml');
+        $this->assertSame('new', $mine[0]->fresh()->status);
+        $this->assertSame(2, app(GmailInvoices::class)->state()['not_mine']);
+    }
+
     public function test_a_pdf_is_read_by_the_claude_api_and_its_cost_is_kept(): void
     {
         config(['moxdop.anthropic.api_key' => 'configured', 'ai.providers.anthropic.key' => 'configured']);

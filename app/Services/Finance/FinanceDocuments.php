@@ -27,6 +27,9 @@ final class FinanceDocuments
     /** Upload limit (bytes) and the file kinds taken. */
     public const int MAX_BYTES = 15_000_000;
 
+    /** meta.reason of a mail paper that is not in our own name: only its mark is kept. */
+    public const string NOT_MINE = 'not_mine';
+
     public const array EXTENSIONS = ['pdf', 'xml', 'jpg', 'jpeg', 'png', 'webp', 'zip', 'html'];
 
     public function __construct(private readonly FinanceReader $reader, private readonly FinanceSettings $settings) {}
@@ -212,6 +215,76 @@ final class FinanceDocuments
         return ['agreement' => $pick, 'payment' => $row];
     }
 
+    /**
+     * Is the paper in our own name: we wrote it (the seller is us) or it was written to us (the buyer is us).
+     *
+     * @param  array<string, mixed>  $read
+     */
+    public function inOurName(array $read): bool
+    {
+        return $this->ours($read['seller'] ?? null, $read['seller_tax_no'] ?? null) || $this->ours($read['buyer'] ?? null, $read['buyer_tax_no'] ?? null);
+    }
+
+    /** Our vergi / TC no, or one of our names with all its words in the name (in any order: "UDÜL YAKUP"). */
+    public function ours(?string $name, ?string $tax): bool
+    {
+        $own = $this->settings->all();
+        if ($tax !== null && $own['own_tax_no'] !== '' && $tax === $own['own_tax_no']) {
+            return true;
+        }
+        $key = self::key((string) $name);
+        if ($key === '') {
+            return false;
+        }
+        foreach ($own['own_names'] as $mine) {
+            $words = array_values(array_filter(array_map(fn (string $w): string => self::key($w), preg_split('/\s+/u', $mine) ?: [])));
+            if ($words !== [] && collect($words)->every(fn (string $w): bool => str_contains($key, $w))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Mail papers taken before the rule "only in our own name": each is read once more; one that is not ours loses its
+     * file and what was read, and stays only as a mark. An invoice we wrote is ours already.
+     *
+     * @return array{checked: int, dropped: int, left: int}
+     */
+    public function recheckMail(int $limit = 8): array
+    {
+        $open = fn () => FinanceDocument::query()->where('source', 'gmail')->where('status', '!=', 'ignored')->whereNull('meta->mine');
+        $out = ['checked' => 0, 'dropped' => 0, 'left' => 0];
+        foreach ($open()->orderBy('id')->limit($limit)->get() as $doc) {
+            $mine = $doc->direction === FinanceDocument::OUT ? true : null;
+            if ($mine === null) {
+                $bytes = $this->bytes($doc);
+                $read = $bytes !== null ? $this->reader->read($bytes, (string) $doc->mime, (string) $doc->original_name, ['from' => data_get($doc->meta, 'from'), 'subject' => data_get($doc->meta, 'subject')]) : null;
+                if ($read === null && $bytes !== null && strlen($bytes) <= FinanceReader::AI_MAX_BYTES) {
+                    break; // the API cannot read now: the rest waits for the next run
+                }
+                $mine = $read !== null && $this->inOurName($read);
+            }
+            $out['checked']++;
+            if ($mine) {
+                $doc->forceFill(['meta' => ['mine' => true] + (array) $doc->meta])->save();
+
+                continue;
+            }
+            if ($doc->hasFile() && ! FinanceDocument::query()->where('path', $doc->path)->where('id', '!=', $doc->id)->exists()) {
+                Storage::disk(self::DISK)->delete((string) $doc->path);
+            }
+            $doc->forceFill(['status' => 'ignored', 'path' => null, 'counterparty' => null, 'counterparty_tax_no' => null, 'doc_no' => null, 'amount' => null, 'vat' => null,
+                'agreement_id' => null, 'payment_id' => null, 'brand_id' => null, 'rebill' => false, 'vendor_key' => null, 'category' => null, 'note' => null,
+                'meta' => ['reason' => self::NOT_MINE]])->save();
+            $out['dropped']++;
+        }
+        $out['left'] = $open()->count();
+
+        return $out;
+    }
+
     /** "ÖZEL DEMİDERM POLİKLİNİĞİ LTD. ŞTİ." → "ozeldemidermpoliklinigi": names compared without case, marks and company tails. */
     public static function key(string $name): string
     {
@@ -239,9 +312,15 @@ final class FinanceDocuments
         }
         $read ??= $this->reader->read($bytes, $mime, $name, ['from' => $hint['from'] ?? null, 'subject' => $hint['subject'] ?? null, 'hint' => $hint['context'] ?? null]);
         $source = (string) ($hint['source'] ?? 'upload');
+        // From the mailbox only a paper in our own name is taken (yakup 2026-11-13: "fatura benim adıma düzenlenmemişse
+        // kesinlikle alma"). One that could not be read is not taken either: the mail is read again later.
+        if ($source === 'gmail' && $read === null && strlen($bytes) <= FinanceReader::AI_MAX_BYTES) {
+            throw new UnreadDocument('Belge okunamadı; sonra yeniden denenecek.');
+        }
+        $notMine = $source === 'gmail' && ($read === null || ! $this->inOurName($read));
         // A mail attachment or a WhatsApp photo that is no finance document is not kept at all; only its mark stays, so
         // it is not read again.
-        $notOurs = $read !== null && $read['kind'] === 'other' && $source !== 'upload';
+        $notOurs = $notMine || ($read !== null && $read['kind'] === 'other' && $source !== 'upload');
         $onlyReceipts = ! empty($hint['only_receipts']) && ($read === null || $read['kind'] !== 'receipt');
         if ($onlyReceipts) {
             return null;
@@ -250,8 +329,17 @@ final class FinanceDocuments
             'source' => $source, 'status' => $notOurs ? 'ignored' : 'new', 'original_name' => mb_substr($name, 0, 250), 'mime' => mb_substr($mime, 0, 120),
             'size' => strlen($bytes), 'sha256' => $sha, 'external_id' => isset($hint['external_id']) ? mb_substr((string) $hint['external_id'], 0, 190) : null,
             'created_by' => $hint['user_id'] ?? null, 'cost_usd' => (float) ($read['cost_usd'] ?? 0),
-            'meta' => array_filter(['from' => $hint['from'] ?? null, 'subject' => $hint['subject'] ?? null, 'read_by' => $read['by'] ?? null, 'summary' => $read['summary'] ?? null]),
+            'meta' => array_filter(['from' => $hint['from'] ?? null, 'subject' => $hint['subject'] ?? null, 'read_by' => $read['by'] ?? null, 'summary' => $read['summary'] ?? null,
+                'reason' => $notMine ? self::NOT_MINE : null, 'mine' => $source === 'gmail' && ! $notOurs ? true : null]),
         ]);
+        if ($notMine) {
+            // Only the mark: no name, no amount, no file.
+            $doc->direction = FinanceDocument::IN;
+            $doc->doc_date = now('Europe/Istanbul')->toDateString();
+            $doc->save();
+
+            return $doc;
+        }
         if (! $notOurs) {
             $path = 'finance/'.now('Europe/Istanbul')->format('Y/m').'/'.Str::uuid().'.'.$ext;
             Storage::disk(self::DISK)->put($path, $bytes);
@@ -324,14 +412,7 @@ final class FinanceDocuments
     private function classify(FinanceDocument $doc, ?array $read, array $hint): void
     {
         $own = $this->settings->all();
-        $isOurs = function (?string $name, ?string $tax) use ($own): bool {
-            if ($tax !== null && $own['own_tax_no'] !== '' && $tax === $own['own_tax_no']) {
-                return true;
-            }
-            $key = self::key((string) $name);
-
-            return $key !== '' && collect($own['own_names'])->contains(fn (string $n): bool => self::key($n) !== '' && str_contains($key, self::key($n)));
-        };
+        $isOurs = fn (?string $name, ?string $tax): bool => $this->ours($name, $tax);
         $direction = in_array($hint['direction'] ?? '', array_keys(FinanceDocument::DIRECTIONS), true) ? (string) $hint['direction'] : null;
         if ($read !== null) {
             $direction ??= $read['kind'] === 'receipt' ? FinanceDocument::RECEIPT

@@ -12,7 +12,7 @@ use App\Services\Operator\AgencySettingService;
  */
 final class FinanceSettings
 {
-    public const array DEFAULTS = ['own_tax_no' => '', 'own_names' => ['moximu'], 'vat' => 20, 'inflation' => 0.0, 'gmail' => [],
+    public const array DEFAULTS = ['own_tax_no' => '', 'own_names' => ['moximu', 'yakup udül'], 'vat' => 20, 'inflation' => 0.0, 'gmail' => [],
         // Monthly list prices (₺, KDV hariç) the "liste" column counts with: moximu.com's public prices of 2026-11-03.
         'list' => ['seo_gbp' => 14000, 'seo' => 12000, 'gbp' => 6000, 'google_ads' => 9000, 'meta_ads' => 9000, 'ads_with_package' => 6000]];
 
@@ -22,7 +22,7 @@ final class FinanceSettings
         $kept = (array) (AgencySetting::query()->orderBy('id')->first()?->finance ?? []);
         $out = array_merge(self::DEFAULTS, array_intersect_key($kept, self::DEFAULTS));
         $out['own_tax_no'] = (string) preg_replace('/\D+/', '', (string) $out['own_tax_no']);
-        $out['own_names'] = array_values(array_filter(array_map(fn ($n): string => mb_strtolower(trim((string) $n)), (array) $out['own_names'])));
+        $out['own_names'] = array_values(array_unique(array_filter(array_map(fn ($n): string => mb_strtolower(trim((string) $n)), [...self::DEFAULTS['own_names'], ...(array) $out['own_names']]))));
         $out['vat'] = max(0, min(40, (int) $out['vat']));
         $out['inflation'] = max(0.0, min(500.0, (float) $out['inflation']));
         $out['gmail'] = (array) $out['gmail'];

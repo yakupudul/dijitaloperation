@@ -352,7 +352,9 @@ final class FinancePage extends Component
 
     public function restoreDoc(int $id): void
     {
-        FinanceDocument::query()->whereKey($id)->where('status', 'ignored')->update(['status' => 'new']);
+        FinanceDocument::query()->whereKey($id)->where('status', 'ignored')->get()
+            ->reject(fn (FinanceDocument $d): bool => data_get($d->meta, 'reason') === FinanceDocuments::NOT_MINE)
+            ->each(fn (FinanceDocument $d) => $d->update(['status' => 'new']));
     }
 
     public function deleteDoc(int $id, FinanceDocuments $documents): void
@@ -437,7 +439,7 @@ final class FinancePage extends Component
                 $data['spend'] = $board->month($month)['spend'];
             } else {
                 $data['ignored'] = $this->direction === 'yok';
-                $data['docs'] = $docs->when($this->direction === 'yok', fn ($q) => $q->where('status', 'ignored'), fn ($q) => $q->where('status', '!=', 'ignored'))
+                $data['docs'] = $docs->when($this->direction === 'yok', fn ($q) => $q->where('status', 'ignored')->where(fn ($w) => $w->whereNull('meta->reason')->orWhere('meta->reason', '!=', FinanceDocuments::NOT_MINE)), fn ($q) => $q->where('status', '!=', 'ignored'))
                     ->when(isset(FinanceDocument::DIRECTIONS[$this->direction]), fn ($q) => $q->where('direction', $this->direction))->orderByDesc('doc_date')->orderByDesc('id')->get();
                 $data['gmail'] = $gmail->state() + ['connect' => $gmail->connectUrl()];
             }

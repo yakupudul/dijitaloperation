@@ -43,13 +43,14 @@ final class GmailInvoices
         return rescue(fn (): ?string => $this->workspace->gmailConnectUrl(), null, false);
     }
 
-    /** @return array{linked: bool, synced_at: ?string, backfill_done: bool, last_error: ?string, found: int} */
+    /** @return array{linked: bool, synced_at: ?string, backfill_done: bool, last_error: ?string, found: int, not_mine: int} */
     public function state(): array
     {
         $kept = (array) $this->settings->get('gmail');
 
         return ['linked' => $this->linked(), 'synced_at' => $kept['synced_at'] ?? null, 'backfill_done' => (bool) ($kept['backfill_done'] ?? false),
-            'last_error' => $kept['last_error'] ?? null, 'found' => FinanceDocument::query()->where('source', 'gmail')->where('status', '!=', 'ignored')->count()];
+            'last_error' => $kept['last_error'] ?? null, 'found' => FinanceDocument::query()->where('source', 'gmail')->where('status', '!=', 'ignored')->count(),
+            'not_mine' => FinanceDocument::query()->where('source', 'gmail')->where('meta->reason', FinanceDocuments::NOT_MINE)->count()];
     }
 
     /**
@@ -70,7 +71,11 @@ final class GmailInvoices
         $messages = 0;
         $found = 0;
         $more = false;
+        $waiting = false;
         try {
+            // Papers taken before the rule "only in our own name" are looked at first.
+            $old = $this->documents->recheckMail();
+            $more = $old['left'] > 0;
             $held = $this->reader->held();
             $backfill = ! ($kept['backfill_done'] ?? false);
             $from = (string) ($kept['from'] ?? CarbonImmutable::now('Europe/Istanbul')->startOfYear()->format('Y/m/d'));
@@ -86,7 +91,7 @@ final class GmailInvoices
                 }
                 $kept_ = $this->message($id, $held !== null);
                 if ($kept_ === null) {
-                    $more = true; // a PDF waits for the Claude API; the message is read again later
+                    $more = $waiting = true; // a PDF waits for the Claude API; the message is read again later
 
                     continue;
                 }
@@ -98,14 +103,14 @@ final class GmailInvoices
             if ($backfill) {
                 $kept['from'] = $from;
                 // A page whose PDFs wait for the API is walked again; else on to the next page, and done when there is none.
-                if (! $more) {
+                if (! $waiting) {
                     $kept['backfill_token'] = is_string($next) && $next !== '' ? $next : null;
                     $kept['backfill_done'] = $kept['backfill_token'] === null;
                 }
                 $more = $more || ! $kept['backfill_done'];
             }
             $kept['synced_at'] = now()->toIso8601String();
-            $kept['last_error'] = $held !== null && $more ? 'PDF\'ler okunamadı: '.$held.'.' : null;
+            $kept['last_error'] = $held !== null && ($waiting || $old['left'] > 0) ? 'PDF\'ler okunamadı: '.$held.'.' : null;
             $this->settings->put(['gmail' => $kept]);
 
             return ['ok' => true, 'messages' => $messages, 'documents' => $found, 'more' => $more, 'error' => $kept['last_error']];
@@ -177,6 +182,13 @@ final class GmailInvoices
                     'from' => $headers->get('from'), 'subject' => $headers->get('subject'),
                 ]);
                 $count += collect($docs)->where('status', '!=', 'ignored')->count();
+            } catch (UnreadDocument) {
+                // Three tries; after that the mail is left behind so the walk does not stand on one file.
+                $tries = (int) Cache::get('finance.gmail.unread.'.$id, 0) + 1;
+                Cache::put('finance.gmail.unread.'.$id, $tries, now()->addDays(40));
+                if ($tries < 3) {
+                    return null;
+                }
             } catch (Throwable $error) {
                 Log::info('Finance: a Gmail attachment was skipped.', ['message' => $id, 'file' => $stem, 'error' => $error->getMessage()]);
             }
