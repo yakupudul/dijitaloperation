@@ -180,6 +180,24 @@ final class DoorwayCheck
         return is_array($known) ? ($known['verdict'] ?? null) : null;
     }
 
+    /**
+     * Ids of the site's doorway template pages (empty below MIN_TEMPLATE_PAGES), from the two-hour cache when warm.
+     * Work that only makes sense for a real page (excerpts, cluster homes and their gaps) skips these pages.
+     *
+     * @return list<int>
+     */
+    public static function templateIds(DigitalAsset $site): array
+    {
+        $ids = Cache::get(self::templatesKey((int) $site->id));
+        if (! is_array($ids)) {
+            $templates = self::templatePages($site);
+            $ids = $templates->count() >= self::MIN_TEMPLATE_PAGES ? $templates->pluck('id')->map(fn ($id): int => (int) $id)->all() : [];
+            Cache::put(self::templatesKey((int) $site->id), $ids, now()->addHours(2));
+        }
+
+        return array_values(array_map('intval', $ids));
+    }
+
     private static function templatesKey(int $siteId): string
     {
         return 'site-doorway-templates:'.$siteId;

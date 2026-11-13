@@ -197,8 +197,11 @@ final class ClusterAudit
 
         $gaps = 0;
         $fresh = BrandClusterPage::query()->with('cluster')->whereIn('id', $rows->pluck('id'))->get();
+        // A doorway template page (contact table under a search phrase) has nothing to find gaps in: no AI call for it
+        // (2026-11-13: Arısoy /kw/ gap jobs failed). Rows still placed on one are moved by the next match, which skips them.
+        $templates = array_flip(DoorwayCheck::templateIds($site));
         foreach ($fresh->whereNotNull('page_id')->groupBy('page_id') as $pageId => $pageRows) {
-            if (in_array((int) $pageId, $this->pass['gapped'], true)) {
+            if (in_array((int) $pageId, $this->pass['gapped'], true) || isset($templates[(int) $pageId])) {
                 continue;
             }
             if ($this->outOfTime()) {
@@ -759,12 +762,13 @@ final class ClusterAudit
     private function candidatePages(DigitalAsset $site, ?string $language): Collection
     {
         $primary = SiteScope::primaryLanguage($site);
+        $templates = array_flip(DoorwayCheck::templateIds($site));
 
         return Page::query()->where('website_asset_id', $site->id)->where('is_indexable', true)
             ->where(fn ($q) => $q->whereIn('category', self::PAGE_CATEGORIES)->orWhereNull('category'))
             ->when($language !== null, fn ($q) => $q->where(fn ($l) => $l->where('language', $language)->orWhereNull('language')))
             ->orderBy('id')->get(['id', 'url', 'path', 'title', 'h1', 'headings', 'content_text', 'content_outline', 'category', 'content_hash', 'language'])
-            ->reject(fn (Page $p): bool => preg_match(self::NEVER_CANDIDATE, '/'.trim((string) $p->path, '/')) === 1 || trim((string) $p->path, '/') === ''
+            ->reject(fn (Page $p): bool => isset($templates[(int) $p->id]) || preg_match(self::NEVER_CANDIDATE, '/'.trim((string) $p->path, '/')) === 1 || trim((string) $p->path, '/') === ''
                 || ! SiteScope::inLanguage($p, $language, $primary))
             ->values();
     }

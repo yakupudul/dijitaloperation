@@ -9,6 +9,7 @@ use App\Services\Repair\RepairDesk;
 use App\Services\Repair\SeoFieldsBatch;
 use App\Services\Repair\SiteAudit;
 use App\Services\Repair\WebHealthAudit;
+use App\Services\Site\ClusterAudit;
 use App\Services\Site\DoorwayCheck;
 
 /**
@@ -122,6 +123,34 @@ final class DoorwayCheckTest extends SiteTestCase
         $this->assertSame(['checked' => 0, 'flagged' => 0, 'closed' => 0, 'waiting' => 0], app(DoorwayCheck::class)->run());
         $this->assertTrue(DoorwayCheck::isTemplate('Hurdacı İsmail Bolu', "## Hurdacı İsmail Bolu\n\n### Hurdacı İsmail Bolu için iletişim bilgileri\n| Telefon |"));
         $this->assertFalse(DoorwayCheck::isTemplate('Bakır hurda', 'Bakır hurdanın değeri saflığına göre değişir.'));
+    }
+
+    public function test_doorway_template_pages_get_no_excerpt_row_and_are_never_a_cluster_home(): void
+    {
+        $this->enableAi();
+        $templates = [];
+        foreach (range(1, DoorwayCheck::MIN_TEMPLATE_PAGES) as $i) {
+            $templates[] = $page = $this->template('/kws/konu-'.$i.'/', 'Bornova Hurda Konu '.$i, 100 + $i);
+            $page->forceFill(['wp_post_type' => 'docs', 'title_source' => 'seo',
+                'excerpt' => 'Bornova Hurda iletişim bilgileri: telefon, adres ve çalışma saatleri bu sayfada yer alıyor; hurdanız için hemen arayın.',
+                'meta_description' => 'Bornova hurda konu '.$i.' için iletişim bilgileri, telefon ve adres bu sayfada yer alıyor.'])->save();
+        }
+        $real = $this->page('/hurda-bakir/', 'Bakır hurda alımı Bornova', ['wp_post_id' => 900, 'wp_post_type' => 'docs', 'title_source' => 'seo', 'category' => 'hizmet',
+            'excerpt' => '', 'content_text' => 'Bakır hurda alımında saflık ve ağırlık fiyatı belirler.',
+            'meta_description' => 'Bakır hurda alımı Bornova: saflığa göre fiyat, yerinde tartı ve aynı gün ödeme bu sayfada anlatılıyor.']);
+
+        app(SiteAudit::class)->audit($this->site);
+
+        $excerptRows = Suggestion::query()->where('action_type', SiteAudit::TYPE)->get()
+            ->filter(fn (Suggestion $s): bool => collect((array) data_get($s->action, 'problems'))->contains(fn (string $p): bool => str_starts_with($p, 'excerpt:')))
+            ->pluck('page_id')->map(fn ($id): int => (int) $id)->values()->all();
+        $this->assertSame([$real->id], $excerptRows, 'the shared template excerpt is not a fix (58 failed jobs, 2026-11-13)');
+        $this->assertSame(collect($templates)->pluck('id')->map(fn ($id): int => (int) $id)->all(), DoorwayCheck::templateIds($this->site));
+
+        $site = $this->site;
+        $candidates = (fn (): array => $this->candidatePages($site, null)->pluck('id')->map(fn ($id): int => (int) $id)->all())
+            ->call(app(ClusterAudit::class));
+        $this->assertSame([$real->id], $candidates, 'a contact table under a search phrase never answers a cluster');
     }
 
     private function template(string $path, string $title, int $postId): Page

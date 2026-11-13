@@ -9,6 +9,7 @@ use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\DoorwayCheck;
 use App\Services\Site\PageTechnical;
 use App\Services\Site\SiteMetrics;
 use App\Services\Website\Pages\PageStore;
@@ -118,6 +119,9 @@ final class SiteAudit
         $descriptionCounts = $this->counts($pages, fn (Page $p): string => $descriptions[(int) $p->id]);
         $excerptCounts = $this->counts($pages, fn (Page $p): string => trim((string) $p->excerpt));
         $excerptTypes = self::excerptTypes($pages);
+        // Doorway template pages share one template excerpt by design: no excerpt row for them (2026-11-13: 58 Bornova /kws/
+        // excerpt jobs failed in one queue round). Their title / description rows stay under DoorwayCheck's hold.
+        $templates = array_flip(DoorwayCheck::templateIds($site));
 
         // A service / location page is key only when the brand maps it to a service or a topic: bulk-generated /kw/ pages
         // the categorizer also calls "lokasyon" follow the impression rule (Arısoy 3,323 rows on unseen pages, audit 4).
@@ -130,7 +134,7 @@ final class SiteAudit
         foreach ($pages as $page) {
             $description = $descriptions[(int) $page->id];
             $problems = $this->problems($page, $description, $titleCounts, $descriptionCounts);
-            if (($excerpt = self::excerptProblem($page, $excerptCounts, $excerptTypes)) !== null) {
+            if (! isset($templates[(int) $page->id]) && ($excerpt = self::excerptProblem($page, $excerptCounts, $excerptTypes)) !== null) {
                 $problems[] = $excerpt;
             }
             if ($problems === []) {
