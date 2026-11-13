@@ -77,7 +77,7 @@
 
         @if (! $schedule)
             <div>
-                <label class="{{ $label }}" for="job-fee">{{ $feeLabel }} (₺, KDV hariç)</label>
+                <label class="{{ $label }}" for="job-fee">{{ $feeLabel }} (₺, {{ ($job['no_invoice'] ?? false) ? 'faturasız, elime geçen' : 'KDV hariç' }})</label>
                 <input id="job-fee" type="text" inputmode="numeric" wire:model="job.fee" class="{{ $input }}" placeholder="14.000">
                 @if ($err('job.fee'))<p class="mt-1 text-xs text-red-600">{{ $err('job.fee') }}</p>@endif
             </div>
@@ -107,7 +107,7 @@
         <div class="mt-5" data-finance-installments>
             <div class="flex items-center justify-between gap-3">
                 <span class="text-sm font-semibold text-gray-900 dark:text-white">Taksitler</span>
-                <span class="text-sm text-gray-600">Toplam {{ $tlf($scheduleSum) }} (KDV hariç)</span>
+                <span class="text-sm text-gray-600">Toplam {{ $tlf($scheduleSum) }} ({{ ($job['no_invoice'] ?? false) ? 'faturasız' : 'KDV hariç' }})</span>
             </div>
             @if (! $isNew)
                 <p class="mt-1 text-xs text-gray-500">Ödenmiş taksitler yerinde durur; burada yalnız bekleyenler görünür.</p>
@@ -128,7 +128,7 @@
         </div>
     @endif
 
-    <div class="mt-5 grid gap-4 sm:grid-cols-2">
+    <div class="mt-5 grid gap-4 sm:grid-cols-3">
         <div>
             <span class="{{ $label }}">Hizmetler</span>
             <div class="flex flex-wrap gap-x-4 gap-y-2">
@@ -138,10 +138,15 @@
             </div>
         </div>
         <div>
+            <span class="{{ $label }}">Fatura</span>
+            <label class="flex items-center gap-1.5 text-sm text-gray-800 dark:text-gray-200"><input type="checkbox" wire:model.live="job.no_invoice" class="rounded border-gray-300" data-finance-no-invoice>Fatura kesilmiyor</label>
+            <p class="mt-1 text-xs text-gray-500">İşaretliyse ücret elime geçen tutardır: KDV eklenmez, fatura eksik diye uyarılmaz.</p>
+        </div>
+        <div>
             <label class="{{ $label }}" for="job-tax">Vergi / TC kimlik no</label>
             <input id="job-tax" type="text" inputmode="numeric" wire:model="job.tax_no" class="{{ $input }}" placeholder="Faturalar bu numarayla kendiliğinden eşleşir">
         </div>
-        <div class="sm:col-span-2">
+        <div class="sm:col-span-3">
             <label class="{{ $label }}" for="job-note">Not</label>
             <textarea id="job-note" wire:model="job.note" rows="2" class="{{ $input }} !h-auto py-2" placeholder="Ne konuşuldu, neler dahil"></textarea>
         </div>

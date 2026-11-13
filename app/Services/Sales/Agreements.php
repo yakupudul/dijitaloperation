@@ -51,7 +51,7 @@ final class Agreements
             'term_months' => $clean['term_months'], 'starts_on' => $startsOn->toDateString(), 'ends_on' => self::endsOn($clean['kind'], $startsOn, $clean['term_months']),
             'due_day' => $clean['due_day'], 'services' => $clean['services'], 'status' => 'active', 'note' => $clean['note'],
             'title' => $clean['title'], 'party' => $clean['party'], 'party_phone' => $clean['party_phone'], 'tax_no' => $clean['tax_no'],
-            'plan' => $clean['plan'], 'total' => $clean['total'], 'fee_since' => $startsOn->toDateString(),
+            'plan' => $clean['plan'], 'total' => $clean['total'], 'fee_since' => $startsOn->toDateString(), 'no_invoice' => $clean['no_invoice'],
         ]);
         if ($opportunity !== null) {
             $opportunity->forceFill(['agreement_id' => $agreement->id])->save();
@@ -154,12 +154,12 @@ final class Agreements
             'kind' => $agreement->kind, 'fee' => $agreement->fee, 'term_months' => $agreement->term_months, 'starts_on' => $agreement->starts_on?->toDateString(),
             'due_day' => $agreement->due_day, 'services' => $agreement->services, 'note' => $agreement->note,
             'title' => $agreement->title, 'party' => $agreement->party, 'party_phone' => $agreement->party_phone, 'tax_no' => $agreement->tax_no,
-            'plan' => $agreement->plan, 'total' => $agreement->total,
+            'plan' => $agreement->plan, 'total' => $agreement->total, 'no_invoice' => $agreement->no_invoice,
         ], $data), $agreement->brand_id === null, false);
         $startsOn = CarbonImmutable::parse($clean['starts_on'], self::TZ)->startOfDay();
         $raised = (int) $clean['fee'] !== (int) $agreement->fee;
         $agreement->forceFill([
-            'title' => $clean['title'], 'party' => $clean['party'], 'party_phone' => $clean['party_phone'], 'tax_no' => $clean['tax_no'], 'plan' => $clean['plan'],
+            'title' => $clean['title'], 'party' => $clean['party'], 'party_phone' => $clean['party_phone'], 'tax_no' => $clean['tax_no'], 'plan' => $clean['plan'], 'no_invoice' => $clean['no_invoice'],
             // A changed fee starts its own clock ("bu ücretle ne zamandır"); the form may give the day it began.
             'fee_since' => $raised ? (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($data['fee_since'] ?? '')) === 1 ? $data['fee_since'] : CarbonImmutable::now(self::TZ)->toDateString())
                 : ($agreement->fee_since?->toDateString() ?? $agreement->starts_on?->toDateString()),
@@ -405,7 +405,7 @@ final class Agreements
             'services' => $services !== [] ? $services : null, 'note' => $note !== '' ? mb_substr($note, 0, 2000) : null,
             'title' => $short('title', 160), 'party' => $party !== '' ? mb_substr($party, 0, 160) : null, 'party_phone' => $short('party_phone', 30),
             'tax_no' => in_array(strlen((string) $taxNo), [10, 11], true) ? $taxNo : null, 'plan' => $plan, 'total' => $plan === 'schedule' && $total > 0 ? $total : null,
-            'installments' => $installments];
+            'installments' => $installments, 'no_invoice' => filter_var($data['no_invoice'] ?? false, FILTER_VALIDATE_BOOLEAN)];
     }
 
     /**

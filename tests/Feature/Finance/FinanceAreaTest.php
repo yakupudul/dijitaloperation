@@ -14,6 +14,7 @@ use App\Models\CoreIntegrationCredential;
 use App\Models\FinanceDocument;
 use App\Models\User;
 use App\Services\Finance\FinanceBoard;
+use App\Services\Finance\FinanceDesk;
 use App\Services\Finance\FinanceDocuments;
 use App\Services\Finance\FinanceReader;
 use App\Services\Finance\FinanceReminders;
@@ -398,6 +399,22 @@ class FinanceAreaTest extends TestCase
 
         $this->actingAs($this->admin)->get(route('operator.finance.zip', ['bas' => '2023-01-01', 'bit' => '2023-12-31', 'tur' => 'in']))->assertOk()->assertDownload('finans-2023-01-01_2023-12-31-giderler.zip');
         $this->actingAs($this->admin)->get(route('operator.finance.zip'))->assertOk()->assertDownload('finans-tum-zamanlar.zip');
+    }
+
+    public function test_a_payer_who_takes_no_invoice_pays_the_fee_as_it_is(): void
+    {
+        $job = app(Agreements::class)->start($this->brand, ['kind' => 'monthly', 'fee' => '15000', 'starts_on' => '2026-11-01', 'due_day' => 15, 'no_invoice' => true], $this->admin);
+        $this->assertTrue($job->fresh()->no_invoice);
+        $board = app(FinanceBoard::class);
+        $row = $job->payments()->firstOrFail();
+        $this->assertStringContainsString('(15.000 TL)', $board->reminderText($row));
+        $this->assertStringNotContainsString('KDV', $board->reminderText($row));
+        // 18.000 would be 15.000 + KDV on an invoiced job; here it is simply 18.000.
+        $this->assertSame(['net' => 18000, 'with_vat' => false], $board->net($job, 18000));
+
+        $said = app(FinanceDesk::class)->run('finance_job', ['party' => 'Ali Usta', 'kind' => 'monthly', 'fee' => 6000, 'starts_on' => '2026-11-01', 'no_invoice' => true], $this->admin);
+        $this->assertTrue((bool) Agreement::query()->where('party', 'Ali Usta')->firstOrFail()->no_invoice, json_encode($said));
+        Livewire::test(FinancePage::class)->set('tab', 'anlasmalar')->assertSee('Faturasız');
     }
 
     public function test_the_finance_tick_is_scheduled(): void

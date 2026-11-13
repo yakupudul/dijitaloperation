@@ -209,7 +209,7 @@ final class FinancePage extends Component
         $this->jobId = -1;
         $this->job = ['brand_id' => $brandId ? (string) $brandId : '', 'party' => '', 'party_phone' => '', 'title' => '', 'kind' => 'one_time', 'fee' => '', 'term_months' => '6',
             'starts_on' => CarbonImmutable::now(Agreements::TZ)->toDateString(), 'due_day' => (string) min(28, CarbonImmutable::now(Agreements::TZ)->day), 'plan' => 'auto',
-            'installments' => [['due_on' => CarbonImmutable::now(Agreements::TZ)->toDateString(), 'amount' => '']], 'services' => [], 'tax_no' => '', 'note' => '', 'fee_since' => ''];
+            'installments' => [['due_on' => CarbonImmutable::now(Agreements::TZ)->toDateString(), 'amount' => '']], 'services' => [], 'tax_no' => '', 'note' => '', 'fee_since' => '', 'no_invoice' => false];
         $this->tab = 'anlasmalar';
     }
 
@@ -221,7 +221,7 @@ final class FinancePage extends Component
             'fee' => (string) $a->fee, 'term_months' => (string) ($a->term_months ?? '6'), 'starts_on' => (string) $a->starts_on?->toDateString(), 'due_day' => (string) $a->due_day, 'plan' => $a->plan ?: 'auto',
             'installments' => $a->payments->filter(fn (AgreementPayment $p): bool => $p->paid_on === null && (int) $p->paid_amount === 0)
                 ->map(fn (AgreementPayment $p): array => ['due_on' => $p->due_on->toDateString(), 'amount' => (string) $p->amount, 'label' => (string) $p->label])->values()->all(),
-            'services' => (array) $a->services, 'tax_no' => (string) $a->tax_no, 'note' => (string) $a->note, 'fee_since' => ''];
+            'services' => (array) $a->services, 'tax_no' => (string) $a->tax_no, 'note' => (string) $a->note, 'fee_since' => '', 'no_invoice' => (bool) $a->no_invoice];
     }
 
     public function addInstallment(): void

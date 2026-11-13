@@ -4696,6 +4696,7 @@ Status: coded + tested (tests/Feature/Finance/FinanceAreaTest.php, 14 tests); sc
 - Reminders: push on the due day, once when 3 days late, once for an ending term / a yearly renewal / a subscription price rise. The reminder text for the payer is copied by the operator; the system never writes to a customer.
 - By word: Moxi tools `finans_ozet`, `finans_isler` and cards `finans_is_ac`, `finans_odeme`, `finans_odeme_geri_al`, `finans_is_degistir`, `finans_gider`; MCP tool `finance` (summary, jobs, add_job, record_payment, unpay, update_job, add_expense, preview).
 - Dates (yakup 2026-11-13: "tüm zamanları görebilmeliyim"): Bu ay keeps the month picker; Giderler and Faturalar use the panel's date range picker with "Tüm zamanlar" as the default, plus Bu ay / Bu yıl, presets and a custom stretch of any length (`bas` / `bit` in the URL); the list, the total and the ZIP follow it. The picker's calendar steps month by month (all screens).
+- Faturasız iş (yakup 2026-11-13: "fatura istemiyor"): `agreements.no_invoice`; the fee is the money as it comes (no KDV in reminders or when money is placed), never listed under "para var, fatura yok"; a checkbox on the job form, `no_invoice` on the MCP `finance` tool and Moxi's finans_is_ac.
 - Scheduled: `finance-tick` hourly (Gmail + reminders). Async: Gmail and dekont reading run on the queue.
 - Known limits: mails without an attachment (only a link) are not pulled; foreign-currency expenses other than USD are listed but not added to the TL total; the inflation rate is typed by hand.
 

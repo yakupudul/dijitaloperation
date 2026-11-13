@@ -132,14 +132,16 @@ final class FinanceDesk
             $starts = $date('starts_on') ?? CarbonImmutable::now(Agreements::TZ)->toDateString();
             $clean = array_filter(['brand_id' => $brand?->id, 'party' => $brand === null ? $party : null, 'party_phone' => $text('party_phone', 30), 'title' => $text('title', 160), 'kind' => $kind,
                 'fee' => $fee > 0 ? $fee : null, 'term_months' => $kind === 'term' ? $term : null, 'due_day' => $due, 'starts_on' => $starts, 'plan' => $installments !== [] ? 'schedule' : 'auto',
-                'installments' => $installments ?: null, 'tax_no' => $text('tax_no', 20), 'note' => $text('note', 500)], fn ($v) => $v !== null);
+                'installments' => $installments ?: null, 'tax_no' => $text('tax_no', 20), 'note' => $text('note', 500),
+                'no_invoice' => array_key_exists('no_invoice', $args) ? filter_var($args['no_invoice'], FILTER_VALIDATE_BOOLEAN) : null,
+                'services' => is_array($args['services'] ?? null) && $args['services'] !== [] ? array_values(array_map('strval', $args['services'])) : null], fn ($v) => $v !== null);
             $lines = ['Kimden: '.($brand?->name ?? $party).($text('title') !== null ? ' · '.$text('title') : ''), Agreement::KINDS[$kind].($kind === 'term' ? ' · '.$term.' ay' : '')
-                .($installments === [] && $fee > 0 ? ' · '.$tl($fee).' + KDV' : ''), 'Başlangıç '.$day($starts).(in_array($kind, ['monthly', 'term'], true) && $installments === [] ? ' · ödeme günü '.$due : '')];
+                .($installments === [] && $fee > 0 ? ' · '.$tl($fee).(! empty($clean['no_invoice']) ? ' (faturasız)' : ' + KDV') : ''), 'Başlangıç '.$day($starts).(in_array($kind, ['monthly', 'term'], true) && $installments === [] ? ' · ödeme günü '.$due : '')];
             foreach ($installments as $i => $r) {
                 $lines[] = ($i + 1).'. taksit: '.$day($r['due_on']).' · '.$tl($r['amount']).(isset($r['label']) ? ' ('.$r['label'].')' : '');
             }
             if ($installments !== []) {
-                $lines[] = 'Toplam '.$tl(array_sum(array_column($installments, 'amount'))).' + KDV';
+                $lines[] = 'Toplam '.$tl(array_sum(array_column($installments, 'amount'))).(! empty($clean['no_invoice']) ? ' (faturasız)' : ' + KDV');
             }
 
             return ['title' => $title, 'lines' => $lines, 'args' => $clean];
@@ -187,6 +189,10 @@ final class FinanceDesk
             if (isset($args['due_day']) && (int) $args['due_day'] >= 1 && (int) $args['due_day'] <= 28 && (int) $args['due_day'] !== (int) $a->due_day) {
                 $clean['due_day'] = (int) $args['due_day'];
                 $lines[] = 'Ödeme günü: ayın '.$clean['due_day'].'. günü';
+            }
+            if (array_key_exists('no_invoice', $args) && filter_var($args['no_invoice'], FILTER_VALIDATE_BOOLEAN) !== (bool) $a->no_invoice) {
+                $clean['no_invoice'] = filter_var($args['no_invoice'], FILTER_VALIDATE_BOOLEAN);
+                $lines[] = $clean['no_invoice'] ? 'Fatura kesilmiyor: ücret gelen tutardır, KDV eklenmez' : 'Fatura kesiliyor: ücret KDV hariçtir';
             }
             foreach (['title' => 'İşin adı', 'note' => 'Not', 'party' => 'Kimden', 'party_phone' => 'Telefon', 'tax_no' => 'Vergi no'] as $key => $name) {
                 if ($text($key, 500) !== null) {

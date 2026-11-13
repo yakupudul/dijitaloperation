@@ -175,8 +175,10 @@ final class FinanceBoard
     public function reminderText(AgreementPayment $payment): string
     {
         $agreement = $payment->agreement;
-        $gross = (int) round($payment->open() * $this->settings->vatFactor());
-        $money = 'KDV dahil '.number_format($gross, 0, ',', '.').' TL';
+        // A payer who takes no invoice sends the fee as it is.
+        $plain = (bool) $agreement?->no_invoice;
+        $gross = (int) round($payment->open() * ($plain ? 1 : $this->settings->vatFactor()));
+        $money = ($plain ? '' : 'KDV dahil ').number_format($gross, 0, ',', '.').' TL';
         $what = $payment->title().' '.($agreement !== null && filled($agreement->title) ? mb_strtolower((string) $agreement->title).' ' : '').'ödemesi';
         $late = $payment->daysLate();
 
@@ -212,6 +214,9 @@ final class FinanceBoard
     public function net(Agreement $agreement, float $amount, ?bool $withVat = null): array
     {
         $factor = $this->settings->vatFactor();
+        if ($agreement->no_invoice) {
+            return ['net' => (int) round($amount), 'with_vat' => false]; // no invoice, no KDV: the money is the fee
+        }
         if ($withVat === null) {
             $open = $agreement->payments()->whereNull('paid_on')->orderBy('due_on')->get()->map(fn (AgreementPayment $p): int => $p->open())->filter()->values();
             $sum = 0;
@@ -330,7 +335,7 @@ final class FinanceBoard
     {
         $keeps = FinanceDocument::query()->where('direction', FinanceDocument::OUT)->where('status', '!=', 'ignored')->exists();
         $withInvoice = FinanceDocument::query()->where('direction', FinanceDocument::OUT)->where('status', '!=', 'ignored')->whereIn('payment_id', $stored->pluck('id'))->pluck('payment_id')->flip();
-        $noInvoice = $keeps ? $stored->filter(fn (AgreementPayment $p): bool => $p->received() > 0 && ! isset($withInvoice[$p->id]))->values() : collect();
+        $noInvoice = $keeps ? $stored->filter(fn (AgreementPayment $p): bool => $p->received() > 0 && ! isset($withInvoice[$p->id]) && ! $p->agreement?->no_invoice)->values() : collect();
         $noMoney = FinanceDocument::query()->with('payment.agreement.brand:id,name', 'agreement.brand:id,name')->where('direction', FinanceDocument::OUT)->where('status', '!=', 'ignored')
             ->whereNotNull('payment_id')->whereHas('payment', fn ($q) => $q->whereNull('paid_on')->whereDate('due_on', '<', $today->toDateString()))->orderBy('doc_date')->limit(30)->get();
 

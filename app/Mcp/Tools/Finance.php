@@ -57,8 +57,8 @@ class Finance extends Tool
             'q' => $schema->string()->description('jobs: part of the payer, brand or job name (empty = every running job).'),
             'ended' => $schema->boolean()->description('jobs: include ended jobs.'),
             'preview' => $schema->boolean()->description('Writes: true = only say what would happen.'),
-            'data' => $schema->object()->description('The write\'s fields. add_job: brand_id | party (+ party_phone), title, kind, fee, term_months, due_day, starts_on, installments [{due_on, amount, label}], tax_no, note. '
-                .'record_payment: agreement_id, amount, date, vat (auto|yes|no), note. unpay: payment_id. update_job: agreement_id + any of fee, fee_since, due_day, title, note, party, party_phone, tax_no, installments, status (active|paused|ended). '
+            'data' => $schema->object()->description('The write\'s fields. add_job: brand_id | party (+ party_phone), title, kind, fee, term_months, due_day, starts_on, installments [{due_on, amount, label}], tax_no, note, services [seo_gbp|seo|gbp|google_ads|meta_ads|web|other], no_invoice (true: the payer takes no invoice, the fee is the money as it comes, no KDV). '
+                .'record_payment: agreement_id, amount, date, vat (auto|yes|no), note. unpay: payment_id. update_job: agreement_id + any of fee, fee_since, due_day, title, note, party, party_phone, tax_no, no_invoice, installments, status (active|paused|ended). '
                 .'add_expense: counterparty, amount, currency (TRY|USD|EUR|GBP), doc_date, category (yazilim|sunucu|reklam|yapay_zeka|dis_hizmet|iletisim|ofis|vergi|diger), brand_id, rebill, note. Dates YYYY-MM-DD.'),
         ];
     }

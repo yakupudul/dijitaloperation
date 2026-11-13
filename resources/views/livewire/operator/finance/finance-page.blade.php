@@ -248,6 +248,7 @@
                                             <button type="button" wire:click="toggleJob({{ $a->id }})" class="text-left">
                                                 <span class="font-medium text-gray-900 dark:text-white">{{ $j['name'] }}</span>
                                                 @if ($a->brand_id === null)<span class="chip chip-flat ml-1">panel dışı</span>@endif
+                                                @if ($a->no_invoice)<span class="chip chip-flat ml-1">Faturasız</span>@endif
                                                 @if ($a->status === 'paused')<span class="chip chip-flat ml-1">durduruldu</span>@endif
                                             </button>
                                             <p class="text-xs text-gray-500">{{ $j['what'] }}</p>

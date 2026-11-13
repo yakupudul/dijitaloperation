@@ -41,7 +41,7 @@ class Agreement extends Model
 
     protected function casts(): array
     {
-        return ['fee' => 'integer', 'term_months' => 'integer', 'due_day' => 'integer', 'starts_on' => 'date', 'ends_on' => 'date', 'contract_on' => 'date', 'services' => 'array', 'total' => 'integer', 'fee_since' => 'date'];
+        return ['fee' => 'integer', 'term_months' => 'integer', 'due_day' => 'integer', 'starts_on' => 'date', 'ends_on' => 'date', 'contract_on' => 'date', 'services' => 'array', 'total' => 'integer', 'fee_since' => 'date', 'no_invoice' => 'boolean'];
     }
 
     public function brand(): BelongsTo
