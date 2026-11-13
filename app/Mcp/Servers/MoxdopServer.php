@@ -45,6 +45,7 @@ use App\Mcp\Tools\SubmitResult;
 use App\Mcp\Tools\SubmitResults;
 use App\Mcp\Tools\SystemHealth;
 use App\Mcp\Tools\TaskResult;
+use App\Mcp\Tools\Todos;
 use App\Mcp\Tools\UpdateChange;
 use App\Mcp\Tools\WhatsappConversations;
 use Laravel\Mcp\Server;
@@ -89,6 +90,11 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 - For Google Ads, Search Console, GA4 and Business Profile use `channel-data` (one dataset per call: months,
   campaigns, search terms, keywords, locations, queries, pages, countries, channels, landing pages, key events,
   profile actions, keywords, reviews). Check `last_day` before drawing a conclusion.
+
+## Yapılacaklar (the operator's jobs)
+- Whenever something is left that only the operator can do (give an access, upload a prepared file, decide, tell a date or
+  an amount, press a connect button), write it at once with `todos action=add` (one sentence, verb first, brand_id when
+  it belongs to a brand). He reads his jobs there, not in chat. Never add your own work there.
 
 ## Finans (by word)
 - When the operator tells you a payment matter in words (a new job, taksit dates, money that came in, a fee change, an
@@ -230,6 +236,7 @@ class MoxdopServer extends Server
         LeadKindsTool::class,
         SocialPosts::class,
         Finance::class,
+        Todos::class,
         SaveBrandFact::class,
         ListNotes::class,
         ListStrategies::class,
