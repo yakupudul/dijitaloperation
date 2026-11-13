@@ -2270,6 +2270,7 @@ sıfırlanır. Kaldırılanlar ve nedenleri:
 
 ## 2026-11-11 — Yol haritaları 1. aşama düzeltmeleri (ilk iki paket)
 
+- Sosyal video sırası (2026-11-13): `social_schedule.reels` = daily video hours. When set, approved Reels wait in their own line (`SocialSchedule::line('reels')`, `lane()`) and go out every day at that hour beside the day's post; empty keeps the old behaviour (videos in the post line). /sosyal › Plan "Video saatleri".
 - Sosyal › Trendler (2026-11-13): `SocialTrendWatch` reads a watch list of other professional Instagram accounts through the official `business_discovery` field with our own token; posts of the last 21 days with at least 2× the account's median likes+comments are hits. Only the list is stored (`agency_settings.social_watchlist`), a reading is cached 12 hours and made only on request (tab button or MCP `social-posts action=trends`); no scheduled job.
 - **Sosyal paylaşım düzeni (yakup 2026-11-12)**: `/sosyal` › Plan üstünde gün ve saat seçimi (`agency_settings.social_schedule`, standart her gün 12:30, günde 1). Onaylanan gönderi sıranın sonuna girer; `SocialSchedule::reflow()` sıradakilere düzenin boş günlerini sırayla verir (sıra = `publish_at` sırası, "Öne al / Arkaya al" iki saati değiştirir, ayrı sıra sütunu yok). `social_posts.pinned` = sabit tarih: sıraya girmez, gününü kendine ayırır; elle saat değiştirmek ve "şimdi yayınla" sabitler. Taslağın `publish_at` değeri yalnız öneridir. Yeni zamanlanmış iş yok; yayıncı aynı.
 

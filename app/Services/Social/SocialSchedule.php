@@ -5,6 +5,7 @@ namespace App\Services\Social;
 use App\Models\AgencySetting;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -15,6 +16,8 @@ use Illuminate\Support\Collection;
  * the line and keeps its day for itself. Standard: every day at 12:30.
  * Stories have their own line (yakup 2026-11-12: "günde 2 story, her gün 1 post"): every day at the story hours,
  * standard 09:00 and 18:00, so a story never takes a post's day.
+ * Videos (Reels) get their own line once video hours are set (yakup 2026-11-13: "her gün bunlar paylaşılsın"): every
+ * day at those hours, beside the day's post. With no video hour a video waits in the post line as before.
  */
 class SocialSchedule
 {
@@ -35,6 +38,25 @@ class SocialSchedule
         }
 
         return $this->cleanTimes($stored['stories']);
+    }
+
+    /** @return list<string> the hours a video goes out, every day; empty = videos share the post line */
+    public function reelTimes(): array
+    {
+        $stored = AgencySetting::query()->value('social_schedule');
+        $stored = is_string($stored) ? json_decode($stored, true) : $stored;
+
+        return is_array($stored) && is_array($stored['reels'] ?? null) ? $this->cleanTimes($stored['reels']) : [];
+    }
+
+    /** Which line a post waits in: story, reels (only when video hours are set) or post. */
+    public function lane(SocialPost $post): string
+    {
+        return match (true) {
+            $post->kind === 'story' => 'story',
+            $post->kind === 'reels' && $this->reelTimes() !== [] => 'reels',
+            default => 'post',
+        };
     }
 
     /**
@@ -71,8 +93,9 @@ class SocialSchedule
     /**
      * @param  array<int, string>  $days  chosen weekdays with their hour; at least one
      * @param  array<array-key, mixed>|null  $storyTimes  story hours of every day; null keeps the stored ones
+     * @param  array<array-key, mixed>|null  $reelTimes  video hours of every day; null keeps the stored ones
      */
-    public function save(array $days, ?array $storyTimes = null): int
+    public function save(array $days, ?array $storyTimes = null, ?array $reelTimes = null): int
     {
         $clean = [];
         foreach ($days as $day => $time) {
@@ -86,25 +109,47 @@ class SocialSchedule
         ksort($clean);
         $setting = AgencySetting::query()->first() ?? new AgencySetting;
         $stories = $storyTimes === null ? $this->storyTimes() : $this->cleanTimes($storyTimes);
-        $setting->forceFill(['social_schedule' => ['days' => $clean, 'stories' => $stories]])->save();
+        $reels = $reelTimes === null ? $this->reelTimes() : $this->cleanTimes($reelTimes);
+        $setting->forceFill(['social_schedule' => ['days' => $clean, 'stories' => $stories, 'reels' => $reels]])->save();
 
         return $this->reflow();
     }
 
-    /** @return Collection<int, SocialPost> approved posts (or, with $stories, stories) still waiting for their day, in line order */
-    public function line(bool $stories = false): Collection
+    /**
+     * @param  bool|string  $lane  false / 'post', true / 'story', 'reels'
+     * @return Collection<int, SocialPost> approved posts of one line still waiting for their day, in line order
+     */
+    public function line(bool|string $lane = false): Collection
     {
-        return SocialPost::query()
-            ->where('kind', $stories ? '=' : '!=', 'story')
+        return $this->ofLane(SocialPost::query(), $this->laneName($lane))
             ->where('status', SocialPost::APPROVED)->where('pinned', false)->where('publish_at', '>', now())
             ->whereDoesntHave('targets', fn ($q) => $q->whereIn('status', [SocialPostTarget::PUBLISHED, SocialPostTarget::PROCESSING, SocialPostTarget::DONE]))
             ->orderBy('publish_at')->orderBy('id')->get();
     }
 
+    private function laneName(bool|string $lane): string
+    {
+        return $lane === true ? 'story' : ($lane === false ? 'post' : $lane);
+    }
+
+    /**
+     * @param  Builder<SocialPost>  $query
+     * @return Builder<SocialPost>
+     */
+    private function ofLane($query, string $lane)
+    {
+        return match (true) {
+            $lane === 'story' => $query->where('kind', 'story'),
+            $lane === 'reels' => $query->where('kind', 'reels'),
+            $this->reelTimes() !== [] => $query->whereNotIn('kind', ['story', 'reels']),
+            default => $query->where('kind', '!=', 'story'),
+        };
+    }
+
     /** A newly approved post goes to the end of the line. */
     public function enqueue(SocialPost $post): void
     {
-        $last = $this->line($post->kind === 'story')->reject(fn (SocialPost $p): bool => $p->is($post))->max('publish_at');
+        $last = $this->line($this->lane($post))->reject(fn (SocialPost $p): bool => $p->is($post))->max('publish_at');
         $post->update(['publish_at' => Carbon::instance($last ?? now())->addYear()]);
         $this->reflow();
     }
@@ -112,7 +157,7 @@ class SocialSchedule
     /** Öne al / sona al: the post changes place with its neighbour. */
     public function move(SocialPost $post, int $direction): void
     {
-        $line = $this->line($post->kind === 'story')->values();
+        $line = $this->line($this->lane($post))->values();
         $at = $line->search(fn (SocialPost $p): bool => $p->is($post));
         $other = $at === false ? null : $line->get($at + ($direction < 0 ? -1 : 1));
         if ($other === null) {
@@ -127,24 +172,28 @@ class SocialSchedule
     public function reflow(): int
     {
         $days = $this->days();
-        $posts = $days === [] ? 0 : $this->place($this->line(), fn (Carbon $day): array => array_filter([$days[$day->isoWeekday()] ?? null]), false);
+        $posts = $days === [] ? 0 : $this->place($this->line(), fn (Carbon $day): array => array_filter([$days[$day->isoWeekday()] ?? null]), 'post');
+        $reels = $this->reelTimes();
+        if ($reels !== []) {
+            $posts += $this->place($this->line('reels'), fn (Carbon $day): array => $reels, 'reels');
+        }
 
-        return $posts + $this->place($this->line(true), fn (Carbon $day): array => $this->storyTimes(), true);
+        return $posts + $this->place($this->line(true), fn (Carbon $day): array => $this->storyTimes(), 'story');
     }
 
     /**
      * @param  Collection<int, SocialPost>  $line
      * @param  \Closure(Carbon): array<array-key, string>  $hours  the hours of one day
      */
-    private function place(Collection $line, \Closure $hours, bool $stories): int
+    private function place(Collection $line, \Closure $hours, string $lane): int
     {
         if ($line->isEmpty()) {
             return 0;
         }
         $tz = SocialPlanner::TIMEZONE;
-        // A post day is taken by any other post of that day; a story hour only by a story at that very hour.
-        $taken = SocialPost::query()
-            ->where('kind', $stories ? '=' : '!=', 'story')
+        $stories = $lane !== 'post';
+        // A post day is taken by any other post of that day; a story or video hour only by one of its kind at that very hour.
+        $taken = $this->ofLane(SocialPost::query(), $lane)
             ->whereIn('status', [SocialPost::APPROVED, SocialPost::PARTIAL, SocialPost::PUBLISHED])
             ->where('publish_at', '>=', now()->subDay())
             ->whereNotIn('id', $line->modelKeys())

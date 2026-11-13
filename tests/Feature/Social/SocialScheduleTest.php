@@ -45,7 +45,7 @@ final class SocialScheduleTest extends TestCase
         imagepng($img);
         $png = (string) ob_get_clean();
 
-        return app(SocialPlanner::class)->create(['kind' => $kind, 'caption' => 'x', 'publish_at' => $at], [['bytes' => $png, 'name' => 'a.png']]);
+        return app(SocialPlanner::class)->create(['kind' => $kind, 'caption' => 'x', 'publish_at' => $at], [$kind === 'reels' ? ['bytes' => "\0\0\0\x18ftypmp42video", 'name' => 'v.mp4'] : ['bytes' => $png, 'name' => 'a.png']]);
     }
 
     private function at(SocialPost $post): string
@@ -140,5 +140,33 @@ final class SocialScheduleTest extends TestCase
         $this->assertSame(['10:00', '15:00', '21:00'], app(SocialSchedule::class)->storyTimes());
         $this->assertSame(['2026-11-09 10:00', '2026-11-09 15:00', '2026-11-09 21:00'], array_map(fn (SocialPost $s): string => $this->at($s), $stories));
         $this->assertSame('2026-11-09 12:30', $this->at($post));
+    }
+
+    public function test_videos_get_their_own_daily_line_once_a_video_hour_is_set(): void
+    {
+        $schedule = app(SocialSchedule::class);
+        [$image, $reel] = [$this->draft(), $this->draft('2026-12-20 09:00', 'reels')];
+        foreach ([$image, $reel] as $post) {
+            app(SocialPlanner::class)->approve($post, $this->admin->id);
+            $schedule->enqueue($post->fresh());
+        }
+        // No video hour: the video waits behind the image in the one post line.
+        $this->assertSame('2026-11-09 12:30', $this->at($image));
+        $this->assertSame('2026-11-10 12:30', $this->at($reel));
+
+        $schedule->save(array_fill(1, 7, '12:30'), null, ['19:00']);
+        $second = $this->draft('2026-12-21 09:00', 'reels');
+        app(SocialPlanner::class)->approve($second, $this->admin->id);
+        $schedule->enqueue($second->fresh());
+
+        $this->assertSame(['19:00'], $schedule->reelTimes());
+        $this->assertSame('2026-11-09 12:30', $this->at($image));
+        $this->assertSame('2026-11-09 19:00', $this->at($reel));
+        $this->assertSame('2026-11-10 19:00', $this->at($second));
+        $this->assertSame([$image->id], $schedule->line()->modelKeys());
+        $this->assertSame([$reel->id, $second->id], $schedule->line('reels')->modelKeys());
+
+        Livewire::actingAs($this->admin)->test(SocialPage::class)->call('setTab', 'plan')
+            ->assertSet('reelTimes', ['19:00', ''])->assertSee('Video sırasında 1.');
     }
 }

@@ -88,6 +88,9 @@ final class SocialPage extends Component
     /** @var array<int, string> Story hours of every day (empty = unused). */
     public array $storyTimes = ['', '', ''];
 
+    /** @var array<int, string> video hours of every day; empty = videos wait in the post line */
+    public array $reelTimes = ['', ''];
+
     /** Trendler: watched Instagram accounts, one per line. */
     public string $watchlist = '';
 
@@ -126,6 +129,7 @@ final class SocialPage extends Component
             $this->planTimes[$day] = $chosen[$day] ?? SocialSchedule::DEFAULT_TIME;
         }
         $this->storyTimes = array_pad(app(SocialSchedule::class)->storyTimes(), 3, '');
+        $this->reelTimes = array_pad(app(SocialSchedule::class)->reelTimes(), 2, '');
         $this->watchlist = implode("\n", app(SocialTrendWatch::class)->accounts());
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
         $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
@@ -239,8 +243,9 @@ final class SocialPage extends Component
             }
         }
         try {
-            $changed = app(SocialSchedule::class)->save($days, $this->storyTimes);
+            $changed = app(SocialSchedule::class)->save($days, $this->storyTimes, $this->reelTimes);
             $this->storyTimes = array_pad(app(SocialSchedule::class)->storyTimes(), 3, '');
+            $this->reelTimes = array_pad(app(SocialSchedule::class)->reelTimes(), 2, '');
             $this->message = 'Paylaşım düzeni kaydedildi'.($changed > 0 ? '; sıradaki '.$changed.' gönderinin günü yeniden belirlendi.' : '.');
             $this->messageTone = 'success';
         } catch (Throwable $e) {
@@ -465,6 +470,7 @@ final class SocialPage extends Component
             'weeks' => $weeks,
             'line' => app(SocialSchedule::class)->line()->modelKeys(),
             'storyLine' => app(SocialSchedule::class)->line(true)->modelKeys(),
+            'reelLine' => app(SocialSchedule::class)->reelTimes() === [] ? null : app(SocialSchedule::class)->line('reels')->modelKeys(),
             'trends' => $this->tab === 'trendler' ? app(SocialTrendWatch::class)->reading() : null,
             'dayNames' => [1 => 'Pazartesi', 2 => 'Salı', 3 => 'Çarşamba', 4 => 'Perşembe', 5 => 'Cuma', 6 => 'Cumartesi', 7 => 'Pazar'],
             'manual' => $manual,
