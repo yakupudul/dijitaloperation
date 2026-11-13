@@ -1,0 +1,50 @@
+/* Alt bilgi */
+.bk-alt-cta{background:var(--altin);border-top:4px solid #c39b3b;padding:64px 0}
+.bk-alt-cta .kap{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.bk-alt-cta-sol{padding-right:60px}
+.bk-alt-ust-etiket{font-size:11px;font-weight:700;letter-spacing:.02em;color:#f7f4eb;margin:0 0 16px}
+.bk-alt-cta h2{font-size:46px;font-weight:600;line-height:1.2;color:#f7f4eb;letter-spacing:-.01em;margin:0 0 24px}
+.bk-alt-cta-sol p{font-size:15px;line-height:1.65;color:#f7f4eb;margin:0}
+.bk-alt-cta-sag{border-left:1px solid #525548;padding-left:36px;align-self:center}
+.bk-alt-cta h3{font-size:19px;font-weight:600;line-height:1.3;color:#f7f4eb;margin:0 0 16px}
+.bk-alt-cta-btn{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+.bk-alt-btn{display:inline-flex;align-items:center;padding:15px 22px;border-radius:4px;font-size:14px;font-weight:600;line-height:1.2}
+.bk-alt-btn.acik{background:#e7ce87;color:#27281f}
+.bk-alt-btn.acik:hover{background:#f0dca4;color:#27281f}
+.bk-alt-btn.yesil{background:var(--yesil);color:#fff}
+.bk-alt-btn.yesil:hover{color:#fff;filter:brightness(.95)}
+.bk-alt-tel{font-size:15px;color:#f7f4eb;margin:0 0 14px}
+.bk-alt-tel a{color:#f7f4eb;text-decoration:underline}
+.bk-alt-saat{font-size:12px;color:#f7f4eb;margin:0}
+.bk-alt-bilgi{background:#fff;padding:52px 0 20px}
+.bk-alt-izgara{display:grid;grid-template-columns:369px 240px 479px;justify-content:space-between;gap:56px;padding-bottom:52px;border-bottom:1px solid #e5e0d3}
+.bk-alt-logo img{width:369px;height:auto;max-width:100%}
+.bk-alt-marka p{font-size:14px;line-height:1.7;color:#65665e;margin:22px 0}
+.bk-alt-ig,.bk-alt-linkler a{font-size:14px;color:#65665e}
+.bk-alt-ig:hover,.bk-alt-linkler a:hover{color:var(--altin)}
+.bk-alt-linkler h3{font-size:18px;font-weight:600;color:#252722;margin:0 0 22px}
+.bk-alt-linkler ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.bk-alt-kart{display:flex;flex-direction:column;align-items:flex-start;gap:0;background:#f5f3ec;border:1px solid #e5e0d3;border-radius:8px;padding:28px;font-style:normal}
+.bk-alt-kart-etiket{font-size:10px;font-weight:700;color:#9c7a1c;letter-spacing:.04em;margin-bottom:10px}
+.bk-alt-kart-ad{font-size:21px;font-weight:600;color:#252722;margin-bottom:10px}
+.bk-alt-kart-unvan{font-size:12px;color:#65665e;margin-bottom:18px}
+.bk-alt-kart-adres{font-size:14px;line-height:1.65;color:#252722;margin-bottom:16px}
+.bk-alt-kart>a{font-size:14px;color:#65665e;margin-bottom:14px}
+.bk-alt-kart-saat{display:flex;flex-direction:column;font-size:13px;color:#65665e;margin:4px 0 18px}
+.bk-alt-kart-saat b{font-size:12px;font-weight:600;color:#65665e;margin-top:4px}
+.bk-alt-kart>a.bk-alt-yol{display:inline-flex;align-items:center;background:#303329;color:#fff;padding:16px 22px;border-radius:2px;font-size:14px;font-weight:600;margin:0}
+.bk-alt-kart>a.bk-alt-yol:hover{background:#000;color:#fff}
+.bk-alt-hizmetler{padding:52px 0 30px}
+.bk-alt-hizmetler h2{font-size:27px;font-weight:600;color:var(--altin);margin:0 0 10px}
+.bk-alt-hizmetler>p{font-size:13px;color:#65665e;margin:0 0 30px}
+.bk-alt-hizmet-izgara{display:grid;grid-template-columns:repeat(4,1fr);gap:30px}
+.bk-alt-kat{border-top:2px solid #d4bc80;padding-top:16px;margin-bottom:34px}
+.bk-alt-kat h3{font-size:16px;font-weight:600;line-height:1.35;margin:0 0 18px}
+.bk-alt-kat h3 a{color:#303329}
+.bk-alt-kat ul{list-style:none;margin:0;padding:0}
+.bk-alt-kat li{margin-bottom:12px;font-size:13px;line-height:1.45}
+.bk-alt-kat li a{color:#303329}
+.bk-alt-kat a:hover{color:var(--altin)}
+.bk-alt-son{border-top:1px solid #e5e0d3;background:#fff}
+.bk-alt-son .kap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px 30px;padding-top:20px;padding-bottom:20px;font-size:12px;color:#65665e}
+.bk-alt-son a{color:#65665e;text-decoration:underline}
