@@ -137,6 +137,66 @@ class GoogleApiClient
         return $this->adsRequest($integration, 'post', $path, $body, $loginCustomerId ?? $customerId);
     }
 
+    /**
+     * Ölçüm kurulumu (yakup 2026-11-13): the only GA4 Admin, Tag Manager, Search Console and Site Verification writes
+     * MoxDOP performs, all of them create / publish steps (nothing is deleted or overwritten): a GA4 property, its web
+     * stream, key events, Google Ads link and data retention; a GTM container, its built-in variables, triggers, tags,
+     * a version and its publication; a Search Console site; a site verification by the Tag Manager or Analytics
+     * method. Callers are restricted to App\Services\Measurement\MeasurementSetup.
+     *
+     * @param  array<string, mixed>  $body
+     */
+    public function writeMeasurement(CoreIntegration $integration, string $method, string $url, array $body = []): Response
+    {
+        if (! self::measurementWriteAllowed($method, $url)) {
+            throw new RuntimeException('Ölçüm kurulumu yazması izinli değil: '.$method.' '.$url);
+        }
+
+        return $this->request($integration, $method, $url, $body);
+    }
+
+    public static function measurementWriteAllowed(string $method, string $url): bool
+    {
+        $ga = '#^https://analyticsadmin\.googleapis\.com/v1beta/';
+        $gtm = '#^https://tagmanager\.googleapis\.com/tagmanager/v2/accounts/\d+/containers';
+
+        return match ($method) {
+            'post' => preg_match($ga.'properties$#', $url) === 1
+                || preg_match($ga.'properties/\d+/(dataStreams|keyEvents|googleAdsLinks)$#', $url) === 1
+                || preg_match($gtm.'$#', $url) === 1
+                || preg_match($gtm.'/\d+/workspaces/\d+/(tags|triggers|variables)$#', $url) === 1
+                || preg_match($gtm.'/\d+/workspaces/\d+/built_in_variables\?type=[a-zA-Z]+(&type=[a-zA-Z]+)*$#', $url) === 1
+                || preg_match($gtm.'/\d+/workspaces/\d+:create_version$#', $url) === 1
+                || preg_match($gtm.'/\d+/versions/\d+:publish$#', $url) === 1
+                || preg_match('#^https://www\.googleapis\.com/siteVerification/v1/webResource\?verificationMethod=(TAG_MANAGER|ANALYTICS)$#', $url) === 1,
+            'patch' => preg_match($ga.'properties/\d+/dataRetentionSettings\?updateMask=eventDataRetention$#', $url) === 1,
+            'put' => preg_match('#^https://www\.googleapis\.com/webmasters/v3/sites/[^/?]+$#', $url) === 1,
+            default => false,
+        };
+    }
+
+    /**
+     * Ölçüm kurulumu (yakup 2026-11-13: Google Ads writes are allowed for conversion setup only): creates WEBPAGE
+     * conversion actions through conversionActions:mutate. Only `create` operations; nothing is updated or removed, so a
+     * working conversion is never touched. Callers are restricted to App\Services\Measurement\MeasurementSetup.
+     *
+     * @param  list<array<string, mixed>>  $actions  ConversionAction objects to create
+     */
+    public function createAdsConversionActions(CoreIntegration $integration, string $customerId, array $actions, ?string $loginCustomerId = null): Response
+    {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        $valid = $customerId !== '' && $actions !== [] && count($actions) <= 10;
+        foreach ($actions as $action) {
+            $valid = $valid && is_array($action) && ($action['type'] ?? null) === 'WEBPAGE' && ! isset($action['resourceName']);
+        }
+        if (! $valid) {
+            throw new RuntimeException('Google Ads dönüşüm oluşturma isteği izinli değil.');
+        }
+        $operations = array_map(fn (array $action): array => ['create' => $action], $actions);
+
+        return $this->adsRequest($integration, 'post', 'customers/'.$customerId.'/conversionActions:mutate', ['operations' => $operations], $loginCustomerId ?? $customerId);
+    }
+
     /** ADR-081: the only fields a setting change may update, per service. */
     public const array ADS_SETTING_FIELDS = [
         'campaigns' => ['network_settings.target_search_network', 'network_settings.target_content_network', 'geo_target_type_setting.positive_geo_target_type'],

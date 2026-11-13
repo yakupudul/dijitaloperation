@@ -25,6 +25,7 @@ use App\Mcp\Tools\ListNotes;
 use App\Mcp\Tools\ListSites;
 use App\Mcp\Tools\ListStrategies;
 use App\Mcp\Tools\ListTasks;
+use App\Mcp\Tools\MeasurementSetupTool;
 use App\Mcp\Tools\MetaPerformance;
 use App\Mcp\Tools\MoxiRequests;
 use App\Mcp\Tools\OverlapAct;
@@ -244,5 +245,6 @@ class MoxdopServer extends Server
         EditSite::class,
         SiteWrites::class,
         SiteTool::class,
+        MeasurementSetupTool::class,
     ];
 }

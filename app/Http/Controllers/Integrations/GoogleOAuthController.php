@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\DiscoverProviderResourcesJob;
 use App\Models\CoreIntegration;
 use App\Models\User;
+use App\Services\Integrations\Google\GoogleMeasurement;
 use App\Services\Integrations\Google\GoogleOAuthService;
 use App\Services\Integrations\Google\GoogleWorkspace;
 use App\Support\Demo\DemoState;
@@ -36,7 +37,9 @@ class GoogleOAuthController extends Controller
         $workspace = $request->boolean('workspace');
         // Finans: reading the mailbox for invoices is one more permission on the same connection.
         $gmail = $request->boolean('gmail');
-        $forceConsent = $request->boolean('force_consent') || $workspace || $gmail;
+        // Ölçüm kurulumu: GA4 Admin, Tag Manager, Search Console and Site Verification writes on the same connection.
+        $measurement = $request->boolean('measurement');
+        $forceConsent = $request->boolean('force_consent') || $workspace || $gmail || $measurement;
 
         $result = $oauth->beginAuthorization(
             integration: $integration,
@@ -44,7 +47,7 @@ class GoogleOAuthController extends Controller
             capabilities: $capabilities,
             forceConsent: $forceConsent,
             capabilityContext: is_string($capability) ? $capability : null,
-            extraScopes: [...($workspace ? GoogleWorkspace::SCOPES : []), ...($gmail ? [GoogleWorkspace::GMAIL] : [])],
+            extraScopes: [...($workspace ? GoogleWorkspace::SCOPES : []), ...($gmail ? [GoogleWorkspace::GMAIL] : []), ...($measurement ? GoogleMeasurement::SCOPES : [])],
         );
 
         if (isset($result['error'])) {
