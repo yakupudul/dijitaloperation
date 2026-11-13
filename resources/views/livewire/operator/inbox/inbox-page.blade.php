@@ -48,6 +48,7 @@
             @if ($readyCount > 0)
                 <button type="button" class="btn-primary h-8 px-3 text-[13px]" x-on:click="if (confirm('Hazır {{ $readyCount }} sosyal cevabın hepsi gönderilsin mi?')) $wire.sendReady()" data-inbox-send-ready>Hazır sosyal cevapları gönder ({{ $n($readyCount) }})</button>
             @endif
+            <a href="{{ route('operator.whatsapp.conversations') }}" wire:navigate class="btn h-8 px-3 text-[13px]" title="Bütün WhatsApp konuşmalarında mesaj içinde ara">Konuşmalarda ara</a>
             <a href="{{ route('operator.whatsapp') }}" wire:navigate class="btn h-8 px-3 text-[13px]" title="Bağlantı, sabit kararlar, yedekler ve Beyin">WhatsApp ayarları</a>
         </div>
     </header>

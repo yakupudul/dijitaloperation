@@ -1,5 +1,13 @@
 # PRODUCT_CAPABILITY_LEDGER
 
+## 2026-11-13 — WhatsApp konuşmaları: bütün kaynaklarda mesaj içinde arama, Claude için okuma aracı
+
+- **Neden (yakup):** konuşmalar şimdiye kadar Excel dışa aktarımıyla Claude'a geliyordu; Claude'un "hangi müşteri fatura istemiyorum dedi" gibi soruları MCP üzerinden cevaplayabilmesi istendi.
+- **Kodlandı + test:** `App\Services\WhatsApp\ConversationArchive` canlı numaranın, Görüşmelerde gösterilen yedeğin ve arşivdeki bütün yedek satırlarının görüşmelerini birlikte listeler, arar ve okur. Mesaj gövdesi şifreli olduğu için arama sayfa sayfa çözerek yapılır (en yeniden geriye, isabet sınırı ve süre bütçesiyle; yarıda kalırsa söyler). Sorgunun her kelimesi mesajda geçmeli; Türkçe büyük/küçük harf ve aksan yok sayılır ("fatura istem" → "FATURA İSTEMİYORUM", "istemediğiniz").
+- **Ekran:** `/whatsapp/konusmalar` (`operator.whatsapp.conversations`, Livewire `Operator\WhatsApp\Conversations`), yalnız Admin (`WhatsAppConnection::authorize`). Arama kutusu + kaynak seçimi; solda mesaj isabetleri (vurgulu) ve kişiler, sağda görüşmenin tamamı (isabet ortada, "Daha eski mesajlar"). Menü dondurulmuş olduğu için ayrı menü satırı yok: Gelen kutusu başlığındaki "Konuşmalarda ara" düğmesiyle açılır, menüde Gelen kutusu yanar. Hiçbir şey yazmaz.
+- **MCP:** `whatsapp-conversations` (`search`, `read` around/before, `list`, `sources`); sunucu 1.13.0, talimatlara "WhatsApp konuşmaları" bölümü. Sağlık verisi olduğu için araç bilerek salt-okunur işaretlenmedi: salt-okuma anahtarı açamaz, yalnız operatörün yazma anahtarı.
+- **Durum:** CODED, TESTED (PHPUnit `tests/Feature/WhatsAppConversationArchiveTest.php`). Canlı veride arama süresi yayından sonra ölçülecek.
+
 ## 2026-11-12 — Günlük blog: moximu.com günde 2 yazı, onaysız (yakup'un açık istisnası)
 
 - **Kodlandı + test:** `App\Services\Site\DailyBlog` (`brands.auto_blog`, migration `2027_02_05_090000`), `content-autopilot` turunda çalışır. Üretim (BUFFER 6, bekleyen onaylı başlık önce, iki yuva dengesi, en çok bir yenileme), yayın (09:00 / 15:00 Istanbul; yeni yazı zamanlanmış taslak, yenileme yuvasında sayfaya), kalite kapısı `problems()` (+ `ContentAutopilot::verdict` içinde), satış paragrafı `decorate()`, Instagram taslağı, pazartesi raporu `weeklyReport()` (push).

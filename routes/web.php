@@ -27,6 +27,7 @@ use App\Livewire\Operator\Integrations\WebsiteIntegrationIndex;
 use App\Livewire\Operator\PublicDiscoveryIndex;
 use App\Livewire\Operator\Website\PublicDiscoveryPage;
 use App\Livewire\Operator\WhatsApp\Inbox as WhatsAppInbox;
+use App\Livewire\Operator\WhatsApp\Conversations as WhatsAppConversations;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function (): void {
@@ -156,6 +157,9 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->whereUuid('import')->middleware('throttle:20,1,wa-backup-excel')->name('operator.whatsapp.backup.excel');
     Route::get('/whatsapp/export', WhatsAppExportController::class)
         ->middleware('throttle:10,1,wa-export')->name('operator.whatsapp.export');
+    // WhatsApp konuşmaları (2026-11-13): every chat from every source, searched in the message text; read only.
+    Route::livewire('/whatsapp/konusmalar', WhatsAppConversations::class)
+        ->name('operator.whatsapp.conversations');
     Route::livewire('/whatsapp', WhatsAppInbox::class)
         ->name('operator.whatsapp');
 });

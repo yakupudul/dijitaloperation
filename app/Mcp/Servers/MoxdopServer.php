@@ -46,6 +46,7 @@ use App\Mcp\Tools\SubmitResults;
 use App\Mcp\Tools\SystemHealth;
 use App\Mcp\Tools\TaskResult;
 use App\Mcp\Tools\UpdateChange;
+use App\Mcp\Tools\WhatsappConversations;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
@@ -62,7 +63,7 @@ use Laravel\Mcp\Server\Attributes\Version;
  * through the same logged, undoable write path as an approved Onarım masası row. Nothing here writes to an ad account.
  */
 #[Name('MoxDOP')]
-#[Version('1.12.0')]
+#[Version('1.13.0')]
 #[Instructions(<<<'MARKDOWN'
 MoxDOP is Moximu's internal agency operations app: one operator runs search, maps, Google Ads and Meta work for about
 100 brands. You are connected as a co-worker. This text is your whole working guide; you need nothing else.
@@ -92,6 +93,13 @@ MoxDOP is Moximu's internal agency operations app: one operator runs search, map
 ## Finans (by word)
 - When the operator tells you a payment matter in words (a new job, taksit dates, money that came in, a fee change, an
   expense), do it with `finance`: `jobs` to find the job, then the write. Never guess an amount he did not say.
+
+## WhatsApp konuşmaları (what someone wrote)
+- When the operator asks what a person or customer wrote on WhatsApp ("hangi müşteri fatura istemiyorum dedi", "Merve Hanım
+  ödeme için ne demişti"), use `whatsapp-conversations`: `search` with word stems (every word must be in the message; Turkish
+  case and accents are ignored), then `read around=<message_id>` to see the hit in its chat before you answer. `list q=<name>`
+  finds a person's chats. It covers the live number and every phone backup. Chats are private health data: quote only what
+  was asked, and never copy them into notes, findings or brand facts.
 
 ## Moxi işleri (before the queue)
 - Moxi is the panel's corner assistant; jobs it could not do itself come to you. `list-tasks` shows `moxi_requests` (how
@@ -246,5 +254,6 @@ class MoxdopServer extends Server
         SiteWrites::class,
         SiteTool::class,
         MeasurementSetupTool::class,
+        WhatsappConversations::class,
     ];
 }

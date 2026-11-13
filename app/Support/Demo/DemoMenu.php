@@ -56,8 +56,9 @@ final class DemoMenu
                 $item($tr ? 'Satış' : 'Sales', 'operator.sales', 'prospects', [], ['operator.sales.lead']),
                 // Finans (2026-11-12): payment tracking of every paid job, invoices and expenses. Admin only.
                 ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Finans' : 'Finance', 'operator.finance', 'finance', [], ['operator.finance.document'])] : []),
-                // Gelen kutusu (Aşama 2, 2026-11-07): the day's one queue; the WhatsApp screen (chats, Beyin, connection) lights it too.
-                ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Gelen kutusu' : 'Inbox', 'operator.inbox', 'chat', [], ['operator.whatsapp'])] : []),
+                // Gelen kutusu (Aşama 2, 2026-11-07): the day's one queue; the WhatsApp screen (chats, Beyin, connection) and WhatsApp
+                // konuşmaları (search in every chat, 2026-11-13; opened from the inbox header, the menu is frozen) light it too.
+                ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Gelen kutusu' : 'Inbox', 'operator.inbox', 'chat', [], ['operator.whatsapp', 'operator.whatsapp.conversations'])] : []),
                 // Pazarlama (Aşama 4, 2026-11-07): the funnel by source; Sosyal medya (ADR-083) lives inside it as a tab and
                 // keeps its own screen for the post plan, lit under this entry.
                 $item($tr ? 'Pazarlama' : 'Marketing', 'operator.marketing', 'social', [], ['operator.social']),
