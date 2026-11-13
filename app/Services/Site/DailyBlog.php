@@ -551,8 +551,12 @@ final class DailyBlog
             $title = trim((string) ($article['title'] ?? $suggestion->title));
             $excerpt = trim(html_entity_decode(strip_tags((string) ($article['excerpt'] ?? $article['meta_description'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
             $caption = $title."\n\n".($excerpt !== '' ? $excerpt."\n\n" : '').'Rehberin tamamı moximu.com/rehber sayfasında.'."\n\n".'#klinikpazarlama #sağlıkpazarlaması #moximu';
+            // LinkedIn gets its own corporate text with the article's address, so the page's link card (cover, title)
+            // shows under the post; until the LinkedIn connection is approved it waits on /sosyal as "Metni kopyala".
+            $link = self::articleUrl($suggestion);
+            $linkedin = $title."\n\n".($excerpt !== '' ? $excerpt."\n\n" : '').($link !== null ? 'Yazının tamamı: '.$link."\n\n" : '').'#klinikpazarlama #sağlıkpazarlaması #dijitalpazarlama';
             $post = app(SocialPlanner::class)->create([
-                'kind' => 'image', 'pillar' => 'rehber', 'title' => $title, 'caption' => $caption,
+                'kind' => 'image', 'pillar' => 'rehber', 'title' => $title, 'caption' => $caption, 'linkedin_text' => $linkedin,
                 'publish_at' => $slot->addMinutes(self::INSTAGRAM_AFTER_MINUTES), 'created_by' => 'blog',
             ], [['bytes' => app(BrandCover::class)->render($style, $words, true), 'name' => 'rehber-'.$suggestion->id.'.jpg']]);
             if ($approver !== null) {
@@ -565,6 +569,20 @@ final class DailyBlog
         } catch (Throwable $e) {
             Log::info('Daily blog Instagram draft skipped.', ['suggestion' => $suggestion->id, 'error' => $e->getMessage()]);
         }
+    }
+
+    /** The article's public address once it is out: an updated page keeps its own, a new post lives under /rehber/. */
+    public static function articleUrl(Suggestion $suggestion): ?string
+    {
+        $target = (string) data_get($suggestion->action, 'target_url', '');
+        if (data_get($suggestion->action, 'kind') === 'update' && preg_match('~^https?://~', $target) === 1) {
+            return $target;
+        }
+        $slug = trim((string) data_get($suggestion->action, 'article.slug', ''), '/');
+        $site = DigitalAsset::query()->find((int) data_get($suggestion->action, 'site_id', $suggestion->target_id));
+        $base = rtrim((string) ($site?->primary_url ?? ''), '/');
+
+        return $slug !== '' && $base !== '' ? $base.'/rehber/'.$slug.'/' : null;
     }
 
     /**

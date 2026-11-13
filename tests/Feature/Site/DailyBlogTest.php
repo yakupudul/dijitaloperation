@@ -124,6 +124,11 @@ final class DailyBlogTest extends SiteTestCase
         $this->assertStringContainsString('https://panorama.com.tr/hizmetlerimiz/google-isletme-profili/', $html);
         $this->assertStringContainsString('ücretsiz ön değerlendirme', $html);
         $this->assertSame('2026-11-14 09:00', app(DailyBlog::class)->freeSlots($this->site, $now)[0]->format('Y-m-d H:i'), 'the next free slot is tomorrow morning');
+        $this->brand->forceFill(['cover_style' => BrandCover::MOXIMU_REHBER])->save();
+        app(DailyBlog::class)->instagramDraft($guide->fresh(), $now->setTime(9, 0));
+        $social = \App\Models\SocialPost::query()->find((int) data_get($guide->fresh()->action, 'daily.instagram_id'));
+        $this->assertNotNull($social, 'the article gets its social post');
+        $this->assertStringContainsString('https://panorama.com.tr/rehber/yazi-', (string) $social->linkedin_text, 'LinkedIn gets the article link for its card');
     }
 
     public function test_the_sales_paragraph_never_links_a_service_on_a_shared_word_only(): void
