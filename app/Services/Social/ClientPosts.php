@@ -53,6 +53,11 @@ final class ClientPosts
             if ($agreement->starts_on !== null && CarbonImmutable::parse((string) $agreement->starts_on)->lt(CarbonImmutable::now()->subDays(self::NEW_DAYS))) {
                 return null;
             }
+            // Nor is a brand that has been in the panel for longer than that (yakup 2026-11-13 wrote every running
+            // client's fee into Finans in one go).
+            if ($brand->created_at !== null && $brand->created_at->lt(CarbonImmutable::now()->subDays(self::NEW_DAYS))) {
+                return null;
+            }
             if (Agreement::query()->where('brand_id', $brand->id)->whereKeyNot($agreement->id)->exists() || $this->exists('welcome:'.$brand->id)) {
                 return null;
             }

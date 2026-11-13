@@ -55,6 +55,8 @@ final class ClientPostsTest extends TestCase
         $this->agreement(Brand::factory()->create(['name' => 'Ada Diş Kliniği']), 'yearly');
         $this->agreement(Brand::factory()->create(['name' => 'Eski Dermatoloji']), 'monthly', '2025-03-01');
         $this->agreement(Brand::factory()->create(['name' => 'Moximu Klinik', 'cover_style' => BrandCover::MOXIMU_REHBER]));
+        // A clinic long in the panel whose fee is only now written into Finans.
+        $this->agreement(Brand::factory()->create(['name' => 'Yıllanmış Diş Kliniği', 'created_at' => now()->subDays(90)]));
 
         $this->assertSame(0, SocialPost::withoutGlobalScopes()->count());
     }
