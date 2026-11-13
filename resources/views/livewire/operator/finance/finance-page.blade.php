@@ -154,7 +154,7 @@
                                             @if ($row['state'] === 'partial' || ($row['received'] > 0 && $row['open'] > 0))<p class="text-xs text-gray-500">{{ $tlf($row['received']) }} geldi, {{ $tlf($row['open']) }} kaldı</p>@endif
                                         </td>
                                         <td class="whitespace-nowrap text-gray-700 dark:text-gray-300">{{ $day($row['due']) }}@if ($row['days_late'] > 0)<span class="text-error-600"> · {{ $row['days_late'] }} gün</span>@endif</td>
-                                        <td><span class="chip {{ $chipClass }}">{{ $chipText }}</span></td>
+                                        <td><span class="chip {{ $chipClass }} whitespace-nowrap">{{ $chipText }}</span></td>
                                         <td class="text-right">
                                             @if ($pid === null)
                                                 <span class="text-xs text-gray-400">günü gelince açılır</span>
