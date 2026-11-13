@@ -11,6 +11,8 @@
     'showLastDay' => true,
     /** A filter that may be off (range null): the label of "no date filter", also shown as the first preset. */
     'allLabel' => null,
+    /** true: also "Bu ay" and "Bu yıl" (screens that count money by calendar: Finans). */
+    'calendar' => false,
 ])
 
 {{--
@@ -54,7 +56,13 @@
                 <button type="button" @click="preset({{ $presetDays }})" :class="days === {{ $presetDays }} ? 'bg-gray-50 font-semibold text-gray-700 dark:bg-gray-500/10 dark:text-gray-300' : 'text-gray-700 dark:text-gray-300'"
                         class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">{{ $presetLabel }}</button>
             @endforeach
+            @if ($calendar)
+                <button type="button" @click="thisMonth()" :class="days === -3 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Bu ay</button>
+            @endif
             <button type="button" @click="lastMonth()" :class="days === -1 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Geçen ay</button>
+            @if ($calendar)
+                <button type="button" @click="thisYear()" :class="days === -4 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Bu yıl</button>
+            @endif
             <button type="button" @click="custom()" :class="days === 0 ? 'bg-gray-50 font-semibold text-gray-700' : 'text-gray-700 dark:text-gray-300'" class="h-9 rounded-lg px-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800">Özel aralık</button>
         </div>
         <div class="space-y-3 p-4">
@@ -66,6 +74,10 @@
                 <label class="flex-1 text-xs text-gray-500">Bitiş
                     <input type="date" x-model="end" @change="days = 0" :min="start" :max="last" class="mt-1 block h-9 w-full rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-950">
                 </label>
+            </div>
+            <div class="-mb-1 flex items-center justify-between">
+                <button type="button" @click="step(-1)" class="h-8 rounded-lg px-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" aria-label="Önceki ay" data-date-prev>‹ Önceki ay</button>
+                <button type="button" @click="step(1)" class="h-8 rounded-lg px-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" aria-label="Sonraki ay" data-date-next>Sonraki ay ›</button>
             </div>
             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <template x-for="month in months()" :key="month.key">

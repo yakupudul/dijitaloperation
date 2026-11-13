@@ -3,6 +3,7 @@
 namespace App\Livewire\Operator\Finance;
 
 use App\Jobs\Finance\FinanceGmailSyncJob;
+use App\Livewire\Operator\Concerns\FiltersByDateRange;
 use App\Models\Agreement;
 use App\Models\AgreementPayment;
 use App\Models\Brand;
@@ -13,6 +14,7 @@ use App\Services\Finance\FinanceDocuments;
 use App\Services\Finance\FinanceSettings;
 use App\Services\Finance\GmailInvoices;
 use App\Services\Sales\Agreements;
+use App\Services\Site\Analysis\SiteRange;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -34,7 +36,11 @@ use Throwable;
 #[Title('Finans')]
 final class FinancePage extends Component
 {
+    use FiltersByDateRange;
     use WithFileUploads;
+
+    /** Papers listed on one screen; a longer stretch says so and asks for a narrower one. */
+    public const int LIST_LIMIT = 300;
 
     public const array TABS = ['bu-ay' => 'Bu ay', 'anlasmalar' => 'Anlaşmalar', 'giderler' => 'Giderler', 'faturalar' => 'Faturalar'];
 
@@ -44,6 +50,13 @@ final class FinancePage extends Component
     /** The month shown (Y-m); empty = this month. */
     #[Url(as: 'ay', except: '')]
     public string $month = '';
+
+    /** Giderler and Faturalar: the days shown (Y-m-d); both empty = tüm zamanlar. */
+    #[Url(as: 'bas', except: '')]
+    public string $from = '';
+
+    #[Url(as: 'bit', except: '')]
+    public string $to = '';
 
     #[Url(as: 'gorunum', except: 'isler')]
     public string $view = 'isler';
@@ -430,19 +443,27 @@ final class FinancePage extends Component
             $data['brands'] = $this->jobId !== 0 ? Brand::query()->orderBy('name')->get(['id', 'name']) : collect();
             $data['services'] = SalesLead::SERVICES;
         } else {
-            $from = $month->startOfMonth()->toDateString();
-            $to = $month->endOfMonth()->toDateString();
-            $docs = FinanceDocument::query()->with('agreement.brand:id,name', 'brand:id,name')->whereDate('doc_date', '>=', $from)->whereDate('doc_date', '<=', $to);
+            // Papers are shown for any stretch of days, or for all time (yakup 2026-11-13: "tüm zamanları görebilmeliyim").
+            $range = $this->paperRange();
+            $window = $range?->window(CarbonImmutable::parse(self::dateFilterToday()));
+            [$from, $to] = [$window['start'] ?? null, $window['end'] ?? null];
+            $data['dateRange'] = $range;
+            $data['rangeLabel'] = $range === null ? 'Tüm zamanlar' : SiteRange::format($from, $to);
+            $data['rangeQuery'] = array_filter(['bas' => $from, 'bit' => $to]);
+            $docs = FinanceDocument::query()->with('agreement.brand:id,name', 'brand:id,name')
+                ->when($from !== null, fn ($q) => $q->whereDate('doc_date', '>=', $from))->when($to !== null, fn ($q) => $q->whereDate('doc_date', '<=', $to));
             if ($this->tab === 'giderler') {
-                $data['docs'] = $docs->where('direction', FinanceDocument::IN)->where('status', '!=', 'ignored')->orderByDesc('doc_date')->orderByDesc('id')->get();
+                $data['docs'] = $docs->where('direction', FinanceDocument::IN)->where('status', '!=', 'ignored')->orderByDesc('doc_date')->orderByDesc('id')->limit(self::LIST_LIMIT + 1)->get();
                 $data['subscriptions'] = $board->subscriptions();
-                $data['spend'] = $board->month($month)['spend'];
+                $data['spend'] = $board->spendBetween($from, $to);
             } else {
                 $data['ignored'] = $this->direction === 'yok';
                 $data['docs'] = $docs->when($this->direction === 'yok', fn ($q) => $q->where('status', 'ignored')->whereNull('meta->reason'), fn ($q) => $q->where('status', '!=', 'ignored'))
-                    ->when(isset(FinanceDocument::DIRECTIONS[$this->direction]), fn ($q) => $q->where('direction', $this->direction))->orderByDesc('doc_date')->orderByDesc('id')->get();
+                    ->when(isset(FinanceDocument::DIRECTIONS[$this->direction]), fn ($q) => $q->where('direction', $this->direction))->orderByDesc('doc_date')->orderByDesc('id')->limit(self::LIST_LIMIT + 1)->get();
                 $data['gmail'] = $gmail->state() + ['connect' => $gmail->connectUrl()];
             }
+            $data['more'] = $data['docs']->count() > self::LIST_LIMIT;
+            $data['docs'] = $data['docs']->take(self::LIST_LIMIT);
             $data['waiting'] = FinanceDocument::query()->with('agreement.brand:id,name', 'brand:id,name')->where('status', 'new')->where('direction', '!=', FinanceDocument::RECEIPT)
                 ->when($this->tab === 'giderler', fn ($q) => $q->where('direction', FinanceDocument::IN))->orderByDesc('id')->limit(40)->get();
         }
@@ -453,6 +474,39 @@ final class FinancePage extends Component
         }
 
         return view('livewire.operator.finance.finance-page', $data);
+    }
+
+    /**
+     * "Uygula" in the date picker. Unlike the data screens a stretch here may be as long as the papers go back (years),
+     * so the days are kept as chosen; 0 without days = tüm zamanlar.
+     */
+    public function setRange(int $days, string $start = '', string $end = '', string $compare = ''): void
+    {
+        $day = fn (string $v): ?CarbonImmutable => preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) === 1 ? rescue(fn () => CarbonImmutable::parse($v), null, false) : null;
+        [$a, $b] = [$day($start), $day($end)];
+        $today = CarbonImmutable::parse(self::dateFilterToday());
+        if ($a !== null && $b !== null) {
+            [$a, $b] = $a->gt($b) ? [$b, $a] : [$a, $b];
+        } elseif ($days > 0) {
+            [$a, $b] = [$today->subDays(min($days, 3660) - 1), $today];
+        }
+        $this->from = $a?->toDateString() ?? '';
+        $this->to = $b?->toDateString() ?? '';
+        $this->closeDoc();
+    }
+
+    /** The stretch of days as the picker's range; null = tüm zamanlar. */
+    private function paperRange(): ?SiteRange
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->from) !== 1 || preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->to) !== 1 || $this->from > $this->to) {
+            return null;
+        }
+        $days = (int) CarbonImmutable::parse($this->from)->diffInDays(CarbonImmutable::parse($this->to)) + 1;
+        if ($this->to === self::dateFilterToday() && array_key_exists($days, SiteRange::PRESETS)) {
+            return new SiteRange($days);
+        }
+
+        return new SiteRange($days, $this->from, $this->to);
     }
 
     private function monthDate(): CarbonImmutable

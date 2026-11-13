@@ -304,6 +304,22 @@ final class FinanceBoard
     }
 
     /**
+     * What was spent between two days (either end may be open: "tüm zamanlar"), as one approximate ₺ sum.
+     *
+     * @return array{total_try: float, approx: bool, count: int}
+     */
+    public function spendBetween(?string $from, ?string $to): array
+    {
+        $usd = (float) app(AiWorkers::class)->settings()['usd_try'];
+        $docs = FinanceDocument::query()->where('direction', FinanceDocument::IN)->where('status', '!=', 'ignored')
+            ->when($from !== null, fn ($q) => $q->whereDate('doc_date', '>=', $from))->when($to !== null, fn ($q) => $q->whereDate('doc_date', '<=', $to))->get(['amount', 'currency']);
+
+        return ['total_try' => round((float) $docs->sum(fn (FinanceDocument $d): float => match ($d->currency) {
+            'TRY' => (float) $d->amount, 'USD' => (float) $d->amount * $usd, default => 0.0,
+        }), 2), 'approx' => $docs->contains(fn (FinanceDocument $d): bool => $d->currency !== 'TRY'), 'count' => $docs->count()];
+    }
+
+    /**
      * Çapraz kontrol: money that came with no invoice on file, and invoices on file whose money is late. The first
      * list is only made once invoices are being kept at all (else every payment would be on it).
      *

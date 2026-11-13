@@ -4,11 +4,13 @@
  */
 document.addEventListener('alpine:init', () => {
     Alpine.data('sitePicker', (init) => ({
-        open: false, days: init.days, start: init.start, end: init.end, compare: init.compare, last: init.last || init.end, picking: 'start',
+        open: false, days: init.days, start: init.start, end: init.end, compare: init.compare, last: init.last || init.end, picking: 'start', view: null,
         iso(d) { return d.toISOString().slice(0, 10); },
         parse(v) { const [y, m, d] = v.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); },
-        preset(n) { this.days = n; const e = this.parse(this.last); this.end = this.iso(e); e.setUTCDate(e.getUTCDate() - (n - 1)); this.start = this.iso(e); },
-        lastMonth() { const l = this.parse(this.last); const s = new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth() - 1, 1)); const e = new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), 0)); this.days = -1; this.start = this.iso(s); this.end = this.iso(e); },
+        preset(n) { this.view = null; this.days = n; const e = this.parse(this.last); this.end = this.iso(e); e.setUTCDate(e.getUTCDate() - (n - 1)); this.start = this.iso(e); },
+        lastMonth() { this.view = null; const l = this.parse(this.last); const s = new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth() - 1, 1)); const e = new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), 0)); this.days = -1; this.start = this.iso(s); this.end = this.iso(e); },
+        thisMonth() { this.view = null; const l = this.parse(this.last); this.days = -3; this.start = this.iso(new Date(Date.UTC(l.getUTCFullYear(), l.getUTCMonth(), 1))); this.end = this.last; },
+        thisYear() { this.view = null; const l = this.parse(this.last); this.days = -4; this.start = this.iso(new Date(Date.UTC(l.getUTCFullYear(), 0, 1))); this.end = this.last; },
         custom() { this.days = 0; this.picking = 'start'; },
         all() { this.days = -2; this.apply(); },
         pick(v) {
@@ -17,9 +19,15 @@ document.addEventListener('alpine:init', () => {
             if (v < this.start) { this.start = v; return; }
             this.end = v; this.picking = 'start';
         },
+        /** The calendar steps back and forth by a month without changing the chosen days; never past the last day's month. */
+        step(by) {
+            const e = this.view ? this.parse(this.view) : this.parse(this.end || this.last);
+            const next = this.iso(new Date(Date.UTC(e.getUTCFullYear(), e.getUTCMonth() + by, 1)));
+            this.view = next.slice(0, 7) > this.last.slice(0, 7) ? this.last : next;
+        },
         months() {
             const names = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-            const e = this.parse(this.end || this.last);
+            const e = this.view ? this.parse(this.view) : this.parse(this.end || this.last);
             return [-1, 0].map((off) => {
                 const first = new Date(Date.UTC(e.getUTCFullYear(), e.getUTCMonth() + off, 1));
                 const lead = (first.getUTCDay() + 6) % 7, count = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();

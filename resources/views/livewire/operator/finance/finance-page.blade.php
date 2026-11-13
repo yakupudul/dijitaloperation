@@ -14,12 +14,14 @@
     <header class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="page-title">Finans</h1>
         <div class="flex flex-wrap items-center gap-2">
-            @if ($tab !== 'anlasmalar')
+            @if ($tab === 'bu-ay')
                 <div class="flex items-center gap-0.5" data-finance-month>
                     <button type="button" wire:click="shift(-1)" class="btn-quiet h-8 px-2" aria-label="Önceki ay">‹</button>
                     <x-operator.month-picker :month="$monthDate" />
                     <button type="button" wire:click="shift(1)" class="btn-quiet h-8 px-2" aria-label="Sonraki ay">›</button>
                 </div>
+            @elseif ($tab !== 'anlasmalar')
+                <x-operator.date-range-picker :range="$dateRange" :last-day="\App\Livewire\Operator\Finance\FinancePage::dateFilterToday()" :compare="false" :show-last-day="false" :calendar="true" all-label="Tüm zamanlar" class="w-full sm:w-auto" data-finance-range />
             @endif
             <button type="button" wire:click="newExpense" class="btn" data-finance-new-expense>Gider ekle</button>
             <button type="button" wire:click="newJob" class="btn-primary" data-finance-new-job>İş ekle</button>
@@ -402,21 +404,21 @@
 
         <section class="card mt-4" data-finance-docs>
             <div class="flex flex-wrap items-center justify-between gap-3 px-4 pt-4">
-                <h2 class="section-title">{{ $tab === 'giderler' ? 'Giderler' : 'Belgeler' }} · {{ $monthLabel }} <span class="section-count">{{ $docs->count() }}</span></h2>
+                <h2 class="section-title">{{ $tab === 'giderler' ? 'Giderler' : 'Belgeler' }} · {{ $rangeLabel }} <span class="section-count">{{ $docs->count() }}</span></h2>
                 <div class="flex flex-wrap items-center gap-2">
                     @if ($tab === 'faturalar')
                         <select wire:model.live="direction" class="{{ $input }} !h-8 !w-auto" aria-label="Tür"><option value="">Hepsi</option><option value="out">Kestiğim faturalar</option><option value="in">Giderler</option><option value="receipt">Dekontlar</option><option value="yok">Yok sayılanlar</option></select>
                     @endif
                     @if ($docs->isNotEmpty() && ! ($ignored ?? false))
-                        <a href="{{ route('operator.finance.zip', array_filter(['ay' => $monthDate->format('Y-m'), 'tur' => $tab === 'giderler' ? 'in' : $direction])) }}" class="btn" data-finance-zip>{{ $monthLabel }} ZIP indir</a>
+                        <a href="{{ route('operator.finance.zip', $rangeQuery + array_filter(['tur' => $tab === 'giderler' ? 'in' : $direction])) }}" class="btn" data-finance-zip>ZIP indir</a>
                     @endif
                 </div>
             </div>
             @if ($tab === 'giderler' && $docs->isNotEmpty())
-                <p class="px-4 pt-1 text-[13px] text-gray-500">Toplam {{ $spend['approx'] ? '≈ ' : '' }}{{ $tlf($spend['total_try']) }}{{ $spend['previous_try'] > 0 ? ' · geçen ay '.$tlf($spend['previous_try']) : '' }}</p>
+                <p class="px-4 pt-1 text-[13px] text-gray-500">Toplam {{ $spend['approx'] ? '≈ ' : '' }}{{ $tlf($spend['total_try']) }} · {{ $spend['count'] }} belge</p>
             @endif
             @if ($docs->isEmpty())
-                <p class="px-4 pb-5 pt-2 text-sm text-gray-500">{{ $monthLabel }} için belge yok.</p>
+                <p class="px-4 pb-5 pt-2 text-sm text-gray-500">{{ $dateRange === null ? 'Henüz belge yok.' : $rangeLabel.' arasında belge yok. Tarih seçiciden "Tüm zamanlar"ı seçebilirsin.' }}</p>
             @else
                 <div class="mt-2 overflow-x-auto">
                     <table class="data-table table-stack">
@@ -446,6 +448,7 @@
                         </tbody>
                     </table>
                 </div>
+                @if ($more ?? false)<p class="px-4 pb-4 pt-2 text-[13px] text-gray-500">İlk {{ \App\Livewire\Operator\Finance\FinancePage::LIST_LIMIT }} belge gösteriliyor. Daha eskileri için tarih aralığını daralt; ZIP seçili aralığın tamamını indirir.</p>@endif
             @endif
         </section>
 

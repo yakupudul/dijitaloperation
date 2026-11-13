@@ -382,6 +382,24 @@ class FinanceAreaTest extends TestCase
         $this->assertSame(0, $job->fresh('payments')->remaining());
     }
 
+    public function test_papers_are_shown_for_all_time_or_for_any_stretch_of_days(): void
+    {
+        $docs = app(FinanceDocuments::class);
+        $docs->manual(['direction' => 'in', 'counterparty' => 'Eski Sunucu', 'amount' => '100', 'doc_date' => '2023-03-10']);
+        $docs->manual(['direction' => 'in', 'counterparty' => 'Yeni Sunucu', 'amount' => '250', 'doc_date' => now('Europe/Istanbul')->toDateString()]);
+
+        // No dates = every paper, however old.
+        $page = Livewire::test(FinancePage::class)->set('tab', 'giderler')->assertSee('Tüm zamanlar')->assertSee('Eski Sunucu')->assertSee('Yeni Sunucu')->assertSee('350 ₺');
+        // A stretch of years back is kept as chosen.
+        $page->call('setRange', 28, '2023-01-01', '2023-12-31', '')->assertSet('from', '2023-01-01')->assertSet('to', '2023-12-31')->assertSee('Eski Sunucu')->assertDontSee('Yeni Sunucu');
+        $page->call('setRange', 7)->assertSee('Yeni Sunucu')->assertDontSee('Eski Sunucu');
+        $page->call('setRange', 0)->assertSet('from', '')->assertSee('Eski Sunucu');
+        $page->call('setRange', 28, 'x', 'y', '')->assertOk();
+
+        $this->actingAs($this->admin)->get(route('operator.finance.zip', ['bas' => '2023-01-01', 'bit' => '2023-12-31', 'tur' => 'in']))->assertOk()->assertDownload('finans-2023-01-01_2023-12-31-giderler.zip');
+        $this->actingAs($this->admin)->get(route('operator.finance.zip'))->assertOk()->assertDownload('finans-tum-zamanlar.zip');
+    }
+
     public function test_the_finance_tick_is_scheduled(): void
     {
         $names = collect(Schedule::events())->map(fn ($event): string => (string) ($event->description ?? ''))->all();

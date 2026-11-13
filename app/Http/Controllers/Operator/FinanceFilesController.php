@@ -34,16 +34,23 @@ final class FinanceFilesController extends Controller
     public function zip(Request $request, FinanceDocuments $documents): BinaryFileResponse
     {
         $this->admin();
+        // A month (ay=Y-m), a stretch of days (bas / bit, either may be missing) or nothing at all = every paper.
         $month = (string) $request->query('ay', '');
-        abort_unless(preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month) === 1, 404);
-        $from = CarbonImmutable::parse($month.'-01');
+        $day = fn (string $key): ?string => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $request->query($key, '')) === 1 ? (string) $request->query($key) : null;
+        [$from, $to] = [$day('bas'), $day('bit')];
+        if ($month !== '') {
+            abort_unless(preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $month) === 1, 404);
+            $first = CarbonImmutable::parse($month.'-01');
+            [$from, $to] = [$first->toDateString(), $first->endOfMonth()->toDateString()];
+        }
         $direction = (string) $request->query('tur', '');
         $docs = FinanceDocument::query()->with('agreement.brand:id,name')
-            ->whereDate('doc_date', '>=', $from->toDateString())->whereDate('doc_date', '<=', $from->endOfMonth()->toDateString())
+            ->when($from !== null, fn ($q) => $q->whereDate('doc_date', '>=', $from))->when($to !== null, fn ($q) => $q->whereDate('doc_date', '<=', $to))
             ->where('status', '!=', 'ignored')
             ->when(isset(FinanceDocument::DIRECTIONS[$direction]), fn ($q) => $q->where('direction', $direction))
             ->orderBy('doc_date')->orderBy('id')->get();
-        $label = 'finans-'.$month.(isset(FinanceDocument::DIRECTIONS[$direction]) ? '-'.['out' => 'faturalar', 'in' => 'giderler', 'receipt' => 'dekontlar'][$direction] : '');
+        $span = $month !== '' ? $month : ($from === null && $to === null ? 'tum-zamanlar' : ($from ?? 'bastan').'_'.($to ?? 'bugune'));
+        $label = 'finans-'.$span.(isset(FinanceDocument::DIRECTIONS[$direction]) ? '-'.['out' => 'faturalar', 'in' => 'giderler', 'receipt' => 'dekontlar'][$direction] : '');
 
         return response()->download($documents->zip($docs, $label), $label.'.zip', ['Content-Type' => 'application/zip'])->deleteFileAfterSend(true);
     }
