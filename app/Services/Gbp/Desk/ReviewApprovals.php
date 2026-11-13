@@ -70,7 +70,8 @@ final class ReviewApprovals
 
     /**
      * What the client sees: a link's copy, or for a standing link the drafts of the scope's unanswered reviews right now
-     * (oldest first; reviews the client declined, with an open removal request or with a reply on its way left out).
+     * (any age, newest first, at most MAX at a time: only reviews that have a draft are read, so years of undrafted old
+     * reviews no longer fill the list and leave it empty; reviews the client declined, with an open removal request or with a reply on its way left out).
      *
      * @return list<array<string, mixed>>
      */
@@ -86,7 +87,7 @@ final class ReviewApprovals
         if ($resources === []) {
             return [];
         }
-        $rows = array_values(array_filter(app(ReviewDesk::class)->reviews($resources, 'bekleyen', '', self::MAX, 'eski')['rows'],
+        $rows = array_values(array_filter(app(ReviewDesk::class)->reviews($resources, 'bekleyen', '', self::MAX, 'yeni', false, '', true)['rows'],
             fn (array $r): bool => trim((string) $r['draft']) !== '' && ! ReviewDesk::busy($r)));
         $ids = array_column($rows, 'id');
         $declined = array_filter($this->forReviews($ids), fn (array $a): bool => $a['state'] === 'skip');

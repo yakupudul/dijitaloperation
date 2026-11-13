@@ -321,12 +321,14 @@ final class ReviewsPage extends Component
      * Müşteri onay linki: the standing link of the profile in view (one profile picked) or of the brand; the client
      * approves the current drafts there and what is approved goes to Google by itself.
      */
-    public function liveLink(ReviewApprovals $approvals): void
+    public function liveLink(?int $forBrand = null): void
     {
         abort_unless($this->canWrite(), 403);
-        $locations = $this->reviewLocations();
+        // With no brand picked the card lists every brand with its own "Linki al" (yakup 2026-11-13 could not find the link).
+        $approvals = app(ReviewApprovals::class);
+        $locations = $forBrand !== null ? collect() : $this->reviewLocations();
         $asset = $locations->count() === 1 ? $locations->first() : null;
-        $brandId = $asset?->brand_id ?? $this->brand;
+        $brandId = $forBrand ?? $asset?->brand_id ?? $this->brand;
         if ($brandId === null) {
             $this->say('Önce üstten bir marka ya da işletme seçin; link o markanın yorumları için hazırlanır.', 'error');
 
@@ -650,6 +652,11 @@ final class ReviewsPage extends Component
             'preview' => $preview,
             'flags' => $flagged,
             'brandAnswers' => $brandAnswers,
+            // Müşteri onay linki with no brand picked: one row per brand with its unanswered reviews (all ages).
+            'linkBrands' => $this->brand === null && $this->location === null && $this->asset === null ? $all->filter(fn ($l): bool => $l->brand_id !== null)
+                ->groupBy('brand_id')->map(fn ($rows, $brandId): array => ['id' => (int) $brandId, 'name' => (string) $rows->first()->brand?->name,
+                    'open' => $rows->sum(fn ($l): int => (int) ($allStats[$l->id]['unanswered'] ?? 0) + (int) ($allStats[$l->id]['older'] ?? 0))])
+                ->filter(fn (array $b): bool => $b['open'] > 0)->sortByDesc('open')->values()->all() : [],
             'approvalLinks' => $this->canWrite() ? app(ReviewApprovals::class)->recent($this->brand) : collect(),
             'places' => $places,
             'chips' => count($chips) > 1 ? $chips : [],

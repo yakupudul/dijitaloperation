@@ -216,7 +216,7 @@ final class ReviewDesk
      * @param  array<int, int>  $resources  asset id => resource id
      * @return array{rows: list<array{id: int, asset_id: int, rating: ?int, reviewer: string, comment: string, date: string, waiting: string, late: bool, answered: bool, reply: string, draft: ?string, draft_state: ?string, action: ?array<string, mixed>}>, total: int}
      */
-    public function reviews(array $resources, string $status = 'bekleyen', string $rating = '', int $limit = self::PAGE, string $sort = 'yeni', bool $recentOnly = false, string $search = ''): array
+    public function reviews(array $resources, string $status = 'bekleyen', string $rating = '', int $limit = self::PAGE, string $sort = 'yeni', bool $recentOnly = false, string $search = '', ?bool $drafted = null): array
     {
         $search = trim(self::lower($search));
         $assetByResource = array_flip($resources);
@@ -227,6 +227,9 @@ final class ReviewDesk
             ->when($status === 'bildirim', fn ($q) => $q->whereIn('id', DB::table('gbp_review_flags')->select('gbp_review_id')))
             ->when(isset(GbpDailyWorkspace::RATING_FILTERS[$rating]), fn ($q) => $q->whereIn('star_rating', GbpDailyWorkspace::RATING_FILTERS[$rating]))
             ->when($recentOnly, fn ($q) => $q->where('create_time', '>=', now()->subDays(self::WINDOW_DAYS)))
+            // true: only reviews with a live reply draft (the client link); false: only those without one (the night drafts).
+            ->when($drafted !== null, fn ($q) => $q->{$drafted ? 'whereIn' : 'whereNotIn'}('id', AiProduction::query()->select('subject_id')
+                ->where('kind', ReviewReplyDrafter::KIND)->where('subject_type', 'GbpReview')->where('status', '!=', AiProduction::STATUS_DISCARDED)))
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w->whereRaw('lower(cast(comment as text)) like ?', ['%'.$search.'%'])
                 ->orWhereRaw('lower(cast(reviewer as text)) like ?', ['%'.$search.'%'])));
         $total = (clone $query)->count();

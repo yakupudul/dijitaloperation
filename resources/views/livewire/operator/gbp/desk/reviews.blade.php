@@ -54,6 +54,21 @@
                 </div>
                 <button type="button" wire:click="liveLink" class="btn-primary">Linki al</button>
             </section>
+        @elseif ($canWrite && $section === 'yanit' && $linkBrands !== [])
+            <section class="card" data-testid="gbp-live-link-brands">
+                <div class="card-row">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">Müşteri onay linki</p>
+                        <p class="mt-0.5 text-[13px] text-gray-500">Her markanın kalıcı linki var. Linki müşteriyle paylaş; hazırlanan yanıtları orada görür, onayladıkları Google’a kendiliğinden gider.</p>
+                    </div>
+                </div>
+                @foreach ($linkBrands as $linkBrand)
+                    <div class="card-row" wire:key="link-brand-{{ $linkBrand['id'] }}">
+                        <p class="min-w-0 flex-1 truncate text-sm text-gray-900 dark:text-white">{{ $linkBrand['name'] }} <span class="text-[13px] tabular-nums text-gray-500">{{ $n($linkBrand['open']) }} yanıtsız yorum</span></p>
+                        <button type="button" wire:click="liveLink({{ $linkBrand['id'] }})" class="btn">Linki al</button>
+                    </div>
+                @endforeach
+            </section>
         @endif
 
         @if ($approvalUrl || $approvalLinks->isNotEmpty())

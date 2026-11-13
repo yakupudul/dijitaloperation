@@ -14,16 +14,19 @@ use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Yorum yanıtı taslakları (Aşama 9, 2026-10-22). Every unanswered review of the last 90 days on a served profile gets
- * a reply draft at night (Claude, the review reply prompt); `checked()` tells without AI whether a draft is sound: long
+ * Yorum yanıtı taslakları (Aşama 9, 2026-10-22). Every unanswered review on a served profile (any age since 2026-11-13)
+ * gets a reply draft at night (Claude, the review reply prompt); `checked()` tells without AI whether a draft is sound: long
  * enough, no phone number or link, no claim the brand's record does not hold, not a 1-2 star review, not declined by the
  * brand, no open removal request. Since 2026-10-26 replies go to Google when the client approves them on the brand's
  * approval link (ReviewApprovals), not with the daily click.
  */
 final class ReviewReplyCheck
 {
-    /** Drafts asked per night (Claude's queue stays free for other work). */
-    public const int NIGHT_DRAFTS = 60;
+    /**
+     * Drafts asked per night. Every unanswered review of a served profile gets one, whatever its age (yakup 2026-11-13:
+     * "tüm yorumlara yanıt hazırlanmalı"), newest first, so the years-old backlog fills in over a few weeks.
+     */
+    public const int NIGHT_DRAFTS = 300;
 
     public const int MIN_LENGTH = 25;
 
@@ -86,10 +89,17 @@ final class ReviewReplyCheck
         return $this->checked()->whereNotNull('reason')->values();
     }
 
-    /** Night: drafts for unanswered reviews that have none (oldest first, at most NIGHT_DRAFTS). */
+    /** Night: drafts for unanswered reviews that have none (any age, newest first, at most NIGHT_DRAFTS). */
     public function draftNight(): int
     {
-        [$rows] = $this->unanswered();
+        $assets = DigitalAsset::query()->operational()->where('digital_assets.type', 'google_business_profile')->whereNotNull('digital_assets.brand_id')->pluck('digital_assets.id');
+        $resources = $this->daily->resourceIds($assets->map(fn ($id): int => (int) $id)->all());
+        if ($resources === []) {
+            return 0;
+        }
+        // All ages, only reviews still without a draft: the 90-day window and a 500-row cap of mostly drafted reviews
+        // used to leave the older unanswered reviews (thousands on Avrupadent) without a reply forever.
+        $rows = $this->desk->reviews($resources, 'bekleyen', '', self::NIGHT_DRAFTS * 2, 'yeni', false, '', false)['rows'];
         $missing = array_values(array_filter($rows, fn (array $r): bool => $r['draft'] === null && $r['draft_state'] !== 'running' && $r['action'] === null));
 
         try {

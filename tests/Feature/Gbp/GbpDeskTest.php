@@ -886,6 +886,27 @@ final class GbpDeskTest extends TestCase
         $this->assertSame(['ok', 'skip', 'ok'], array_column($link->fresh()->items, 'decision'));
     }
 
+    public function test_old_unanswered_reviews_get_night_drafts_and_the_link_shows_drafted_ones_of_any_age(): void
+    {
+        $review = fn (string $id, string $at): int => DB::table('gbp_reviews')->insertGetId(['external_resource_id' => $this->resourceId, 'run_id' => 1, 'location_name' => 'locations/22',
+            'review_id' => $id, 'reviewer' => json_encode(['displayName' => 'Ayşe '.$id]), 'star_rating' => 'FIVE', 'comment' => 'Yorum '.$id, 'create_time' => $at,
+            'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        $old = $review('o1', now()->subYears(2)->toDateTimeString());
+        $drafted = $review('d1', now()->subYear()->toDateTimeString());
+        $recent = $review('r1', now()->subDays(3)->toDateTimeString());
+        $desk = app(ReviewDesk::class);
+        $desk->saveDraft($this->admin, $drafted, 'Bir yıl önceki yorumunuz için de teşekkür ederiz.');
+
+        $rows = $desk->reviews([$this->resourceId => $this->resourceId], 'bekleyen', '', 50, 'yeni', false, '', false)['rows'];
+        $this->assertSame([$recent, $old], array_column($rows, 'id'), 'the night reads every age, only reviews without a draft');
+
+        $link = app(ReviewApprovals::class)->live($this->admin, $this->brand);
+        $this->assertSame([$drafted], array_column(app(ReviewApprovals::class)->items($link), 'review_id'), 'a year-old drafted review is on the client link');
+
+        Livewire::actingAs($this->admin)->test(ReviewsPage::class)->assertSee('Müşteri onay linki')->call('liveLink', $this->brand->id)
+            ->assertSet('approvalUrl', ReviewApprovals::url($link));
+    }
+
     public function test_photos_named_after_another_branch_are_not_offered_and_kinds_match_whole_words(): void
     {
         $second = $this->secondBranch();

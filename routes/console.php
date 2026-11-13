@@ -1009,8 +1009,9 @@ Artisan::command('moxdop:gbp:reply-drafts', function (): void {
     $this->info('Taslağı istenen yorum: '.app(ReviewReplyCheck::class)->draftNight());
 })->purpose('Ask reply drafts for unanswered Business Profile reviews (sent when the client approves them on the link).');
 
+// Twice a day since 2026-11-13 (every unanswered review of any age gets a draft; the backlog fills in about ten days).
 Schedule::command('moxdop:gbp:reply-drafts')
-    ->dailyAt('03:40')
+    ->twiceDailyAt(3, 13, 40)
     ->timezone('Europe/Istanbul')
     ->withoutOverlapping(30)
     ->name('gbp-reply-drafts');
