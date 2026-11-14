@@ -15,7 +15,7 @@ $kartlar = array_values(array_filter($kartlar, fn($id) => get_post_status($id) =
 			<?php echo bk_gorsel('2026/09/beyazikon.png', 'thumbnail', ['alt' => '', 'class' => 'bk-hero-ikon', 'width' => '65', 'height' => '52', 'loading' => 'eager']); ?>
 			<p class="bk-hero-ust">Maidan kadın doğum uzmanı</p>
 			<h1>Ankara Kadın Doğum Uzmanı | Prof. Dr. Burcu Kısa</h1>
-			<p class="bk-hero-p">Ankara Çankaya’daki Maidan İş Merkezi’nde bulunan muayenehanemde gebelik ve doğum, genital estetik uygulamaları, HPV, siğil tedavileri ve kolposkopi, menopozda biyoözdeş hormon tedavileri, miyom, kist ve diğer jinekolojik operasyonlar, aşılama (IUI), idrar kaçırma ve rahim sarkması tedavileri, PKOS ve adet düzensizliği tedavisi ile kadın kanserleri taramaları alanlarında hizmet veriyorum. Takip planınızı kişisel sağlık öykünüz ve muayene bulgularınız doğrultusunda oluşturuyorum.</p>
+			<p class="bk-hero-p">Ankara Çankaya’daki Maidan İş Merkezi’nde bulunan muayenehanemde gebelik takibi, jinekolojik muayene ve tedaviler, menopoz ve kadın kanserleri taramaları alanlarında hizmet veriyorum. Takip planınızı kişisel sağlık öykünüz ve muayene bulgularınız doğrultusunda oluşturuyorum.</p>
 			<div class="bk-btn-grup">
 				<a class="bk-btn buyuk yesil" href="<?php echo esc_url($wa); ?>" target="_blank" rel="noopener"><?php echo bk_ikon('wa'); ?> Randevu Al</a>
 				<a class="bk-btn buyuk acik-altin" href="<?php echo esc_url($hakkimda); ?>">Hakkımda</a>
@@ -46,7 +46,7 @@ $kartlar = array_values(array_filter($kartlar, fn($id) => get_post_status($id) =
 
 <section class="bk-bolum bk-ana-hakkimda">
 	<div class="kap">
-		<div class="bk-ana-hakkimda-kutu">
+		<div class="bk-ana-hakkimda-foto"><?php echo bk_gorsel("2026/09/IMG_5024-scaled.jpg", "large", ["alt" => "Prof. Dr. Burcu Kısa", "sizes" => "(max-width: 767px) 100vw, 560px"]); ?></div><div class="bk-ana-hakkimda-kutu">
 			<p class="bk-h4">Hakkımda</p>
 			<h2 class="bk-h2">Prof. Dr. Burcu Kısa</h2>
 			<p>2005 yılında Gazi Üniversitesi Tıp Fakültesi’nden mezun olarak tıp doktoru unvanını aldı. Kadın Hastalıkları ve Doğum alanındaki uzmanlık eğitimini 2006–2011 yılları arasında Başkent Üniversitesi’nde tamamladı.</p>
