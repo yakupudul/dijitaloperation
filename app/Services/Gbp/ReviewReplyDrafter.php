@@ -262,7 +262,8 @@ final class ReviewReplyDrafter
 
     public static function signature(?Brand $brand): string
     {
-        $name = $brand !== null ? self::displayName((string) $brand->name) : '';
+        // "Prof. Dr. Burcu Kısa - Kadın Hastalıkları Ve Doğum Uzmanı Ankara": the sign-off is the name, not the GBP-style tail.
+        $name = $brand !== null ? trim((string) preg_split('/\s+[-–|]\s+/u', self::displayName((string) $brand->name))[0]) : '';
         if ($name === '') {
             return '';
         }

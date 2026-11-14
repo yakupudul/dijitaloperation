@@ -179,6 +179,9 @@ final class ReviewReplyDraftTest extends TestCase
         $this->assertSame('Örnek Klinik ekibi', ReviewReplyDrafter::signature($brand));
         $brand->forceFill(['name' => 'Dr. Dt. Burçin ÖNCÜL'])->save();
         $this->assertSame('Dr. Dt. Burçin Öncül ve ekibi', ReviewReplyDrafter::signature($brand));
+        $brand->forceFill(['name' => 'Prof. Dr. Burcu Kısa - Kadın Hastalıkları Ve Doğum Uzmanı Ankara'])->save();
+        $this->assertSame('Prof. Dr. Burcu Kısa ve ekibi', ReviewReplyDrafter::signature($brand));
+        $brand->forceFill(['name' => 'Dr. Dt. Burçin ÖNCÜL'])->save();
 
         $this->assertNotNull(ReviewReplyDrafter::voiceProblem('Bize yıldız bıraktığınız için sağ olun.', []));
         $this->assertNotNull(ReviewReplyDrafter::voiceProblem('Puanınız için teşekkür ederiz.', []));
