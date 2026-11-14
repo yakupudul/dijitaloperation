@@ -364,7 +364,7 @@ function bk_iletisim_kutusu(string $baslik = 'Prof. Dr. Burcu Kısa - Kadın Has
 	if ($galeri) {
 		echo '<div class="bk-mini-galeri">';
 		foreach (['IMG_5331', 'IMG_5330', 'IMG_5325', 'IMG_5329'] as $g) {
-			echo bk_gorsel('2026/09/' . $g . '-scaled.jpg', 'medium', ['alt' => 'Prof. Dr. Burcu Kısa kliniği, Maidan İş Merkezi']);
+			echo bk_gorsel('2026/09/' . $g . '-scaled.jpg', 'medium', ['alt' => 'Prof. Dr. Burcu Kısa muayenehanesi, Maidan İş Merkezi']);
 		}
 		echo '</div>';
 	}

@@ -11,7 +11,7 @@ $randevu = bk_url('/randevu-olustur/');
 			<div class="bk-alt-cta-sol">
 				<p class="bk-alt-ust-etiket">ANKARA · ÇANKAYA · MAİDAN</p>
 				<h2>Sağlığınız için birlikte planlayalım.</h2>
-				<p>Muayene, değerlendirme ve takip için kliniğimizle iletişime geçin. Size uygun randevu zamanını birlikte belirleyelim.</p>
+				<p>Muayene, değerlendirme ve takip için bizimle iletişime geçin. Size uygun randevu zamanını birlikte belirleyelim.</p>
 			</div>
 			<div class="bk-alt-cta-sag">
 				<h3>Sizin için uygun bir zaman bulalım.</h3>
@@ -32,8 +32,8 @@ $randevu = bk_url('/randevu-olustur/');
 					<p>Ankara Çankaya'daki Maidan İş Merkezi'nde kadın hastalıkları ve doğum alanında muayene, değerlendirme ve takip.</p>
 					<a class="bk-alt-ig" href="<?php echo esc_url(bk_ayar('instagram')); ?>" target="_blank" rel="noopener">Instagram ↗</a>
 				</div>
-				<nav class="bk-alt-linkler" aria-label="Kliniğimizi tanıyın">
-					<h3>Kliniğimizi tanıyın</h3>
+				<nav class="bk-alt-linkler" aria-label="Muayenehanemizi tanıyın">
+					<h3>Muayenehanemizi tanıyın</h3>
 					<ul>
 						<li><a href="<?php echo esc_url($randevu); ?>">Randevu Oluştur</a></li>
 						<li><a href="<?php echo esc_url(bk_url('/hakkimda/')); ?>">Hakkımda</a></li>

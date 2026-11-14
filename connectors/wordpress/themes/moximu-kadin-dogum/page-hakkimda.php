@@ -62,11 +62,11 @@ bk_sayfa_bandi(get_the_title());
 </section>
 <section class="bk-klinik-foto">
 	<div class="kap">
-		<h2>Klinikten Fotoğraflar</h2>
+		<h2>Muayenehaneden Fotoğraflar</h2>
 		<div class="bk-foto-izgara">
 			<?php foreach (['IMG_5331', 'IMG_5332', 'IMG_5330', 'IMG_5327', 'IMG_5325', 'IMG_5329', 'IMG_5337', 'IMG_5328'] as $g) :
 				$y = '2026/09/' . $g . '-scaled.jpg'; ?>
-				<a href="<?php echo esc_url(bk_gorsel_url($y, 'full')); ?>" data-buyut><?php echo bk_gorsel($y, 'medium_large', ['alt' => 'Prof. Dr. Burcu Kısa kliniği, Maidan İş Merkezi', 'sizes' => '(max-width: 767px) 50vw, 290px']); ?></a>
+				<a href="<?php echo esc_url(bk_gorsel_url($y, 'full')); ?>" data-buyut><?php echo bk_gorsel($y, 'medium_large', ['alt' => 'Prof. Dr. Burcu Kısa muayenehanesi, Maidan İş Merkezi', 'sizes' => '(max-width: 767px) 50vw, 290px']); ?></a>
 			<?php endforeach; ?>
 		</div>
 	</div>

@@ -50,7 +50,7 @@ $kartlar = array_values(array_filter($kartlar, fn($id) => get_post_status($id) =
 			<p class="bk-h4">Hakkımda</p>
 			<h2 class="bk-h2">Prof. Dr. Burcu Kısa</h2>
 			<p>2005 yılında Gazi Üniversitesi Tıp Fakültesi’nden mezun olarak tıp doktoru unvanını aldı. Kadın Hastalıkları ve Doğum alanındaki uzmanlık eğitimini 2006–2011 yılları arasında Başkent Üniversitesi’nde tamamladı.</p>
-			<p>Kadın Hastalıkları ve Doğum Uzmanı Prof. Dr. Burcu Kısa, kadın sağlığının farklı dönemlerinde koruyucu, tanısal ve tedavi edici yaklaşımları bir arada ele alan; bilimsel gelişmeleri klinik deneyimle buluşturan bir anlayışla çalışmalarını Ankara Çankaya Maidan iş merkezindeki kliniğinde sürdürmektedir.</p>
+			<p>Kadın Hastalıkları ve Doğum Uzmanı Prof. Dr. Burcu Kısa, kadın sağlığının farklı dönemlerinde koruyucu, tanısal ve tedavi edici yaklaşımları bir arada ele alan; bilimsel gelişmeleri klinik deneyimle buluşturan bir anlayışla çalışmalarını Ankara Çankaya Maidan İş Merkezi’ndeki muayenehanesinde sürdürmektedir.</p>
 			<a class="bk-devam" href="<?php echo esc_url($hakkimda); ?>">Devamını oku</a>
 			<div class="bk-btn-grup">
 				<a class="bk-btn buyuk yesil" href="<?php echo esc_url($wa); ?>" target="_blank" rel="noopener"><?php echo bk_ikon('wa'); ?> Randevu Al</a>
@@ -66,7 +66,7 @@ $kartlar = array_values(array_filter($kartlar, fn($id) => get_post_status($id) =
 		<?php
 		$g = '';
 		foreach (['2026/11/WhatsApp-Image-2026-10-28-at-10.13.56.jpeg', '2026/11/WhatsApp-Image-2026-10-28-at-10.14.09.jpeg', '2026/09/IMG_5330-scaled.jpg', '2026/09/IMG_5331-scaled.jpg', '2026/09/IMG_5332-scaled.jpg', '2026/09/IMG_5327-scaled.jpg', '2026/09/IMG_5325-scaled.jpg', '2026/09/IMG_5328-scaled.jpg', '2026/09/IMG_5329-scaled.jpg'] as $y) {
-			$g .= '<a class="bk-galeri-oge" href="' . esc_url(bk_gorsel_url($y, 'full')) . '" data-buyut>' . bk_gorsel($y, 'medium_large', ['alt' => 'Prof. Dr. Burcu Kısa kliniğinden fotoğraf', 'sizes' => '(max-width: 767px) 80vw, 212px']) . '</a>';
+			$g .= '<a class="bk-galeri-oge" href="' . esc_url(bk_gorsel_url($y, 'full')) . '" data-buyut>' . bk_gorsel($y, 'medium_large', ['alt' => 'Prof. Dr. Burcu Kısa muayenehanesinden fotoğraf', 'sizes' => '(max-width: 767px) 80vw, 212px']) . '</a>';
 		}
 		echo bk_serit($g, 'bk-galeri-serit', 'Fotoğraf galerisi');
 		?>
@@ -82,7 +82,7 @@ $kartlar = array_values(array_filter($kartlar, fn($id) => get_post_status($id) =
 			</div>
 			<div class="bk-cta-btn">
 				<a class="bk-btn buyuk yesil" href="<?php echo esc_url($wa); ?>" target="_blank" rel="noopener"><?php echo bk_ikon('wa'); ?> Whatsapp</a>
-				<a class="bk-btn buyuk acik-altin" href="<?php echo esc_url(bk_ayar('telefon_link')); ?>">Kliniği Arayın</a>
+				<a class="bk-btn buyuk acik-altin" href="<?php echo esc_url(bk_ayar('telefon_link')); ?>">Bizi Arayın</a>
 				<a class="bk-btn buyuk beyaz" href="<?php echo esc_url(bk_url('/randevu-olustur/')); ?>">Form Doldurun</a>
 			</div>
 		</div>
