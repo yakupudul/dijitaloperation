@@ -15,7 +15,7 @@ bk_sayfa_bandi('Sıkça Sorulan Sorular', '2026/09/IMG_5329-scaled.jpg', '', tru
 					<h2><a href="<?php echo esc_url(get_term_link($k)); ?>"><?php echo esc_html($k->name); ?></a></h2>
 					<p class="bk-sss-sayi"><?php echo esc_html((string) $k->count); ?></p>
 					<ul>
-						<?php foreach (bk_kategori_sorulari($k->term_id, 5) as $p) : ?>
+						<?php foreach (bk_ayri_sorular($k->term_id, 5) as $p) : ?>
 							<li><a href="<?php echo esc_url(get_permalink($p)); ?>"><?php echo esc_html(get_the_title($p)); ?></a></li>
 						<?php endforeach; ?>
 					</ul>

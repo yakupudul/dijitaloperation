@@ -11,7 +11,7 @@ bk_sayfa_bandi('“' . get_search_query() . '” için arama sonuçları');
 			<ul class="bk-arama-liste">
 				<?php while (have_posts()) : the_post(); ?>
 					<li>
-						<a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+						<a href="<?php echo esc_url(get_post_type() === 'docs' ? bk_soru_adresi(get_the_ID()) : get_permalink()); ?>"><?php the_title(); ?></a>
 						<span class="bk-arama-tur"><?php echo esc_html(get_post_type() === 'docs' ? 'Soru ve cevap' : (get_post_type() === 'post' ? 'Blog' : 'Sayfa')); ?></span>
 						<p><?php echo esc_html(wp_trim_words(get_the_excerpt(), 28, '…')); ?></p>
 					</li>

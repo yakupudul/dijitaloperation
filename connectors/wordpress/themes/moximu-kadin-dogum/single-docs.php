@@ -40,7 +40,7 @@ $baslik = rawurlencode(get_the_title());
 				<details<?php echo $k->term_id === $kat_id ? ' open' : ''; ?>>
 					<summary><?php echo esc_html($k->name); ?> <?php echo bk_ikon('ok'); ?></summary>
 					<ul>
-						<?php foreach (get_posts(['post_type' => 'docs', 'numberposts' => 10, 'orderby' => 'date', 'order' => 'DESC', 'tax_query' => [['taxonomy' => 'doc_category', 'field' => 'term_id', 'terms' => $k->term_id, 'include_children' => false]]]) as $p) : /* eski sitedeki gibi en yeni 10 soru */ ?>
+						<?php foreach (bk_ayri_sorular($k->term_id, 10) as $p) : /* ayrı sayfası olan, en çok aranan 10 soru */ ?>
 							<li<?php echo (int) $p->ID === $id ? ' class="aktif"' : ''; ?>><a href="<?php echo esc_url(get_permalink($p)); ?>"><?php echo esc_html(get_the_title($p)); ?></a></li>
 						<?php endforeach; ?>
 						<li class="tumu"><a href="<?php echo esc_url(get_term_link($k)); ?>">Tüm soruları gör (<?php echo esc_html((string) $k->count); ?>)</a></li>

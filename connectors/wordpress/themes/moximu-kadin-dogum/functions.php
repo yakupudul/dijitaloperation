@@ -15,6 +15,7 @@ define('BK_URI', get_template_directory_uri());
 require BK_DIR . '/inc/ayar.php';
 require BK_DIR . '/inc/temizlik.php';
 require BK_DIR . '/inc/sorular.php';
+require BK_DIR . '/inc/soru-duzeni.php';
 require BK_DIR . '/inc/parcalar.php';
 require BK_DIR . '/inc/icerik.php';
 require BK_DIR . '/inc/form.php';

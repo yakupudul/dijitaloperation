@@ -25,13 +25,17 @@ add_filter('seopress_titles_desc', function ($d) {
 	return is_string($d) && $d !== '' ? bk_kisalt($d) : $d;
 }, 20);
 
-/** Yapılandırılmış veri. */
+/**
+ * Yapılandırılmış veri. Sitede tek işletme kaydı (#hekim) ve tek kişi kaydı (#kisi) vardır; ad, adres ve saatler
+ * yalnızca buradan çıkar. SEOPress'in otomatik işletme ve hizmet şemaları da aşağıda bu kayda bağlanır.
+ */
 function bk_hekim_semasi(): array
 {
 	return [
 		'@type' => 'Physician',
 		'@id' => bk_url('/#hekim'),
 		'name' => bk_ayar('hekim'),
+		'alternateName' => 'Prof. Dr. Burcu Kısa - Kadın Hastalıkları Ve Doğum Uzmanı Ankara',
 		'url' => bk_url('/hakkimda/'),
 		'image' => bk_gorsel_url('2026/09/IMG_5024-scaled.jpg', 'large'),
 		'medicalSpecialty' => ['Gynecologic', 'Obstetric'],
@@ -46,16 +50,109 @@ function bk_hekim_semasi(): array
 			'addressCountry' => 'TR',
 		],
 		'geo' => ['@type' => 'GeoCoordinates', 'latitude' => (float) bk_ayar('enlem'), 'longitude' => (float) bk_ayar('boylam')],
+		'hasMap' => bk_ayar('harita'),
 		'openingHoursSpecification' => [[
 			'@type' => 'OpeningHoursSpecification',
 			'dayOfWeek' => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
 			'opens' => '08:00',
 			'closes' => '20:00',
 		]],
-		'alumniOf' => [['@type' => 'CollegeOrUniversity', 'name' => 'Gazi Üniversitesi Tıp Fakültesi'], ['@type' => 'CollegeOrUniversity', 'name' => 'Başkent Üniversitesi']],
-		'sameAs' => array_values(array_filter([bk_ayar('instagram')])),
+		'employee' => ['@id' => bk_url('/#kisi')],
+		'sameAs' => bk_profil_adresleri(),
 	];
 }
+
+/** Hekimin başka sitelerdeki kendi profilleri (şemada sameAs). */
+function bk_profil_adresleri(): array
+{
+	return array_values(array_filter([bk_ayar('instagram'), 'https://www.doktortakvimi.com/profil/burcu-kisa']));
+}
+
+/** Hekimin kişi kaydı: eğitim, unvan, çalıştığı yer. */
+function bk_kisi_semasi(): array
+{
+	return [
+		'@type' => 'Person',
+		'@id' => bk_url('/#kisi'),
+		'name' => 'Burcu Kısa',
+		'honorificPrefix' => 'Prof. Dr.',
+		'jobTitle' => bk_ayar('unvan'),
+		'url' => bk_url('/hakkimda/'),
+		'image' => bk_gorsel_url('2026/09/IMG_5024-scaled.jpg', 'large'),
+		'knowsLanguage' => ['tr', 'en'],
+		'worksFor' => ['@id' => bk_url('/#hekim')],
+		'alumniOf' => [['@type' => 'CollegeOrUniversity', 'name' => 'Gazi Üniversitesi Tıp Fakültesi'], ['@type' => 'CollegeOrUniversity', 'name' => 'Başkent Üniversitesi']],
+		'sameAs' => bk_profil_adresleri(),
+	];
+}
+
+/**
+ * Hekimin PubMed'de doğrulanmış yayınları: [yazarlar, başlık, dergi, yıl, PubMed no, DOI, Türkçe konu].
+ * Yeni yayın eklerken PubMed kaydındaki yazımı aynen kullanın.
+ */
+function bk_yayinlar(): array
+{
+	return [
+		['Kısa B, Kansu-Celik H, Candar T, Erol Koc EM, Sert UY, Uzunlar O', 'Severe 25-OH vitamin D deficiency as a reason for adverse pregnancy outcomes', 'J Matern Fetal Neonatal Med', 2020, '30614393', '10.1080/14767058.2018.1554040', 'Gebelikte ağır D vitamini eksikliği ve gebelik sonuçları'],
+		['Kısa B, Sert UY, Celik HK, Candar T, Erol Koç EM, Taşcı Y, Çağlar GS', 'Myo-inositol oxygenese activity in second trimester of pregnancy: altered myoinositol catabolism in gestational diabetes mellitus', 'Arch Physiol Biochem', 2022, '32191130', '10.1080/13813455.2020.1739714', 'Gebelik şekerinde miyo-inositol metabolizması'],
+		['Kansu-Celik H, Ozgu-Erdinc AS, Kisa B, Findik RB, Yilmaz C, Tasci Y', 'Prediction of gestational diabetes mellitus in the first trimester: comparison of maternal fetuin-A, N-terminal proatrial natriuretic peptide, high-sensitivity C-reactive protein, and fasting glucose levels', 'Arch Endocrinol Metab', 2019, '31038593', '10.20945/2359-3997000000126', 'Gebelik şekerinin ilk üç ayda öngörülmesi'],
+		['Kansu-Celik H, Ozgu-Erdinc AS, Kisa B, Eldem S, Hancerliogullari N, Engin-Ustun Y', 'Maternal serum glycosylated hemoglobin and fasting plasma glucose predicts gestational diabetes at the first trimester in Turkish women with a low-risk pregnancy and its relationship with fetal birth weight; a retrospective cohort study', 'J Matern Fetal Neonatal Med', 2021, '31370710', '10.1080/14767058.2019.1651837', 'İlk üç ayda HbA1c ve açlık şekeri ile gebelik şekeri öngörüsü, bebeğin doğum kilosu'],
+		['Hancerliogullari N, Kansu-Celik H, Oskovi-Kaplan ZA, Kisa B, Engin-Ustun Y, Ozgu-Erdinc AS', 'Optimal maternal neck and waist circumference cutoff values for prediction of gestational diabetes mellitus at the first trimester in Turkish population; a prospective cohort study', 'Gynecol Endocrinol', 2020, '32274939', '10.1080/09513590.2020.1750003', 'Boyun ve bel çevresi ölçümü ile gebelik şekeri öngörüsü'],
+		['Buyuk GN, Kansu-Celik H, Kaplan ZAO, Kisa B, Ozel S, Engin-Ustun Y', 'Risk Factors for Intrapartum Cesarean Section Delivery in Low-risk Multiparous Women Following at Least a Prior Vaginal Birth (Robson Classification 3 and 4)', 'Rev Bras Ginecol Obstet', 2021, '34318468', '', 'Daha önce normal doğum yapmış kadınlarda doğum sırasında sezaryen gerektiren etkenler'],
+		['Kadioglu N, Oskovi Kaplan ZA, Sariaslan S, Kansu Celik H, Kisa B, Yenicesu O, Celik Sarikaya E, Evliyaoglu O, Erkaya S', 'A retrospective analysis of the women hospitalized and treated due to anemia caused by gynecological pathologies: the role of intravenous iron (ferric carboxymaltose) and blood transfusion in clinical practice', 'Minerva Obstet Gynecol', 2023, '35389035', '10.23736/S2724-606X.22.05044-8', 'Jinekolojik nedenli kansızlıkta damardan demir tedavisi ve kan nakli'],
+	];
+}
+
+/** Yayınların şema karşılığı: yazar listesinde hekim kendi kişi kaydına bağlanır. */
+function bk_yayin_semalari(): array
+{
+	$cikti = [];
+	foreach (bk_yayinlar() as [$yazarlar, $baslik, $dergi, $yil, $pmid, $doi]) {
+		$yazar = [];
+		foreach (explode(', ', $yazarlar) as $ad) {
+			$yazar[] = preg_match('/^K[ıi]sa B$/u', $ad) ? ['@id' => bk_url('/#kisi')] : ['@type' => 'Person', 'name' => $ad];
+		}
+		$cikti[] = array_filter([
+			'@type' => 'ScholarlyArticle',
+			'headline' => $baslik,
+			'url' => 'https://pubmed.ncbi.nlm.nih.gov/' . $pmid . '/',
+			'sameAs' => $doi !== '' ? 'https://doi.org/' . $doi : '',
+			'datePublished' => (string) $yil,
+			'inLanguage' => 'en',
+			'isPartOf' => ['@type' => 'Periodical', 'name' => $dergi],
+			'author' => $yazar,
+		]);
+	}
+	return $cikti;
+}
+
+/** SEOPress'in ana sayfa için ürettiği işletme şeması yerine sitedeki tek hekim kaydı basılır. */
+add_filter('seopress_schemas_auto_lb_json', function ($json) {
+	return ['@context' => 'https://schema.org'] + bk_hekim_semasi();
+});
+
+/** SEOPress'in hizmet şeması: sağlayıcı tek hekim kaydıdır; hizmet türü üst başlık, açıklama sayfanın kendi açıklamasıdır. */
+add_filter('seopress_schemas_auto_service_json', function ($json) {
+	if (! is_array($json) || ! is_singular()) {
+		return $json;
+	}
+	$id = get_queried_object_id();
+	$json['@id'] = get_permalink($id) . '#hizmet';
+	$json['url'] = get_permalink($id);
+	$json['provider'] = bk_hekim_semasi();
+	$ust = (int) wp_get_post_parent_id($id);
+	if ($ust) {
+		$json['serviceType'] = get_the_title($ust);
+	} else {
+		unset($json['serviceType']);
+	}
+	$aciklama = trim((string) get_post_meta($id, '_seopress_titles_desc', true));
+	if ($aciklama !== '') {
+		$json['description'] = $aciklama;
+	}
+	unset($json['slogan']);
+	return $json;
+});
 
 add_action('wp_head', function () {
 	if (is_admin() || is_feed()) {
@@ -76,27 +173,29 @@ add_action('wp_head', function () {
 		$graf[] = ['@type' => 'BreadcrumbList', 'itemListElement' => $ogeler];
 	}
 	if (is_page('hakkimda')) {
-		$graf[] = ['@type' => 'ProfilePage', 'url' => get_permalink(), 'name' => wp_get_document_title(), 'mainEntity' => ['@id' => bk_url('/#hekim')]];
+		$graf[] = ['@type' => 'ProfilePage', 'url' => get_permalink(), 'name' => wp_get_document_title(), 'dateModified' => get_post_modified_time('c', true), 'mainEntity' => ['@id' => bk_url('/#kisi')]];
+		$graf[] = bk_kisi_semasi();
 		$graf[] = bk_hekim_semasi();
+		$graf = array_merge($graf, bk_yayin_semalari());
 	} elseif (is_page(['iletisim-ankara', 'randevu-olustur'])) {
 		$graf[] = ['@type' => 'ContactPage', 'url' => get_permalink(), 'name' => wp_get_document_title(), 'about' => ['@id' => bk_url('/#hekim')]];
 		$graf[] = bk_hekim_semasi();
 	} elseif (is_singular('docs')) {
 		$id = get_queried_object_id();
-		$cevap = bk_kisalt((string) get_post_field('post_content', $id), 600);
+		$cevap = bk_kisalt((string) get_post_field('post_content', $id), 2500);
 		$graf[] = [
 			'@type' => 'FAQPage',
 			'url' => get_permalink($id),
 			'inLanguage' => 'tr-TR',
 			'dateModified' => get_post_modified_time('c', true, $id),
-			'reviewedBy' => ['@id' => bk_url('/#hekim')],
+			'reviewedBy' => ['@id' => bk_url('/#kisi')],
 			'mainEntity' => [[
 				'@type' => 'Question',
 				'name' => get_the_title($id),
-				'acceptedAnswer' => ['@type' => 'Answer', 'text' => $cevap, 'author' => ['@id' => bk_url('/#hekim')]],
+				'acceptedAnswer' => ['@type' => 'Answer', 'text' => $cevap, 'author' => ['@id' => bk_url('/#kisi')]],
 			]],
 		];
-		$graf[] = ['@type' => 'Physician', '@id' => bk_url('/#hekim'), 'name' => bk_ayar('hekim'), 'url' => bk_url('/hakkimda/')];
+		$graf[] = bk_kisi_semasi();
 	}
 	if (! $graf) {
 		return;

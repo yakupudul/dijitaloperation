@@ -23,7 +23,7 @@ if (bk_hizmet_sayfasi_mi($id)) :
 				</div>
 			</div>
 			<?php echo bk_guven_karti(); ?>
-			<p class="bk-yazar"><?php echo bk_ikon('kisi'); ?> <a href="<?php echo esc_url(bk_url('/hakkimda/')); ?>" rel="author"><?php echo esc_html(bk_ayar('hekim')); ?></a></p>
+			<p class="bk-yazar"><?php echo bk_ikon('kisi'); ?> <a href="<?php echo esc_url(bk_url('/hakkimda/')); ?>" rel="author"><?php echo esc_html(bk_ayar('hekim')); ?></a> <span>· Son güncelleme: <time datetime="<?php echo esc_attr(get_the_modified_date('Y-m-d')); ?>"><?php echo esc_html(get_the_modified_date('j F Y')); ?></time></span></p>
 			<?php bk_icindekiler($icerik['toc']); ?>
 			<div class="bk-icerik"><?php echo $icerik['html']; ?></div>
 			<div class="bk-uyari">

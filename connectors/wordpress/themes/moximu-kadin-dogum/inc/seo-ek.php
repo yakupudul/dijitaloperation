@@ -206,14 +206,30 @@ function bk_soru_hizmeti(int $id, $kat): array
 function bk_soru_eki(int $id, $kat): void
 {
 	[$hizmet, $kelime] = bk_soru_hizmeti($id, $kat);
-	$sorgu = ['post_type' => 'docs', 'post_status' => 'publish', 'numberposts' => 6, 'post__not_in' => [$id], 'orderby' => 'date', 'order' => 'DESC', 'suppress_filters' => false];
+	/* Yalnızca ayrı sayfası olan sorular önerilir (kategori sayfasına taşınanlar değil), en çok aranan önce. */
+	$ayri = function_exists('bk_ayri_soru_idleri') ? array_values(array_diff(bk_ayri_soru_idleri(), [$id])) : [];
+	$sorgu = ['post_type' => 'docs', 'post_status' => 'publish', 'numberposts' => 6, 'orderby' => 'date', 'order' => 'DESC', 'suppress_filters' => false];
+	if ($ayri) {
+		$sorgu['post__in'] = $ayri;
+		$sorgu['orderby'] = 'post__in';
+	} else {
+		$sorgu['post__not_in'] = [$id];
+	}
 	if ($kat) {
 		$sorgu['tax_query'] = [['taxonomy' => 'doc_category', 'field' => 'term_id', 'terms' => $kat->term_id]];
 	}
 	$ilgili = $kelime !== '' ? get_posts($sorgu + ['s' => trim($kelime, '() ')]) : [];
 	if (count($ilgili) < 4) {
 		$var = array_merge([$id], wp_list_pluck($ilgili, 'ID'));
-		$ilgili = array_merge($ilgili, get_posts(['post__not_in' => $var, 'numberposts' => 6 - count($ilgili)] + $sorgu));
+		$ek = ['numberposts' => 6 - count($ilgili)] + $sorgu;
+		if ($ayri) {
+			$ek['post__in'] = array_values(array_diff($ayri, $var));
+		} else {
+			$ek['post__not_in'] = $var;
+		}
+		if (! $ayri || $ek['post__in']) {
+			$ilgili = array_merge($ilgili, get_posts($ek));
+		}
 	}
 	echo '<div class="bk-soru-ek">';
 	echo '<p class="bk-soru-yanit">Yanıtlayan: <a href="' . esc_url(bk_url('/hakkimda/')) . '">' . esc_html(bk_ayar('hekim')) . '</a>, Kadın Hastalıkları ve Doğum Uzmanı. Bu yanıt genel bilgilendirme içindir; kişisel değerlendirme muayene ile yapılır.</p>';
