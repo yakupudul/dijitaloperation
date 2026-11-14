@@ -245,3 +245,21 @@ function bk_soru_eki(int $id, $kat): void
 	}
 	echo '</div>';
 }
+
+/*
+ * Site haritası dizini: SEOPress alt haritaların tarihini 12 saat önbellekte tutuyor ve yalnızca
+ * son düzenleme tarihine bakıyor. Toplu güncellemeden sonra dizin eski tarihi gösteriyor, ileri
+ * tarihe planlanıp yayınlanan yazılar da tarihi ilerletmiyor. Tek sayfalık alt haritalarda tarih,
+ * o türdeki yayınların en son yayın ya da düzenleme tarihi olur.
+ */
+add_filter('seopress_sitemaps_xml_index', function ($xml) {
+	global $wpdb;
+	$yeni = preg_replace_callback('~(<loc>[^<]*/([a-z0-9_-]+)-sitemap1[.]xml</loc>[[:space:]]*)<lastmod>[^<]*</lastmod>~', function ($m) use ($wpdb) {
+		if (! post_type_exists($m[2])) {
+			return $m[0];
+		}
+		$t = $wpdb->get_var($wpdb->prepare('SELECT MAX(GREATEST(post_modified, post_date)) FROM ' . $wpdb->posts . ' WHERE post_type = %s AND post_status = %s', $m[2], 'publish'));
+		return $t ? $m[1] . '<lastmod>' . esc_html(mysql2date('c', $t)) . '</lastmod>' : $m[0];
+	}, (string) $xml);
+	return is_string($yeni) ? $yeni : $xml;
+});
