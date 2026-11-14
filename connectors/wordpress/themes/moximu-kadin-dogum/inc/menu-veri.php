@@ -78,7 +78,7 @@ function bk_hizmet_menusu_veri(): array
 				['Vajinismus Tedavisi', '/hizmetlerim/kadin-hastaliklari-ve-cinsel-saglik/vajinismus-tedavisi-ankara/'],
 				['Jinekolojik Muayene', '/hizmetlerim/kadin-hastaliklari-ve-cinsel-saglik/jinekolojik-muayene-ankara/'],
 				['Ağrılı Adet Görme', '/hizmetlerim/kadin-hastaliklari-ve-cinsel-saglik/agrili-adet-gorme-ankara/'],
-				['Aşırı ve Uzun Süren Adet Kanaması', '/soru-cevap/asiri-adet-kanamasi-menoraji-tehlikeli-midir/'],
+				['Aşırı ve Uzun Süren Adet Kanaması', '/hizmetlerim/kadin-hastaliklari-ve-cinsel-saglik/asiri-ve-uzun-suren-adet-kanamasi-ankara/'],
 				['Polikistik Over Sendromu (PKOS) Tedavisi', '/hizmetlerim/kadin-hastaliklari-ve-cinsel-saglik/polikistik-over-sendromu-pkos-tedavisi-ankara/'],
 				['Vajinal Akıntı ve Kaşıntı Tedavisi', '/hizmetlerim/kadin-hastaliklari-ve-cinsel-saglik/vajinal-akinti-ve-kasinti-tedavisi-ankara/'],
 				['Vajinal Kuruluk Tedavisi', '/hizmetlerim/kadin-hastaliklari-ve-cinsel-saglik/vajinal-kuruluk-tedavisi-ankara/'],
