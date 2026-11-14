@@ -231,11 +231,6 @@ body.oc-acik{overflow:hidden}
 .bk-iki-metin p{font-size:16px;line-height:24px;color:#000}
 .bk-pembe{color:#cc3366;font-family:Arial,Helvetica,sans-serif;font-weight:700}
 
-/* Yorumlar */
-.bk-yorumlar{background:var(--altin);padding:60px 0}
-.bk-yorumlar h2{font-size:32px;font-weight:600;color:#fff;line-height:1;margin:0 0 30px}
-.bk-yorumlar .ti-widget{margin:0}
-
 /* Blog şeridi */
 .bk-ana-blog{padding:50px 0 60px}
 .bk-serit-baslik{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
@@ -288,9 +283,6 @@ body.oc-acik{overflow:hidden}
 .bk-guven-foto{width:68px;height:68px;border-radius:50%;object-fit:cover;flex:none}
 .bk-guven-ad{font-size:18px;font-weight:600;line-height:1.35;color:#000;margin:0}
 .bk-guven-unvan{font-size:13px;line-height:1.35;color:#4a4a4a;margin:2px 0 0}
-.bk-guven-puan{display:flex;align-items:center;gap:8px;margin:4px 0 0;font-size:12px;font-weight:600;color:#000}
-.bk-yildiz{display:inline-flex;gap:1px;color:var(--altin-acik)}
-.bk-yildiz .ik{width:14px;height:14px}
 .bk-ikili{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .bk-ikili .bk-btn{font-size:15px;font-weight:600;padding:13px 18px;border-radius:25px}
 .bk-yazar{display:flex;align-items:center;gap:8px;margin:40px 0 20px;font-size:13px}
@@ -358,10 +350,8 @@ body.oc-acik{overflow:hidden}
 .bk-hekim-btn .bk-btn{font-size:15px}
 .bk-iletisim{padding:20px}
 .bk-kutu-baslik{font-size:17px;font-weight:600;line-height:1;color:#000;margin:0 0 20px}
-.bk-mini-galeri{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.bk-mini-galeri{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:0 0 20px}
 .bk-mini-galeri img{width:100%;height:105px;object-fit:cover}
-.bk-iletisim-puan{display:flex;align-items:center;gap:8px;margin:20px 0;font-size:13px;font-weight:600;color:#000}
-.bk-iletisim-puan .ik{width:16px;height:16px}
 .bk-iletisim-baslik{font-size:14px;font-weight:600;line-height:20px;color:#000;margin:0 0 15px}
 .bk-iletisim-satir{font-size:16px;line-height:24px;color:#000;margin:0}
 .bk-iletisim-satir a{color:var(--altin)}

@@ -73,11 +73,6 @@
 .bk-iki-metin p{font-size:16px;line-height:24px;color:#000}
 .bk-pembe{color:#cc3366;font-family:Arial,Helvetica,sans-serif;font-weight:700}
 
-/* Yorumlar */
-.bk-yorumlar{background:var(--altin);padding:60px 0}
-.bk-yorumlar h2{font-size:32px;font-weight:600;color:#fff;line-height:1;margin:0 0 30px}
-.bk-yorumlar .ti-widget{margin:0}
-
 /* Blog şeridi */
 .bk-ana-blog{padding:50px 0 60px}
 .bk-serit-baslik{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}

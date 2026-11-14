@@ -120,14 +120,6 @@ $kartlar = array_values(array_filter($kartlar, fn($id) => get_post_status($id) =
 	</div>
 </section>
 
-<?php $yorum = bk_yorumlar_html(); ?>
-<section class="bk-yorumlar">
-	<div class="kap">
-		<h2>Değerli misafirlerim</h2>
-		<?php echo $yorum; ?>
-	</div>
-</section>
-
 <section class="bk-bolum bk-ana-blog">
 	<div class="kap">
 		<?php

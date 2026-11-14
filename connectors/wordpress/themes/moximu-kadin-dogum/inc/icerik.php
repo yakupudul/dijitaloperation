@@ -109,15 +109,6 @@ add_action('wp', function () {
 	add_shortcode('elementor-template', 'bk_kategori_izgarasi');
 }, 99);
 
-/** Trustindex eklentisi kapalıysa yorum bölümü boş kalmasın diye kısa kod hiçbir şey basmaz. */
-function bk_yorumlar_html(): string
-{
-	if (! shortcode_exists('trustindex')) {
-		return '';
-	}
-	return do_shortcode('[trustindex no-registration=google]');
-}
-
 /** "Diğer Hizmetlerim": aynı kategoriden başlayarak sabit sırada en çok 10 kart. */
 function bk_diger_hizmetler(int $id): array
 {

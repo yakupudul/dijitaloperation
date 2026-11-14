@@ -315,18 +315,12 @@ function bk_serit(string $ic, string $sinif = '', string $etiket = 'Kaydır'): s
 
 /* ---------------------------------------------------------------- Yan sütun */
 
-function bk_yildizlar(): string
-{
-	return '<span class="bk-yildiz" role="img" aria-label="5 üzerinden 5 yıldız">' . str_repeat(bk_ikon('yildiz'), 5) . '</span>';
-}
-
 /** Hizmet sayfası üstündeki güven kartı ve içerik ortasındaki randevu kartı. */
 function bk_guven_karti(): string
 {
 	$h = '<div class="bk-guven">';
 	$h .= '<div class="bk-guven-ust">' . bk_gorsel('2026/11/WhatsApp-Image-2026-10-28-at-10.13.56.jpeg', 'thumbnail', ['alt' => bk_ayar('hekim'), 'class' => 'bk-guven-foto', 'width' => '68', 'height' => '68']);
-	$h .= '<div><p class="bk-guven-ad">' . esc_html(bk_ayar('hekim')) . '</p><p class="bk-guven-unvan">Kadın Hastalıkları ve Doğum Uzmanı · Maidan İş Merkezi C Blok, Çankaya</p>';
-	$h .= '<p class="bk-guven-puan">' . bk_yildizlar() . ' <span>' . esc_html(bk_yorum_sayisi()) . ' Google yorumu</span></p></div></div>';
+	$h .= '<div><p class="bk-guven-ad">' . esc_html(bk_ayar('hekim')) . '</p><p class="bk-guven-unvan">Kadın Hastalıkları ve Doğum Uzmanı · Maidan İş Merkezi C Blok, Çankaya</p></div></div>';
 	$h .= bk_ara_wa_butonlari();
 	return $h . '</div>';
 }
@@ -372,7 +366,7 @@ function bk_iletisim_kutusu(string $baslik = 'Prof. Dr. Burcu Kısa - Kadın Has
 		foreach (['IMG_5331', 'IMG_5330', 'IMG_5325', 'IMG_5329'] as $g) {
 			echo bk_gorsel('2026/09/' . $g . '-scaled.jpg', 'medium', ['alt' => 'Prof. Dr. Burcu Kısa kliniği, Maidan İş Merkezi']);
 		}
-		echo '</div><p class="bk-iletisim-puan">' . bk_yildizlar() . ' <span>' . esc_html(bk_yorum_sayisi()) . ' Yorum</span></p>';
+		echo '</div>';
 	}
 	echo '<p class="bk-iletisim-baslik">' . esc_html($baslik) . '</p><p class="bk-iletisim-satir">';
 	echo '<b>Adres :</b> <a href="' . esc_url(bk_ayar('harita')) . '" target="_blank" rel="noopener">' . esc_html(bk_ayar('adres_kisa')) . '</a><br>';

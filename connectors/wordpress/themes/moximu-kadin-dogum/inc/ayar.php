@@ -124,32 +124,3 @@ function bk_ikon(string $ad): string
 	];
 	return '<span class="ik ik-' . esc_attr($ad) . '">' . ($i[$ad] ?? '') . '</span>';
 }
-
-/** Google yorum sayısı ve puanı: MoxDOP her gün siteye gönderir (eski temadaki kısa kodların karşılığı). */
-function bk_yorum_veri(): array
-{
-	$d = get_option('moxdop_showcase_reviews', []);
-	return is_array($d) ? $d : [];
-}
-add_action('init', function () {
-	if (! shortcode_exists('moxdop_yorum_sayisi')) {
-		add_shortcode('moxdop_yorum_sayisi', function ($atts) {
-			$atts = shortcode_atts(['varsayilan' => ''], $atts);
-			$n = (int) (bk_yorum_veri()['count'] ?? 0);
-			return $n > 0 ? esc_html(number_format_i18n($n)) : esc_html($atts['varsayilan']);
-		});
-	}
-	if (! shortcode_exists('moxdop_google_puan')) {
-		add_shortcode('moxdop_google_puan', function ($atts) {
-			$atts = shortcode_atts(['varsayilan' => ''], $atts);
-			$r = (float) (bk_yorum_veri()['rating'] ?? 0);
-			return $r > 0 ? esc_html(number_format_i18n($r, 1)) : esc_html($atts['varsayilan']);
-		});
-	}
-}, 20);
-
-function bk_yorum_sayisi(): string
-{
-	$n = (int) (bk_yorum_veri()['count'] ?? 0);
-	return $n > 0 ? number_format_i18n($n) : '111';
-}

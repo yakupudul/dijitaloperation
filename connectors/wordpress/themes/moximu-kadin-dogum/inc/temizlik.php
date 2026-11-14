@@ -63,12 +63,12 @@ add_action('wp_enqueue_scripts', function () {
 	$izinli_css = ['bk-site', 'admin-bar', 'dashicons', 'query-monitor'];
 	$izinli_js = ['bk-site', 'admin-bar', 'query-monitor', 'wp-hooks', 'wp-i18n'];
 	foreach ((array) ($wp_styles->queue ?? []) as $h) {
-		if (! in_array($h, $izinli_css, true) && ! str_starts_with($h, 'ti-') && ! str_starts_with($h, 'trustindex')) {
+		if (! in_array($h, $izinli_css, true)) {
 			wp_dequeue_style($h);
 		}
 	}
 	foreach ((array) ($wp_scripts->queue ?? []) as $h) {
-		if (! in_array($h, $izinli_js, true) && ! str_starts_with($h, 'trustindex') && ! str_starts_with($h, 'ti-')) {
+		if (! in_array($h, $izinli_js, true)) {
 			wp_dequeue_script($h);
 		}
 	}
