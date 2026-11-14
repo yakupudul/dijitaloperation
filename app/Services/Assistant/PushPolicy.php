@@ -27,8 +27,8 @@ final class PushPolicy
     /** Money stops or a site is down: rings at any hour, also in izin modu. */
     private const array MONEY = ['uptime:down:', 'alert:'];
 
-    /** Always through: the operator's own alarms and the two summaries themselves. */
-    private const array OWN = ['reminder:', DayDigest::KEY];
+    /** Always through: the operator's own alarms, the two summaries themselves and a paid order (kasa sesi). */
+    private const array OWN = ['reminder:', DayDigest::KEY, SaleAlerts::PAID];
 
     /** Never urgent: told in the next summary. */
     private const array SUMMARY = ['repair-desk-digest:', 'lead-form-morning:', 'inbox-night:', 'discovery-new:', 'discovery-lost:',

@@ -510,8 +510,42 @@ const followPushTarget = async () => {
     }
 };
 
+// Kasa sesi (2026-11-14): a paid order ('kasa') or a free application ('zil') rings in the open panel. Browsers play
+// sound only after the page was touched once, so the first tap also unlocks the two sounds (iPhone needs a play
+// inside a tap).
+const panelSounds = {};
+const panelSound = (name) => {
+    if (!panelSounds[name]) {
+        panelSounds[name] = new Audio('/sounds/' + name + '.mp3');
+        panelSounds[name].preload = 'auto';
+    }
+    return panelSounds[name];
+};
+window.moxdopPlaySound = (name) => {
+    if (name !== 'kasa' && name !== 'zil') {
+        return Promise.resolve(false);
+    }
+    const audio = panelSound(name);
+    audio.muted = false;
+    audio.currentTime = 0;
+    return audio.play().then(() => true).catch(() => false);
+};
+const unlockPanelSounds = () => {
+    document.removeEventListener('pointerdown', unlockPanelSounds, true);
+    ['kasa', 'zil'].forEach((name) => {
+        const audio = panelSound(name);
+        audio.muted = true;
+        audio.play().then(() => { audio.pause(); audio.currentTime = 0; audio.muted = false; }).catch(() => { audio.muted = false; });
+    });
+};
+document.addEventListener('pointerdown', unlockPanelSounds, true);
+
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'moxdop-sound') {
+            window.moxdopPlaySound(event.data.sound);
+            return;
+        }
         if (event.data && event.data.type === 'moxdop-push-open') {
             window.caches?.open('moxdop-push').then((cache) => cache.delete('/__push-target')).catch(() => {});
             openPushTarget(event.data.url);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Integrations;
 
 use App\Models\CoreConnection;
+use App\Services\Assistant\SaleAlerts;
 use App\Services\Integrations\WordPress\WordPressConnectorPairingService;
 use App\Services\Site\ContentPosts;
 use App\Services\Site\Showcase\SiteQuestions;
@@ -57,6 +58,8 @@ final class WordPressConnectorEventsController
                 'qa.asked',
                 // 1.29.0: a question answered or taken off in the site's own admin (MoxDOP › Gelen sorular).
                 'qa.answered', 'qa.hidden',
+                // 2026-11-14: the agency's own shop (theme moximu-hesap) — a paid order / a free application (kasa sesi).
+                ...SaleAlerts::TYPES,
             ])],
             'events.*.occurred_at' => ['required', 'date', 'before_or_equal:'.now()->addMinutes(5)->toIso8601String()],
             'events.*.object_type' => ['required', 'string', 'max:64'],
@@ -127,6 +130,7 @@ final class WordPressConnectorEventsController
             // the page data refresh starts on the next minute's tick instead of waiting (a site in its error pause waits).
             ContentPosts::applyEvents((int) $connection->digital_asset_id, $stored);
             app(SiteQuestions::class)->fromEvents((int) $connection->digital_asset_id, $stored);
+            app(SaleAlerts::class)->fromEvents((int) $connection->digital_asset_id, $stored);
             if (collect($stored)->contains(fn (array $event): bool => str_starts_with($event['type'], 'content.') || str_starts_with($event['type'], 'seo.') || $event['type'] === 'settings.updated')) {
                 DB::table('website_connector_delivery')->where('connection_id', $connection->id)->whereNull('collection_run_id')
                     ->where(fn ($q) => $q->whereNull('next_reconcile_at')->orWhere('next_reconcile_at', '<=', now()->addMinutes(15)))

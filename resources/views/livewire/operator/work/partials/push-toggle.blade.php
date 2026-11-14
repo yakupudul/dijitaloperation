@@ -10,6 +10,7 @@
         <span class="flex items-center gap-2">
             <x-ta.pill tone="ok">Bildirim açık</x-ta.pill>
             <button type="button" x-on:click="sendTest()" :disabled="busy" class="btn-quiet h-7! px-2! text-xs!">Dene</button>
+            <button type="button" x-on:click="sendTest('kasa')" :disabled="busy" class="btn-quiet h-7! px-2! text-xs!" title="Deneme siparişi bildirimi: panel açıkken kasa sesi çalar">Kasa sesi</button>
             <button type="button" x-on:click="disable()" :disabled="busy" class="btn-quiet h-7! px-2! text-xs!">Kapat</button>
         </span>
     </template>
@@ -68,9 +69,14 @@
                 this.state = 'off'; this.note = 'Bu cihazda kapatıldı.';
             } catch (error) { this.note = 'Kapatılamadı: ' + error.message; } finally { this.busy = false; }
         },
-        async sendTest() {
+        async sendTest(tur) {
             this.busy = true;
-            try { const result = await this.post(urls.test); this.note = result.sent > 0 ? 'Deneme bildirimi gönderildi.' : 'Gönderilemedi; bildirimi kapatıp yeniden açın.'; }
+            try {
+                const result = await this.post(urls.test, tur ? { tur } : {});
+                this.note = result.sent > 0
+                    ? (tur === 'kasa' ? 'Deneme siparişi gönderildi: panel ekrandayken kasa sesi çalar, uygulama kapalıyken telefonun bildirim sesi gelir.' : 'Deneme bildirimi gönderildi.')
+                    : 'Gönderilemedi; bildirimi kapatıp yeniden açın.';
+            }
             catch (error) { this.note = 'Gönderilemedi: ' + error.message; } finally { this.busy = false; }
         },
     });

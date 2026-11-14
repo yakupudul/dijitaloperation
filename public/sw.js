@@ -29,9 +29,31 @@ async function rememberShown(id) {
 // (Android paints the badge white, so a full-colour square showed as a blank block), the time, and critical ones
 // stay until opened. Inbox messages of one chat share a tag; a silent one (night, a chat's next message) neither
 // rings nor vibrates.
-function show(data, renotify) {
+// Kasa sesi (2026-11-14): a notification with a sound (a paid order 'kasa', a free application 'zil') is played by
+// the panel when it is open on the screen; the notification then comes quietly so the phone does not ring twice.
+// With the app closed or in the background the phone's own notification sound rings (no browser lets a web
+// notification choose its sound).
+async function playOnOpenPanel(sound) {
+    if (!sound) {
+        return false;
+    }
+    try {
+        const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const visible = windows.filter((client) => client.visibilityState === 'visible');
+        for (const client of visible) {
+            client.postMessage({ type: 'moxdop-sound', sound: sound });
+        }
+        return visible.length > 0;
+    } catch (error) {
+        return false;
+    }
+}
+
+async function show(data, renotify) {
     const critical = data.severity === 'critical';
-    const silent = data.silent === true;
+    const played = data.silent === true ? false : await playOnOpenPanel(data.sound);
+    const silent = data.silent === true || played;
+    const kasa = data.sound === 'kasa';
     return self.registration.showNotification(data.title, {
         body: data.body,
         tag: data.tag,
@@ -40,8 +62,8 @@ function show(data, renotify) {
         timestamp: data.at ? Date.parse(data.at) || Date.now() : Date.now(),
         renotify: renotify && !silent,
         silent: silent,
-        requireInteraction: critical,
-        vibrate: silent ? [] : (critical ? [200, 100, 200, 100, 200] : [120, 60, 120]),
+        requireInteraction: critical || kasa,
+        vibrate: silent ? [] : (critical ? [200, 100, 200, 100, 200] : (kasa ? [60, 40, 60, 40, 300] : [120, 60, 120])),
         actions: [{ action: 'open', title: 'Aç' }, { action: 'dismiss', title: 'Kapat' }],
         data: { url: data.url },
     });

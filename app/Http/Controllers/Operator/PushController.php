@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Operator;
 use App\Http\Controllers\Controller;
 use App\Models\PushSubscription;
 use App\Services\Assistant\PushNotifier;
+use App\Services\Assistant\SaleAlerts;
 use App\Services\Inbox\InboxAlerts;
 use App\Services\Push\WebPush;
 use Illuminate\Http\JsonResponse;
@@ -78,12 +79,17 @@ final class PushController extends Controller
             'id' => (int) $row->id, 'title' => $row->title, 'body' => $row->body, 'url' => $row->url ?: route('operator.work'),
             'tag' => str_starts_with($key, InboxAlerts::PREFIX) ? 'inbox-'.InboxAlerts::chatOf($key) : 'moxdop-'.$row->id,
             'severity' => (string) $row->severity, 'silent' => $row->severity === 'low',
+            // Kasa sesi: the open panel plays it (public/sw.js → operator.js); never on a silent one.
+            'sound' => $row->severity === 'low' ? '' : SaleAlerts::soundOf($key),
             'at' => Carbon::parse($row->created_at)->toIso8601String(),
         ];
     }
 
     public function test(Request $request, PushNotifier $notifier): JsonResponse
     {
+        if ($request->input('tur') === 'kasa') {
+            return response()->json(['sent' => app(SaleAlerts::class)->test((int) $request->user()->id)]);
+        }
         $sent = $notifier->browser('test:'.$request->user()->id.':'.now()->format('YmdHis'), 'MoxDOP bildirimi açık',
             'Bu cihaza yalnız önemli işler gelecek: site kapandı, reklam hesabı durdu, kötü yorum gibi.', 'high', route('operator.work'));
 

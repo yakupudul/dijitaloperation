@@ -4,6 +4,7 @@ namespace App\Services\Integrations\WordPress;
 
 use App\Models\Collection\CollectionRun;
 use App\Models\CoreConnection;
+use App\Services\Assistant\SaleAlerts;
 use App\Services\Collection\Providers\Website\WebsiteCrawlState;
 use App\Services\Collection\Providers\Website\WebsiteDatasetExecutor;
 use App\Services\Collection\Providers\Website\WebsiteRequestFamilyCatalog;
@@ -140,8 +141,9 @@ final class WordPressEventReconciliation
             } catch (Throwable $error) {
                 report($error);
             }
-            // A visitor's question (Sorular ve yorumlar, 1.28.0) changes no page: never a reason for a refresh.
-            $events = $events->reject(fn ($event): bool => WordPressPageSync::isTemplateChange($event) || $event->type === 'qa.asked')->values();
+            // A visitor's question (Sorular ve yorumlar, 1.28.0) and a shop order (kasa sesi) change no page: never a reason for a refresh.
+            $events = $events->reject(fn ($event): bool => WordPressPageSync::isTemplateChange($event) || $event->type === 'qa.asked'
+                || in_array($event->type, SaleAlerts::TYPES, true))->values();
             $watermarkId = (int) (DB::table('website_connector_events')->where('connection_id', $connection->id)
                 ->where('id', '>', $state->reconciled_event_id)->orderBy('id')->limit(50)->pluck('id')->max() ?? $state->reconciled_event_id);
             if (! $full && ($events->isEmpty() || $events->every(fn ($event) => $event->type === 'access.role_changed'))) {
