@@ -16,6 +16,7 @@ $baslik = rawurlencode(get_the_title());
 		<h1><?php the_title(); ?></h1>
 		<p class="bk-soru-tarih">Güncelleme Tarihi: <time datetime="<?php echo esc_attr(get_the_modified_date('c')); ?>"><?php echo esc_html(get_the_modified_date('F j, Y')); ?></time></p>
 		<div class="bk-icerik bk-soru-icerik"><?php the_content(); ?></div>
+		<?php if (function_exists('bk_soru_eki')) { bk_soru_eki($id, ($kat && ! is_wp_error($kat)) ? $kat[0] : null); } ?>
 		<div class="bk-tepki" data-tepki>
 			<p>Cevabı nasıl buldunuz?</p>
 			<div>

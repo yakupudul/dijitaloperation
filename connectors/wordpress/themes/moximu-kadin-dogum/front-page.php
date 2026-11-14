@@ -22,7 +22,7 @@ $kartlar = array_values(array_filter($kartlar, fn($id) => get_post_status($id) =
 			</div>
 		</div>
 		<div class="bk-hero-gorsel">
-			<?php echo bk_gorsel('2026/11/WhatsApp-Image-2026-10-28-at-10.13.56.jpeg', 'large', ['alt' => 'Prof. Dr. Burcu Kısa, Maidan İş Merkezi\'ndeki muayenehanesinde', 'loading' => 'eager', 'fetchpriority' => 'high', 'sizes' => '(max-width: 767px) 100vw, 568px']); ?>
+			<?php echo bk_gorsel('2026/11/WhatsApp-Image-2026-10-28-at-10.13.56.jpeg', 'large', ['alt' => 'Prof. Dr. Burcu Kısa, Maidan İş Merkezi\'ndeki muayenehanesinde', 'loading' => 'eager', 'fetchpriority' => 'high', 'data-no-lazy' => '1', 'sizes' => '(max-width: 767px) 100vw, 568px']); ?>
 		</div>
 	</div>
 </section>

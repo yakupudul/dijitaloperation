@@ -18,7 +18,7 @@ if (! defined('ABSPATH')) {
 			<a class="bk-logo" href="<?php echo esc_url(bk_url('/')); ?>" aria-label="<?php echo esc_attr(bk_ayar('hekim') . ' ana sayfa'); ?>"><?php echo bk_logo(true); ?></a>
 			<?php bk_arama_formu(); ?>
 			<?php bk_ust_menu(); ?>
-			<a class="bk-randevu" href="<?php echo esc_url(bk_ayar('whatsapp_link')); ?>" target="_blank" rel="noopener"><?php echo bk_ikon('wa'); ?><span>Randevu<br>Al</span></a>
+			<a class="bk-randevu" href="<?php echo esc_url(bk_ayar('whatsapp_link')); ?>" target="_blank" rel="noopener"><?php echo bk_ikon('wa'); ?><span>Randevu Al</span></a>
 			<button type="button" class="bk-hamburger" aria-controls="bk-oc" aria-expanded="false" aria-label="Menüyü aç"><?php echo bk_ikon('menu'); ?></button>
 		</div>
 	</div>

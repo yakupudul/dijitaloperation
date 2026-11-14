@@ -19,6 +19,7 @@ require BK_DIR . '/inc/parcalar.php';
 require BK_DIR . '/inc/icerik.php';
 require BK_DIR . '/inc/form.php';
 require BK_DIR . '/inc/seo.php';
+require BK_DIR . '/inc/seo-ek.php';
 /* Tek seferlik bakım dosyası (varsa): iş bitince silinir. */
 if (is_file(BK_DIR . '/inc/yama.php')) {
 	require BK_DIR . '/inc/yama.php';

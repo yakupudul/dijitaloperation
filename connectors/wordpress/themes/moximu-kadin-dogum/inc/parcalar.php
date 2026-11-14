@@ -81,6 +81,7 @@ function bk_logo(bool $ust = false): string
 		'class' => 'bk-logo-img',
 		'loading' => $ust ? 'eager' : 'lazy',
 		'fetchpriority' => $ust ? 'high' : 'auto',
+		'data-no-lazy' => '1',
 		'width' => '267',
 		'height' => '55',
 	]);
@@ -277,7 +278,7 @@ function bk_hizmet_karti(int $id, string $baslik_etiket = 'h3'): string
 	$h = '<a class="bk-hkart" href="' . esc_url($url) . '">';
 	$thumb = get_post_thumbnail_id($id);
 	if ($thumb) {
-		$h .= wp_get_attachment_image($thumb, 'medium_large', false, ['class' => 'bk-hkart-img', 'alt' => '', 'sizes' => '(max-width: 767px) 100vw, 290px']);
+		$h .= wp_get_attachment_image($thumb, 'medium_large', false, ['class' => 'bk-hkart-img', 'alt' => $baslik, 'sizes' => '(max-width: 767px) 100vw, 290px']);
 	}
 	$h .= '<span class="bk-hkart-ic"><' . $baslik_etiket . ' class="bk-hkart-baslik">' . esc_html($baslik) . '</' . $baslik_etiket . '>';
 	if ($alt !== '') {
@@ -294,7 +295,7 @@ function bk_blog_karti($p): string
 	$url = get_permalink($p);
 	$h = '<article class="bk-bkart"><a class="bk-bkart-gorsel" href="' . esc_url($url) . '" tabindex="-1" aria-hidden="true">';
 	if (has_post_thumbnail($p)) {
-		$h .= get_the_post_thumbnail($p, 'medium_large', ['alt' => '', 'sizes' => '(max-width: 767px) 100vw, 280px']);
+		$h .= get_the_post_thumbnail($p, 'medium_large', ['alt' => get_the_title($p), 'sizes' => '(max-width: 767px) 100vw, 280px']);
 	}
 	$h .= '</a><div class="bk-bkart-ic"><h3><a href="' . esc_url($url) . '">' . esc_html(get_the_title($p)) . '</a></h3>';
 	$h .= '<time datetime="' . esc_attr(get_the_date('c', $p)) . '">' . esc_html(get_the_date('j F Y', $p)) . '</time>';
