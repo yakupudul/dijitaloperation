@@ -156,17 +156,6 @@ final class MeasurementSetupTest extends TestCase
         $this->assertFalse($result['site_has_container']);
     }
 
-    public function test_a_tag_manager_quota_error_waits_for_the_next_minute_and_carries_on(): void
-    {
-        $this->quotaHits = 2;
-
-        $result = app(MeasurementSetup::class)->apply($this->brand, ['ga4_account' => 'accounts/123', 'gtm_account' => '42', 'skip_ads' => true]);
-
-        $this->assertFalse($result['stopped']);
-        $this->assertSame('5', $result['published_version']);
-        Sleep::assertSlept(fn ($duration): bool => (int) $duration->totalSeconds === 61, 2);
-    }
-
     public function test_tag_manager_calls_are_paced_under_the_per_minute_quota(): void
     {
         $waits = [];
@@ -180,6 +169,21 @@ final class MeasurementSetupTest extends TestCase
         $this->assertGreaterThan(10, count($waits));
         $this->assertLessThanOrEqual(4100, max($waits));
         $this->assertGreaterThan(3000, max($waits));
+    }
+
+    public function test_a_run_out_of_time_pauses_and_the_same_call_goes_on_and_publishes(): void
+    {
+        $this->quotaHits = 1; // the first GTM call answers 429: waiting a minute would pass the call's ~60 s
+
+        $first = app(MeasurementSetup::class)->apply($this->brand, ['ga4_account' => 'accounts/123', 'gtm_account' => '42', 'skip_ads' => true]);
+        $this->assertTrue($first['paused']);
+        $this->assertStringContainsString('tekrarla', $first['reason']);
+        $this->assertFalse(collect($this->writes)->contains(fn ($w): bool => str_ends_with($w[1], ':publish')));
+
+        $this->travel(62)->seconds();
+        $second = app(MeasurementSetup::class)->apply($this->brand, ['property_id' => '777', 'gtm_account' => '42', 'skip_ads' => true]);
+        $this->assertFalse($second['stopped']);
+        $this->assertSame('5', $second['published_version']);
     }
 
     public function test_accounts_keeps_the_tag_manager_lists_and_can_skip_containers(): void
@@ -200,7 +204,7 @@ final class MeasurementSetupTest extends TestCase
         Cache::flush();
         $failed = $setup->accounts();
         $this->assertSame([], $failed['gtm']);
-        $this->assertStringContainsString('Quota exceeded', $failed['gtm_error']);
+        $this->assertStringContainsString('1 dakika sonra', $failed['gtm_error']);
         $this->assertArrayHasKey('ga4', $failed);
     }
 

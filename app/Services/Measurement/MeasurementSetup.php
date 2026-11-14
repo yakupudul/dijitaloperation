@@ -51,16 +51,22 @@ final class MeasurementSetup
 
     /**
      * Tag Manager API allows about 15 queries a minute per user (0.25 QPS). Every GTM call waits its turn (shared
-     * across requests through the cache), a 429 waits for the next minute window, and the account / container lists
+     * across requests through the cache), a 429 pauses the run until the next minute window, and the account / container lists
      * are kept for a while, so action=accounts followed by apply does not read them twice.
      */
     private const int GTM_GAP_MS = 4100;
 
     private const int GTM_QUOTA_WAIT_SECONDS = 61;
 
-    private const int GTM_QUOTA_RETRIES = 2;
-
     private const int GTM_LIST_CACHE_MINUTES = 30;
+
+    /**
+     * MCP clients give a tool call about 60 seconds. A run that would wait past this budget for the Tag Manager quota
+     * stops with what it did so far; every step is create-only and skips what exists, so the same call simply goes on.
+     */
+    private const int TIME_BUDGET_SECONDS = 40;
+
+    private ?float $deadline = null;
 
     /** @var array<string, array{label: string, ads_category: string}> the events of this run (all three unless `events` narrows it) */
     private array $events = self::EVENTS;
@@ -117,6 +123,7 @@ final class MeasurementSetup
      */
     public function accounts(array $options = []): array
     {
+        $this->deadline = now()->getTimestampMs() / 1000 + self::TIME_BUDGET_SECONDS;
         $ga4 = collect($this->list(self::GA.'accountSummaries', 'accountSummaries', ['pageSize' => 200]))
             ->map(fn (array $a): array => [
                 'account' => $a['account'] ?? '', 'name' => $a['displayName'] ?? '',
@@ -154,6 +161,22 @@ final class MeasurementSetup
      */
     public function apply(Brand $brand, array $options = []): array
     {
+        $this->deadline = now()->getTimestampMs() / 1000 + self::TIME_BUDGET_SECONDS;
+        $log = ['created' => [], 'skipped' => [], 'warnings' => []];
+        try {
+            return $this->runApply($brand, $options, $log);
+        } catch (GtmQuotaPause $e) {
+            return $log + ['stopped' => true, 'paused' => true, 'reason' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     * @param  array<string, mixed>  $log
+     * @return array<string, mixed>
+     */
+    private function runApply(Brand $brand, array $options, array &$log): array
+    {
         if (($missing = $this->measurement->missing()) !== []) {
             throw new RuntimeException('Google bağlantısında ölçüm yetkileri eksik; önce "Ölçüm kurulumunu bağla": '.$this->measurement->connectUrl());
         }
@@ -165,7 +188,6 @@ final class MeasurementSetup
         // `events` narrows the run to some of the standard (a site that already counts WhatsApp gets only the rest).
         $only = array_values(array_intersect((array) ($options['events'] ?? []), array_keys(self::EVENTS)));
         $this->events = $only === [] ? self::EVENTS : array_intersect_key(self::EVENTS, array_flip($only));
-        $log = ['created' => [], 'skipped' => [], 'warnings' => []];
 
         // 1. GA4 property + web stream.
         $property = isset($options['property_id']) ? preg_replace('/\D+/', '', (string) $options['property_id'])
@@ -251,8 +273,15 @@ final class MeasurementSetup
         }
         $changed = $this->gtmStandard($ws, $tags, $measurementId, $conversions, $log, $hardCoded);
 
+        // A run paused by the quota after its GTM writes finds nothing new to create: its unpublished workspace
+        // changes still need the version below.
+        if (! $changed && ($options['publish'] ?? true)) {
+            $changed = (array) ($this->ok($this->paced($ws.'/status', fn (): Response => $this->google->get($this->integration(), $ws.'/status')), 'GTM çalışma alanı durumu')['workspaceChange'] ?? []) !== [];
+        }
         $published = null;
         if ($changed && ($options['publish'] ?? true)) {
+            // Version and publish go together: never leave a created version unpublished for lack of time.
+            $this->withinBudget(2 * self::GTM_GAP_MS / 1000 + 5);
             $version = $this->ok($this->write('post', $ws.':create_version', ['name' => 'MoxDOP ölçüm standardı '.now('Europe/Istanbul')->format('Y-m-d H:i'), 'notes' => 'GA4 + Google Ads dönüşümleri: telefon, WhatsApp, form.']), 'GTM sürümü');
             $versionId = (string) data_get($version, 'containerVersion.containerVersionId');
             if ($versionId === '') {
@@ -622,6 +651,14 @@ HTML;
         return $this->paced($url, fn (): Response => $this->google->writeMeasurement($this->integration(), $method, $url, $body));
     }
 
+    /** Stops the run (GtmQuotaPause) when waiting $seconds more would pass the call's time budget. */
+    private function withinBudget(float $seconds): void
+    {
+        if ($this->deadline !== null && now()->getTimestampMs() / 1000 + $seconds > $this->deadline) {
+            throw new GtmQuotaPause('Tag Manager kotası (dakikada ~15 sorgu) bu çağrının süresini doldurdu; yapılanlar kaldı, okunan listeler saklandı. 1 dakika sonra aynı çağrıyı tekrarla, kaldığı yerden sürer.');
+        }
+    }
+
     /** @return list<array<string, mixed>> the Tag Manager accounts (kept for a while) */
     private function gtmAccounts(): array
     {
@@ -657,7 +694,7 @@ HTML;
     }
 
     /**
-     * Runs a Google call; a Tag Manager call waits its turn under the per-minute quota and is retried after a 429.
+     * Runs a Google call; a Tag Manager call waits its turn under the per-minute quota, and a 429 pauses the run.
      *
      * @param  callable(): Response  $call
      */
@@ -667,20 +704,21 @@ HTML;
             return $call();
         }
         $key = 'measurement:gtm-next-call:'.$this->integration()->id;
-        for ($attempt = 0; ; $attempt++) {
-            $wait = (int) Cache::get($key, 0) - (int) floor(microtime(true) * 1000);
-            if ($wait > 0) {
-                Sleep::for($wait)->milliseconds();
-            }
-            Cache::put($key, (int) floor(microtime(true) * 1000) + self::GTM_GAP_MS, now()->addMinutes(5));
-            $response = $call();
-            if ($response->status() !== 429 || $attempt >= self::GTM_QUOTA_RETRIES) {
-                return $response;
-            }
-            // Quota window used up (also by another run): wait for the next minute before the same call again.
-            $retryAfter = (int) $response->header('Retry-After');
-            Sleep::for(max($retryAfter, self::GTM_QUOTA_WAIT_SECONDS))->seconds();
+        $wait = (int) Cache::get($key, 0) - now()->getTimestampMs();
+        $this->withinBudget($wait / 1000);
+        if ($wait > 0) {
+            Sleep::for($wait)->milliseconds();
         }
+        Cache::put($key, now()->getTimestampMs() + self::GTM_GAP_MS, now()->addMinutes(5));
+        $response = $call();
+        if ($response->status() === 429) {
+            // The minute's quota is used up (also by another run): the window opens again within a minute, longer
+            // than the call can wait, so the run pauses and the same call goes on from there.
+            Cache::put($key, now()->getTimestampMs() + self::GTM_QUOTA_WAIT_SECONDS * 1000, now()->addMinutes(5));
+            $this->withinBudget(self::GTM_QUOTA_WAIT_SECONDS);
+        }
+
+        return $response;
     }
 
     /**
