@@ -16,7 +16,8 @@ final class UptimeCheckJob implements ShouldBeUnique, ShouldQueue
 
     public int $tries = 1;
 
-    public int $timeout = 60;
+    /** Two fetches (20 s each at most) plus the outside second opinion (~40 s at most). */
+    public int $timeout = 120;
 
     public int $uniqueFor = 240;
 

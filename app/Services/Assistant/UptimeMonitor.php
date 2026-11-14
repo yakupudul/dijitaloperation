@@ -15,6 +15,9 @@ use Throwable;
  * (one queued job per site). A site is "down" after N consecutive failures (default 2 → ~10 minutes); going
  * down and coming back each send one phone push and open / resolve the website's `site_down` alert. A failure counts
  * only when the other spelling of the host (www / bare) fails too and the site's connector has not asked for work lately.
+ * Before a site is called down (and while it stays down) an outside service is asked too ({@see OutsideReachCheck}):
+ * when the site answers there, only MoxDOP's own server cannot reach it (a hosting firewall dropping MoxDOP's address),
+ * so no alert or push is raised and an open alert closes quietly. No outside opinion = MoxDOP's own verdict stands.
  */
 final class UptimeMonitor
 {
@@ -24,6 +27,7 @@ final class UptimeMonitor
     public function __construct(
         private readonly PageFetcher $fetcher,
         private readonly PushNotifier $push,
+        private readonly OutsideReachCheck $outside,
     ) {}
 
     /** @return array{ok: bool, state: string, changed: bool} */
@@ -57,15 +61,23 @@ final class UptimeMonitor
             // (firewall, rate limit). Counted as reachable; the check row keeps the error for the record.
             $ok = true;
         }
+        $state = DB::table('uptime_states')->where('digital_asset_id', $site->id)->first();
+        $previous = (string) ($state->state ?? 'unknown');
+        $threshold = max(1, (int) config('moxdop-assistant.uptime.failures_before_down', 2));
+        $seenFromOutside = false;
+        if (! $ok && $url !== '' && ($previous === 'down' || (int) ($state->consecutive_failures ?? 0) + 1 >= $threshold)
+            && config('moxdop-assistant.uptime.outside_check', true) && $this->outside->reachable($site->id, $url) === true) {
+            // MoxDOP gets no answer, but the site answers outside (2026-11-14: six sites on the same Turkish hosting
+            // timed out from MoxDOP at once while they were open for everyone): the host drops MoxDOP's address, the site is up.
+            [$ok, $seenFromOutside] = [true, true];
+            $error = mb_substr('Dışarıdan açık, MoxDOP sunucusundan ulaşılamadı: '.$error, 0, 500);
+        }
         DB::table('uptime_checks')->insert([
             'digital_asset_id' => $site->id, 'url' => mb_substr($url, 0, 1000), 'ok' => $ok, 'status_code' => $status,
             'response_ms' => (int) round((microtime(true) - $started) * 1000), 'error' => $error, 'checked_at' => now(),
         ]);
 
-        $state = DB::table('uptime_states')->where('digital_asset_id', $site->id)->first();
-        $previous = (string) ($state->state ?? 'unknown');
         $failures = $ok ? 0 : (int) ($state->consecutive_failures ?? 0) + 1;
-        $threshold = max(1, (int) config('moxdop-assistant.uptime.failures_before_down', 2));
         $new = $ok ? 'up' : ($failures >= $threshold ? 'down' : ($previous === 'down' ? 'down' : $previous));
         $downSince = $new === 'down' ? ($previous === 'down' ? $state->down_since : now()) : null;
         DB::table('uptime_states')->updateOrInsert(['digital_asset_id' => $site->id], [
@@ -80,8 +92,11 @@ final class UptimeMonitor
             $this->push->send('uptime:down:'.$site->id, 'Site erişilemiyor: '.($site->domain ?: $site->name), ($site->brand?->name ?? '').' — '.$url.' yanıt vermiyor ('.$error.').', 'critical', $url, 1);
         }
         if ($new === 'up' && $previous === 'down') {
-            $minutes = $state?->down_since !== null ? (int) now()->diffInMinutes($state->down_since, true) : null;
             AssetAlert::query()->open()->where('digital_asset_id', $site->id)->where('kind', 'site_down')->update(['resolved_at' => now()]);
+        }
+        if ($new === 'up' && $previous === 'down' && ! $seenFromOutside) {
+            // A site that only MoxDOP could not reach was never down for visitors: its alert closes without a second push.
+            $minutes = $state?->down_since !== null ? (int) now()->diffInMinutes($state->down_since, true) : null;
             $this->push->send('uptime:up:'.$site->id.':'.now()->format('YmdHi'), 'Site yeniden açık: '.($site->domain ?: $site->name), $url.' tekrar yanıt veriyor'.($minutes !== null ? ' (kesinti ~'.$minutes.' dk).' : '.'), 'critical', $url, 1);
         }
 

@@ -7,6 +7,8 @@ return [
     'uptime' => [
         'enabled' => (bool) env('MOXDOP_UPTIME_ENABLED', true),
         'failures_before_down' => (int) env('MOXDOP_UPTIME_FAILURES_BEFORE_DOWN', 2),
+        // Ask check-host.net from outside before a site is called down (a host firewall that drops MoxDOP is not an outage).
+        'outside_check' => (bool) env('MOXDOP_UPTIME_OUTSIDE_CHECK', true),
     ],
     'renewals' => [
         // Days before expiry that raise the renewal alert / push (the closest one wins).
