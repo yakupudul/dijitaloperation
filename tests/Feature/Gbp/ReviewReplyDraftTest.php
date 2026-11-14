@@ -70,7 +70,7 @@ final class ReviewReplyDraftTest extends TestCase
         Livewire::test(ReviewsPage::class, ['asset' => $this->asset->id])
             ->assertSee('AI taslağı')
             ->call('draftOne', $reviewId)
-            ->assertSet('replies.r'.$reviewId, 'Geri bildiriminiz için teşekkür ederiz; sizinle iletişime geçmek isteriz.');
+            ->assertSet('replies.r'.$reviewId, "Geri bildiriminiz için teşekkür ederiz; sizinle iletişime geçmek isteriz.\n\nÖrnek Klinik ekibi");
 
         ReviewReplyAgent::assertPrompted(function ($prompt) use (&$prompts): bool {
             $prompts[] = (string) $prompt->prompt;
@@ -164,9 +164,59 @@ final class ReviewReplyDraftTest extends TestCase
 
         ReviewReplyAgent::assertNeverPrompted();
         $draft = AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->sole();
-        $this->assertSame('Geri bildiriminiz için teşekkür ederiz; sizinle iletişime geçmek isteriz.', $draft->content['reply']);
+        $this->assertSame("Geri bildiriminiz için teşekkür ederiz; sizinle iletişime geçmek isteriz.\n\nÖrnek Klinik ekibi", $draft->content['reply'], 'the business signs its replies');
         $this->assertSame(AiTaskQueue::PROVIDER, $draft->content['provider']);
         $this->assertNull(app(ReviewReplyDrafter::class)->state($reviewId));
         $this->assertSame(AiTask::CONSUMED, $task->fresh()->status);
+    }
+
+    public function test_replies_are_signed_and_never_thank_for_stars_or_guess_a_doctors_gender(): void
+    {
+        // yakup 2026-11-14: "hiç klinik cevabı gibi durmuyor" — "Bize yıldız bıraktığınız için sağ olun", "Burçin Hanım" for a male doctor.
+        $this->assertSame('Dr. Dt. Burçin Öncül', ReviewReplyDrafter::displayName('Dr. Dt. Burçin ÖNCÜL'));
+        $this->assertSame('KCT Kırmızı', ReviewReplyDrafter::displayName('KCT KIRMIZI'), 'short acronyms stay; Turkish dotless i');
+        $brand = Brand::query()->findOrFail($this->asset->brand_id);
+        $this->assertSame('Örnek Klinik ekibi', ReviewReplyDrafter::signature($brand));
+        $brand->forceFill(['name' => 'Dr. Dt. Burçin ÖNCÜL'])->save();
+        $this->assertSame('Dr. Dt. Burçin Öncül ve ekibi', ReviewReplyDrafter::signature($brand));
+
+        $this->assertNotNull(ReviewReplyDrafter::voiceProblem('Bize yıldız bıraktığınız için sağ olun.', []));
+        $this->assertNotNull(ReviewReplyDrafter::voiceProblem('Puanınız için teşekkür ederiz.', []));
+        $this->assertNotNull(ReviewReplyDrafter::voiceProblem('Güzel sözlerinizi Burçin Hanım\'a ileteceğiz.', ['brand_epicrisis' => ['facts' => ['Hekim / uzman: Dr. Dt. Burçin Öncül']]]));
+        $this->assertNull(ReviewReplyDrafter::voiceProblem('Güzel sözlerinizi Burçin Bey\'e ileteceğiz.', ['brand_epicrisis' => ['facts' => ['Hekim / uzman: Dr. Dt. Burçin Öncül (hitap: Burçin Bey)']]]));
+        $this->assertNull(ReviewReplyDrafter::voiceProblem('Diş Beyazlatma sürecinde yanınızdayız; sağlıklı günler dileriz.', []));
+
+        $reviewId = (int) DB::table('gbp_reviews')->where('review_id', 'r1')->value('id');
+        ReviewReplyAgent::fake([['reply' => 'Geri bildiriminizi dikkate alıyoruz. Bizimle doğrudan iletişime geçmenizi rica ederiz.', 'tone' => 'apology']]);
+        app(ReviewReplyDrafter::class)->write($reviewId);
+        $this->assertSame("Geri bildiriminizi dikkate alıyoruz. Bizimle doğrudan iletişime geçmenizi rica ederiz.\n\nDr. Dt. Burçin Öncül ve ekibi",
+            AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->sole()->content['reply']);
+
+        ReviewReplyAgent::fake([['reply' => 'Burçin Hanım\'a güveniniz için teşekkür ederiz, sağlıklı günler dileriz.', 'tone' => 'thanks']]);
+        $other = (int) DB::table('gbp_reviews')->where('review_id', 'r2')->value('id');
+        app(ReviewReplyDrafter::class)->write($other);
+        $this->assertStringStartsWith('failed', (string) app(ReviewReplyDrafter::class)->state($other));
+        $this->assertSame(1, AiProduction::query()->where('kind', ReviewReplyDrafter::KIND)->count());
+    }
+
+    public function test_open_drafts_of_an_older_reply_prompt_are_drafted_again_but_hand_written_and_current_ones_are_not(): void
+    {
+        $run = (int) DB::table('gbp_reviews')->value('run_id');
+        $ids = [];
+        foreach (['old', 'manual', 'current'] as $i => $key) {
+            $ids[$key] = DB::table('gbp_reviews')->insertGetId(['digital_asset_id' => null, 'external_resource_id' => $this->location->id, 'location_name' => 'locations/1', 'run_id' => $run,
+                'review_id' => 's'.$key, 'star_rating' => 'FIVE', 'comment' => 'Memnun kaldım '.$key, 'create_time' => now()->subDays(5 + $i), 'reviewer' => json_encode(['displayName' => 'Ali']),
+                'review_reply' => null, 'raw_payload' => '{}', 'collected_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+        }
+        $current = (string) app(PromptRegistry::class)->current(AiRouteKeys::GBP_REVIEW_REPLY)->id;
+        $older = (string) ((int) $current + 100);
+        foreach (['old' => ['reply' => 'Yıldız için sağ olun.', 'prompt_version' => $older], 'manual' => ['reply' => 'Elle yazıldı.', 'manual' => true, 'prompt_version' => $older], 'current' => ['reply' => 'Yeni.', 'prompt_version' => $current]] as $key => $content) {
+            AiProduction::query()->create(['kind' => ReviewReplyDrafter::KIND, 'subject_type' => 'GbpReview', 'subject_id' => $ids[$key], 'brand_id' => $this->asset->brand_id,
+                'digital_asset_id' => $this->asset->id, 'version' => 1, 'content' => $content, 'prompt_version' => $content['prompt_version'],
+                'content_hash' => hash('sha256', $key), 'status' => AiProduction::STATUS_NEW]);
+        }
+
+        $this->assertSame([$ids['old']], app(ReviewReplyDrafter::class)->staleReviewIds($this->asset->id, 300));
+        $this->assertSame([], app(ReviewReplyDrafter::class)->staleReviewIds($this->asset->id, 0));
     }
 }

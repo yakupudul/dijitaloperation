@@ -4,6 +4,7 @@ namespace App\Services\Gbp;
 
 use App\Models\Brand;
 use App\Models\DigitalAsset;
+use App\Models\GbpReview;
 use App\Models\GbpReviewFlag;
 use App\Services\Epicrisis\EpicrisisClaims;
 use App\Services\Gbp\Desk\ReviewApprovals;
@@ -89,21 +90,32 @@ final class ReviewReplyCheck
         return $this->checked()->whereNotNull('reason')->values();
     }
 
-    /** Night: drafts for unanswered reviews that have none (any age, newest first, at most NIGHT_DRAFTS per profile). */
+    /**
+     * Night: drafts for unanswered reviews that have none (any age, newest first), then new drafts for open ones an older
+     * reply prompt wrote; at most NIGHT_DRAFTS per profile.
+     */
     public function draftNight(): int
     {
         $assets = DigitalAsset::query()->operational()->where('digital_assets.type', 'google_business_profile')->whereNotNull('digital_assets.brand_id')->pluck('digital_assets.id');
         $queued = 0;
+        $drafter = app(ReviewReplyDrafter::class);
         // Profile by profile (yakup 2026-11-13: "her işletme için 300 yorum her gün"), all ages, only reviews still
         // without a draft: the 90-day window and one shared cap used to leave the older reviews without a reply forever.
         foreach ($this->daily->resourceIds($assets->map(fn ($id): int => (int) $id)->all()) as $assetId => $resourceId) {
             $rows = $this->desk->reviews([$assetId => $resourceId], 'bekleyen', '', self::NIGHT_DRAFTS * 2, 'yeni', false, '', false)['rows'];
             $missing = array_values(array_filter($rows, fn (array $r): bool => $r['draft'] === null && $r['draft_state'] !== 'running' && $r['action'] === null));
-            if ($missing === []) {
-                continue;
-            }
             try {
-                $queued += $this->desk->draftAll(array_slice($missing, 0, self::NIGHT_DRAFTS));
+                $done = $missing !== [] ? $this->desk->draftAll(array_slice($missing, 0, self::NIGHT_DRAFTS)) : 0;
+                // What is left of the profile's share goes to drafts an older reply prompt wrote that nobody approved
+                // yet: a better prompt reaches the client links too, not only reviews that come in later.
+                foreach ($drafter->staleReviewIds((int) $assetId, self::NIGHT_DRAFTS - $done) as $reviewId) {
+                    $review = GbpReview::query()->find($reviewId);
+                    if ($review !== null) {
+                        $drafter->queue($review);
+                        $done++;
+                    }
+                }
+                $queued += $done;
             } catch (ValidationException) {
                 return $queued; // no AI route for replies: nothing more to draft tonight
             }

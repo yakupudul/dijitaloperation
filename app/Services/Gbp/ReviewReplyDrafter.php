@@ -16,7 +16,9 @@ use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Archive\ProductionArchive;
 use App\Services\Brand\BrandPack;
 use App\Services\Epicrisis\Epicrisis;
+use App\Services\Gbp\Desk\ReviewApprovals;
 use App\Services\Gbp\Desk\ReviewDesk;
+use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\ServiceScope;
 use Illuminate\Support\Facades\Cache;
@@ -93,6 +95,11 @@ final class ReviewReplyDrafter
             if ($reply === '') {
                 throw new \RuntimeException('AI boş yanıt döndürdü.');
             }
+            $wrong = self::voiceProblem($reply, $context);
+            if ($wrong !== null) {
+                throw new \RuntimeException($wrong.' Yeni taslak isteyin.');
+            }
+            $reply = self::signed($reply, $brand);
             $blocking = GbpAssistant::blockingHits($brand, $reply);
             if ($blocking !== []) {
                 throw new \RuntimeException('Yanıt sektör uyum kuralına takıldı: '.implode(', ', $blocking).'. Yeni taslak isteyin.');
@@ -156,7 +163,8 @@ final class ReviewReplyDrafter
     private function context(GbpReview $review, ?Brand $brand): array
     {
         return [
-            'business' => $brand?->name,
+            'business' => $brand !== null ? self::displayName((string) $brand->name) : null,
+            'sector' => $brand?->sectorLabel(),
             'rating' => self::STARS[strtoupper((string) $review->star_rating)] ?? null,
             'review_text' => mb_substr(ReviewDesk::original((string) $review->comment), 0, 3000),
             'compliance' => BrandPack::rules($brand),
@@ -178,6 +186,101 @@ final class ReviewReplyDrafter
             ->orderByDesc('id')->limit(12)->get(['content'])
             ->map(fn (AiProduction $row): string => mb_substr((string) preg_split('/(?<=[.!?])\s/u', trim((string) data_get($row->content, 'reply', '')))[0], 0, 120))
             ->filter()->unique()->values()->all();
+    }
+
+    /**
+     * Review ids of this profile whose newest reply draft was written by AI with an older reply prompt and is still
+     * open: not answered on Google, nothing on its way, no client decision on an approval link, not being drafted.
+     * The night drafts them again (yakup 2026-11-14: the old drafts "hiç klinik cevabı gibi durmuyor"), newest
+     * review first; drafts written or edited by hand are never touched.
+     *
+     * @return list<int>
+     */
+    public function staleReviewIds(int $assetId, int $limit): array
+    {
+        if ($limit <= 0) {
+            return [];
+        }
+        $current = (string) app(PromptRegistry::class)->current(AiRouteKeys::GBP_REVIEW_REPLY)->id;
+        $latest = AiProduction::query()->where('kind', self::KIND)->where('subject_type', class_basename(GbpReview::class))
+            ->where('digital_asset_id', $assetId)->where('status', '!=', AiProduction::STATUS_DISCARDED)
+            ->orderBy('version')->orderBy('id')->get(['id', 'subject_id', 'version', 'content', 'prompt_version'])->keyBy('subject_id');
+        $ids = $latest->filter(fn (AiProduction $row): bool => ! (bool) data_get($row->content, 'manual') && (string) $row->prompt_version !== ''
+            && (string) $row->prompt_version !== $current)->keys()->map(fn ($id): int => (int) $id)->values()->all();
+        if ($ids === []) {
+            return [];
+        }
+        $open = app(ReviewDesk::class)->openIds($ids);
+        $decided = app(ReviewApprovals::class)->forReviews($open);
+        $states = $this->states($open);
+        $open = array_values(array_filter($open, fn (int $id): bool => ! isset($decided[$id]) && $states[$id] !== 'running'));
+        if ($open === []) {
+            return [];
+        }
+
+        return GbpReview::query()->whereIn('id', $open)->orderByDesc('create_time')->orderBy('id')->limit($limit)->pluck('id')
+            ->map(fn ($id): int => (int) $id)->all();
+    }
+
+    /**
+     * Why a written reply cannot be used, without AI: it thanks for stars / points (amateur and, for health brands, a
+     * rating talk), or it gives a doctor a "Bey" / "Hanım" the brand's record does not hold (the model guessed the
+     * gender: Burçin Öncül was "Burçin Hanım" in some replies). Null when the reply is fine.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    public static function voiceProblem(string $reply, array $context): ?string
+    {
+        $business = mb_strtolower((string) ($context['business'] ?? ''));
+        foreach (['yıldız', 'puan'] as $word) {
+            if (! str_contains($business, $word) && preg_match('/'.$word.'/iu', $reply)) {
+                return 'Yanıt yıldızdan / puandan söz ediyor.';
+            }
+        }
+        $record = mb_strtolower(json_encode($context['brand_epicrisis'] ?? [], JSON_UNESCAPED_UNICODE) ?: '');
+        if (preg_match_all('/(?<!\p{L})(\p{Lu}\p{Ll}+)\s+(Bey|Hanım|Hoca)(?!\p{L})/u', $reply, $hits, PREG_SET_ORDER)) {
+            foreach ($hits as $hit) {
+                if (! str_contains($record, mb_strtolower($hit[1].' '.$hit[2]))) {
+                    return 'Yanıt "'.$hit[1].' '.$hit[2].'" diye hitap ediyor ama marka kaydında bu hitap yok.';
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /** The reply with the business's sign-off as its last line ("Dr. Dt. Ad Soyad ve ekibi" / "Marka ekibi"). */
+    public static function signed(string $reply, ?Brand $brand): string
+    {
+        $signature = self::signature($brand);
+        if ($signature === '' || str_contains(mb_strtolower($reply), mb_strtolower($signature))) {
+            return $reply;
+        }
+
+        return rtrim($reply)."\n\n".$signature;
+    }
+
+    public static function signature(?Brand $brand): string
+    {
+        $name = $brand !== null ? self::displayName((string) $brand->name) : '';
+        if ($name === '') {
+            return '';
+        }
+
+        return preg_match('/^(Dr|Dt|Uzm|Op|Prof|Doç)(?!\p{L})/u', $name) ? $name.' ve ekibi' : $name.' ekibi';
+    }
+
+    /** "Dr. Dt. Burçin ÖNCÜL" → "Dr. Dt. Burçin Öncül": all-caps words longer than four letters get Turkish title case. */
+    public static function displayName(string $name): string
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', $name) ?? $name);
+
+        return (string) preg_replace_callback('/(?<!\p{L})\p{Lu}{5,}(?!\p{L})/u', function (array $m): string {
+            $word = $m[0];
+            $rest = mb_strtolower(strtr(mb_substr($word, 1), ['I' => 'ı', 'İ' => 'i']));
+
+            return mb_substr($word, 0, 1).$rest;
+        }, $name);
     }
 
     private function stateKey(int $reviewId): string
