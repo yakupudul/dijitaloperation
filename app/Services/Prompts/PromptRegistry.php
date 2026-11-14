@@ -96,13 +96,14 @@ final class PromptRegistry
 
     /**
      * The version in use; the first use stores the code default as version 1. While no operator has published or
-     * reverted this operation (current version has no author), a changed code default becomes the next version.
+     * reverted this operation (current version has no author), a changed code default becomes the next version. An
+     * operator version that only repeats an earlier code default (copiesCode) does not hold a newer default back.
      */
     public function current(string $operation): PromptVersion
     {
         $row = $this->currentRow($operation);
         $definition = $this->definition($operation);
-        if ($row !== null && ($row->created_by !== null || $row->template === self::withGuard($definition['template']))) {
+        if ($row !== null && ($row->template === self::withGuard($definition['template']) || ($row->created_by !== null && ! $this->copiesCode($row)))) {
             return $row;
         }
         try {
@@ -282,6 +283,17 @@ final class PromptRegistry
         }
 
         return $provider.':'.trim($name);
+    }
+
+    /**
+     * An operator version whose text is word for word an earlier code default (a revert or a re-publish without edits):
+     * it holds no operator wording, so a newer code default replaces it. Without this, the review reply prompt stayed on
+     * v2 after v3 shipped (2026-11-14).
+     */
+    private function copiesCode(PromptVersion $row): bool
+    {
+        return PromptVersion::query()->where('operation', $row->operation)->whereNull('created_by')->where('id', '!=', $row->id)
+            ->where('template', $row->template)->exists();
     }
 
     private function currentRow(string $operation): ?PromptVersion

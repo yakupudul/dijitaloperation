@@ -84,6 +84,19 @@ final class PromptRegistryTest extends TestCase
         $this->assertSame($published->id, $this->registry->current('test.op')->id, 'an operator version is never replaced by code');
     }
 
+    public function test_an_operator_version_that_only_repeats_an_old_code_default_gives_way_to_a_newer_default(): void
+    {
+        $first = $this->registry->current('test.op');
+        $this->registry->revert('test.op', $first->version, $this->admin);
+        $repeat = $this->registry->current('test.op');
+        $this->assertNotNull($repeat->created_by);
+
+        $this->registry->register('test.op', ['purpose' => 'Test işlemi.', 'variables' => ['brand', 'items'], 'template' => 'Yeni sürüm: {{brand}}']);
+        $current = $this->registry->current('test.op');
+        $this->assertNotSame($repeat->id, $current->id, 'a re-published code text holds no operator wording');
+        $this->assertStringStartsWith('Yeni sürüm:', $current->template);
+    }
+
     public function test_render_substitutes_variables_and_unknown_variables_fail_in_tests(): void
     {
         $text = $this->registry->render('test.op', ['brand' => 'Panorama', 'items' => ['a', 'b']]);
