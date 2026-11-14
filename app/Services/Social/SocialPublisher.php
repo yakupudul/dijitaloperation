@@ -27,7 +27,7 @@ class SocialPublisher
 
     public function __construct(private readonly SocialGraph $graph, private readonly LinkedInApi $linkedin, private readonly ThreadsApi $threads) {}
 
-    /** Publishes everything due. @return array{published: int, failed: int, processing: int} */
+    /** Publishes everything due. @return array{published: int, failed: int, processing: int, postponed?: int} */
     public function run(): array
     {
         if (EmergencyStop::active()) {
@@ -54,7 +54,16 @@ class SocialPublisher
                 ->limit(20)
                 ->get();
 
+            $timeOfDay = app(SocialTimeOfDay::class);
             foreach ($posts as $post) {
+                // "Günaydın" never goes out in the evening (yakup 2026-11-14): a greeting outside its window waits for
+                // the next slot that fits. A post already partly out finishes its other channels as it is.
+                if ($post->status === SocialPost::APPROVED && ! $timeOfDay->fits($post, now())) {
+                    app(SocialSchedule::class)->postpone($post);
+                    $stats['postponed'] = ($stats['postponed'] ?? 0) + 1;
+
+                    continue;
+                }
                 foreach ($post->targets as $target) {
                     if ($target->isFinished() || $target->status === SocialPostTarget::MANUAL) {
                         continue;

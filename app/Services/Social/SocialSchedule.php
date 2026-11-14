@@ -193,6 +193,16 @@ class SocialSchedule
         $other->update(['publish_at' => $a]);
     }
 
+    /**
+     * A due post whose greeting does not fit this moment (a late queue, a time typed by hand) does not go out: it
+     * leaves its fixed date, goes to the front of its line and takes the first free slot inside its window.
+     */
+    public function postpone(SocialPost $post): void
+    {
+        $post->update(['pinned' => false, 'publish_at' => now()->addMinutes(6)]);
+        $this->reflow();
+    }
+
     /** Gives every post and every story in its line its day again, in line order. @return int posts whose time changed */
     public function reflow(): int
     {
@@ -236,13 +246,41 @@ class SocialSchedule
                 }
             }
         })();
+        // A post that greets a part of the day takes the first free slot inside its window; the slots it passes over
+        // stay free for the posts behind it, so the rest of the line keeps its order.
+        $timeOfDay = app(SocialTimeOfDay::class);
+        $open = [];
         $changed = 0;
         foreach ($line as $post) {
-            if (! $slots->valid()) {
-                break;
+            $slot = null;
+            foreach ($open as $i => $candidate) {
+                if ($timeOfDay->fits($post, $candidate)) {
+                    $slot = $candidate;
+                    unset($open[$i]);
+                    break;
+                }
             }
-            $slot = $slots->current();
-            $slots->next();
+            // Look ahead at most 60 slots (a month of two-a-day hours) for a fitting one.
+            for ($ahead = 0; $slot === null && $ahead < 60 && $slots->valid(); $ahead++) {
+                $candidate = $slots->current();
+                $slots->next();
+                if ($timeOfDay->fits($post, $candidate)) {
+                    $slot = $candidate;
+                } else {
+                    $open[] = $candidate;
+                }
+            }
+            if ($slot === null) {
+                // No hour of this line fits the greeting: the post moves to the end of the line, a year ahead, instead
+                // of going out at the wrong time; the Admin sees it there and changes its hours or its text.
+                $far = now()->addYear()->startOfMinute();
+                if (! $post->publish_at->equalTo($far)) {
+                    $post->update(['publish_at' => $far]);
+                    $changed++;
+                }
+
+                continue;
+            }
             if (! $post->publish_at->equalTo($slot)) {
                 $post->update(['publish_at' => $slot->copy()->utc()]);
                 $changed++;

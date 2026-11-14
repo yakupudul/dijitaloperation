@@ -7,11 +7,14 @@ use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\User;
 use App\Services\Social\SocialPlanner;
+use App\Services\Social\SocialPublisher;
 use App\Services\Social\SocialSchedule;
+use App\Services\Social\SocialTimeOfDay;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -183,5 +186,59 @@ final class SocialScheduleTest extends TestCase
 
         $this->assertSame('2026-11-09 10:30', $this->at($blog));
         $this->assertSame('2026-11-09 12:30', $this->at($post));
+    }
+
+    public function test_a_good_morning_story_only_takes_a_morning_hour_and_the_line_keeps_flowing(): void
+    {
+        // Monday 10:00: the next story hours are today 18:00, tomorrow 09:00 and 18:00.
+        $this->travelTo(CarbonImmutable::parse('2026-11-09 10:00', 'Europe/Istanbul'));
+        $planner = app(SocialPlanner::class);
+        $morning = $this->draft('2026-12-20 09:00', 'story');
+        $morning->update(['title' => "Story: Ara ile Pin'den günaydın", 'caption' => "Ara ile Pin'den GÜNAYDIN"]);
+        $plain = $this->draft('2026-12-20 09:00', 'story');
+        $night = $this->draft('2026-12-20 09:00', 'story');
+        $night->update(['caption' => 'Gece 02:07, dişi ağrıyan hasta']);
+        foreach ([$morning, $plain, $night] as $s) {
+            $planner->approve($s->fresh(), $this->admin->id);
+        }
+
+        // The greeting passes over 18:00 and waits for the morning; the stories behind it take the evening hours.
+        $this->assertSame('2026-11-10 09:00', $this->at($morning));
+        $this->assertSame('2026-11-09 18:00', $this->at($plain));
+        $this->assertSame('2026-11-10 18:00', $this->at($night));
+
+        // A second reflow keeps every place.
+        $this->assertSame(0, app(SocialSchedule::class)->reflow());
+    }
+
+    public function test_a_greeting_due_outside_its_window_is_not_published_but_moves_to_the_next_fitting_hour(): void
+    {
+        Http::fake();
+        $story = $this->draft('2026-11-09 18:00', 'story');
+        $story->update(['caption' => 'İyi sabahlar, hekimler', 'pinned' => true]);
+        app(SocialPlanner::class)->approve($story->fresh(), $this->admin->id);
+        $this->assertSame('2026-11-09 18:00', $this->at($story));
+
+        // The queue reaches it at 18:00: nothing goes out, it leaves its fixed date and takes tomorrow 09:00.
+        $this->travelTo(CarbonImmutable::parse('2026-11-09 18:01', 'Europe/Istanbul'));
+        $stats = app(SocialPublisher::class)->run();
+        Http::assertNothingSent();
+        $this->assertSame(1, $stats['postponed'] ?? 0);
+        $this->assertFalse($story->fresh()->pinned);
+        $this->assertSame(SocialPost::APPROVED, $story->fresh()->status);
+        $this->assertSame('2026-11-10 09:00', $this->at($story));
+    }
+
+    public function test_only_greetings_set_a_window(): void
+    {
+        $tod = app(SocialTimeOfDay::class);
+        $post = new SocialPost(['title' => 'x', 'caption' => 'Gece 02:07. Sabah olmadan hasta arıyor.']);
+        $this->assertNull($tod->window($post));
+        $post->caption = 'Hayırlı cumalar';
+        $this->assertFalse($tod->fits($post, CarbonImmutable::parse('2026-11-12 12:00', 'Europe/Istanbul')));
+        $this->assertTrue($tod->fits($post, CarbonImmutable::parse('2026-11-13 12:00', 'Europe/Istanbul')));
+        $post->caption = 'İyi akşamlar';
+        $this->assertTrue($tod->fits($post, CarbonImmutable::parse('2026-11-13 20:00', 'Europe/Istanbul')));
+        $this->assertFalse($tod->fits($post, CarbonImmutable::parse('2026-11-13 09:00', 'Europe/Istanbul')));
     }
 }
