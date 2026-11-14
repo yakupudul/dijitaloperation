@@ -21,7 +21,9 @@ use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -42,10 +44,17 @@ final class MeasurementSetupTest extends TestCase
 
     private string $homeHtml = '<html><head></head><body>Merhaba</body></html>';
 
+    /** How many Tag Manager calls still answer 429 (quota exceeded). */
+    private int $quotaHits = 0;
+
+    /** @var list<string> Tag Manager read urls */
+    private array $gtmReads = [];
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(RoleAndPermissionSeeder::class);
+        Sleep::fake();
         config(['moxdop.google.client_id' => 'cid', 'moxdop.google.client_secret' => 'csecret', 'moxdop.google.developer_token' => 'devtoken']);
         $scopes = [GoogleScopes::ADWORDS, GoogleScopes::ANALYTICS_READONLY, GoogleScopes::SEARCH_CONSOLE_READONLY, ...GoogleMeasurement::SCOPES];
         $integration = CoreIntegration::factory()->google()->create(['status' => CoreIntegration::STATUS_ACTIVE, 'config' => ['granted_scopes' => $scopes]]);
@@ -74,6 +83,14 @@ final class MeasurementSetupTest extends TestCase
                 }
 
                 return Http::response(['results' => $existing]);
+            }
+            if (str_starts_with($url, 'https://tagmanager.googleapis.com/') && $this->quotaHits > 0) {
+                $this->quotaHits--;
+
+                return Http::response(['error' => ['code' => 429, 'message' => "Quota exceeded for quota metric 'Queries' and limit 'Queries per minute per user'", 'status' => 'RESOURCE_EXHAUSTED']], 429);
+            }
+            if ($method === 'get' && str_starts_with($url, 'https://tagmanager.googleapis.com/')) {
+                $this->gtmReads[] = strtok($url, '?');
             }
             if ($method !== 'get') {
                 $this->writes[] = [$method, $url, $request->data()];
@@ -137,6 +154,54 @@ final class MeasurementSetupTest extends TestCase
         $this->assertSame('tel1', collect($awct[2]['parameter'])->firstWhere('key', 'conversionLabel')['value']);
         $this->assertTrue(collect($this->writes)->contains(fn ($w): bool => $w[0] === 'put' && str_contains($w[1], 'webmasters/v3/sites/https%3A%2F%2Fornekklinik.com%2F')));
         $this->assertFalse($result['site_has_container']);
+    }
+
+    public function test_a_tag_manager_quota_error_waits_for_the_next_minute_and_carries_on(): void
+    {
+        $this->quotaHits = 2;
+
+        $result = app(MeasurementSetup::class)->apply($this->brand, ['ga4_account' => 'accounts/123', 'gtm_account' => '42', 'skip_ads' => true]);
+
+        $this->assertFalse($result['stopped']);
+        $this->assertSame('5', $result['published_version']);
+        Sleep::assertSlept(fn ($duration): bool => (int) $duration->totalSeconds === 61, 2);
+    }
+
+    public function test_tag_manager_calls_are_paced_under_the_per_minute_quota(): void
+    {
+        $waits = [];
+        Sleep::whenFakingSleep(function ($duration) use (&$waits): void {
+            $waits[] = (int) $duration->totalMilliseconds;
+        });
+
+        app(MeasurementSetup::class)->apply($this->brand, ['ga4_account' => 'accounts/123', 'gtm_account' => '42', 'skip_ads' => true]);
+
+        // Back-to-back GTM calls wait up to ~4 s each (15 a minute), so the run never bursts past the quota.
+        $this->assertGreaterThan(10, count($waits));
+        $this->assertLessThanOrEqual(4100, max($waits));
+        $this->assertGreaterThan(3000, max($waits));
+    }
+
+    public function test_accounts_keeps_the_tag_manager_lists_and_can_skip_containers(): void
+    {
+        $setup = app(MeasurementSetup::class);
+
+        $short = $setup->accounts(['containers' => false]);
+        $this->assertSame([['account_id' => '42', 'name' => 'Moximu']], $short['gtm']);
+        $this->assertSame(['https://tagmanager.googleapis.com/tagmanager/v2/accounts'], $this->gtmReads);
+
+        $full = $setup->accounts();
+        $setup->accounts(['gtm_account' => '42']);
+        $this->assertSame([], $full['gtm'][0]['containers']);
+        $this->assertSame(1, collect($this->gtmReads)->filter(fn (string $u): bool => str_ends_with($u, '/v2/accounts'))->count());
+        $this->assertSame(1, collect($this->gtmReads)->filter(fn (string $u): bool => str_ends_with($u, '/accounts/42/containers'))->count());
+
+        $this->quotaHits = 99;
+        Cache::flush();
+        $failed = $setup->accounts();
+        $this->assertSame([], $failed['gtm']);
+        $this->assertStringContainsString('Quota exceeded', $failed['gtm_error']);
+        $this->assertArrayHasKey('ga4', $failed);
     }
 
     public function test_a_property_that_already_counts_its_own_conversions_stops_before_tags_and_ads(): void

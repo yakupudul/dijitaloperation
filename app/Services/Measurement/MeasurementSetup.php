@@ -8,8 +8,10 @@ use App\Models\DigitalAsset;
 use App\Services\Integrations\Google\GoogleApiClient;
 use App\Services\Integrations\Google\GoogleMeasurement;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use RuntimeException;
 use Throwable;
 
@@ -46,6 +48,19 @@ final class MeasurementSetup
     private const string GTM = 'https://tagmanager.googleapis.com/tagmanager/v2/';
 
     private const string ALL_PAGES = '2147479553';
+
+    /**
+     * Tag Manager API allows about 15 queries a minute per user (0.25 QPS). Every GTM call waits its turn (shared
+     * across requests through the cache), a 429 waits for the next minute window, and the account / container lists
+     * are kept for a while, so action=accounts followed by apply does not read them twice.
+     */
+    private const int GTM_GAP_MS = 4100;
+
+    private const int GTM_QUOTA_WAIT_SECONDS = 61;
+
+    private const int GTM_QUOTA_RETRIES = 2;
+
+    private const int GTM_LIST_CACHE_MINUTES = 30;
 
     /** @var array<string, array{label: string, ads_category: string}> the events of this run (all three unless `events` narrows it) */
     private array $events = self::EVENTS;
@@ -94,30 +109,40 @@ final class MeasurementSetup
 
     /**
      * The GA4 accounts (with their properties) and Tag Manager accounts (with their containers) the connection sees.
+     * Options: gtm_account (only that account's containers), containers=false (GTM account list only). A Tag Manager
+     * error part way returns what was read plus gtm_error.
      *
+     * @param  array<string, mixed>  $options
      * @return array<string, mixed>
      */
-    public function accounts(): array
+    public function accounts(array $options = []): array
     {
         $ga4 = collect($this->list(self::GA.'accountSummaries', 'accountSummaries', ['pageSize' => 200]))
             ->map(fn (array $a): array => [
                 'account' => $a['account'] ?? '', 'name' => $a['displayName'] ?? '',
                 'properties' => collect($a['propertySummaries'] ?? [])->map(fn (array $p): string => ($p['property'] ?? '').' '.($p['displayName'] ?? ''))->values()->all(),
             ])->values()->all();
+        $only = preg_replace('/\D+/', '', (string) ($options['gtm_account'] ?? '')) ?: null;
+        $withContainers = (bool) ($options['containers'] ?? true);
         $gtm = [];
+        $error = null;
         try {
-            foreach ($this->list(self::GTM.'accounts', 'account') as $account) {
-                $containers = $this->list(self::GTM.'accounts/'.$account['accountId'].'/containers', 'container');
-                $gtm[] = [
-                    'account_id' => $account['accountId'], 'name' => $account['name'] ?? '',
-                    'containers' => collect($containers)->map(fn (array $c): array => ['container_id' => $c['containerId'], 'public_id' => $c['publicId'] ?? '', 'name' => $c['name'] ?? '', 'domains' => $c['domainName'] ?? []])->values()->all(),
-                ];
+            foreach ($this->gtmAccounts() as $account) {
+                if ($only !== null && (string) $account['accountId'] !== $only) {
+                    continue;
+                }
+                $row = ['account_id' => $account['accountId'], 'name' => $account['name'] ?? ''];
+                if ($withContainers) {
+                    $row['containers'] = collect($this->gtmContainers((string) $account['accountId']))
+                        ->map(fn (array $c): array => ['container_id' => $c['containerId'], 'public_id' => $c['publicId'] ?? '', 'name' => $c['name'] ?? '', 'domains' => $c['domainName'] ?? []])->values()->all();
+                }
+                $gtm[] = $row;
             }
         } catch (Throwable $e) {
-            $gtm = ['error' => $e->getMessage()];
+            $error = $e->getMessage();
         }
 
-        return ['ga4' => $ga4, 'gtm' => $gtm, 'missing_permissions' => $this->measurement->missing()];
+        return ['ga4' => $ga4, 'gtm' => $gtm] + ($error !== null ? ['gtm_error' => $error] : []) + ['missing_permissions' => $this->measurement->missing()];
     }
 
     /**
@@ -474,9 +499,9 @@ HTML;
         $account = preg_replace('/\D+/', '', (string) ($options['gtm_account'] ?? '')) ?: null;
         $containerId = preg_replace('/\D+/', '', (string) ($options['container_id'] ?? '')) ?: null;
         $onSite = $this->siteTags($url)['gtm'] ?? [];
-        $accounts = $account !== null ? [['accountId' => $account]] : $this->list(self::GTM.'accounts', 'account');
+        $accounts = $account !== null ? [['accountId' => $account]] : $this->gtmAccounts();
         foreach ($accounts as $a) {
-            foreach ($this->list(self::GTM.'accounts/'.$a['accountId'].'/containers', 'container') as $c) {
+            foreach ($this->gtmContainers((string) $a['accountId']) as $c) {
                 $match = $containerId !== null ? $c['containerId'] === $containerId
                     : (in_array($c['publicId'] ?? '', $onSite, true) || ($c['name'] ?? '') === $host || in_array($host, (array) ($c['domainName'] ?? []), true));
                 if ($match) {
@@ -497,6 +522,7 @@ HTML;
         }
         $created = $this->ok($this->write('post', self::GTM.'accounts/'.$account.'/containers', ['name' => $host, 'usageContext' => ['web'], 'domainName' => [$host]]), 'GTM kapsayıcı');
         $log['created'][] = 'GTM kapsayıcı '.$created['publicId'];
+        Cache::forget($this->gtmCacheKey('containers:'.$account));
 
         return ['accountId' => (string) $created['accountId'], 'containerId' => (string) $created['containerId'], 'publicId' => (string) $created['publicId']];
     }
@@ -593,7 +619,68 @@ HTML;
     /** @param array<string, mixed> $body */
     private function write(string $method, string $url, array $body = []): Response
     {
-        return $this->google->writeMeasurement($this->integration(), $method, $url, $body);
+        return $this->paced($url, fn (): Response => $this->google->writeMeasurement($this->integration(), $method, $url, $body));
+    }
+
+    /** @return list<array<string, mixed>> the Tag Manager accounts (kept for a while) */
+    private function gtmAccounts(): array
+    {
+        return $this->gtmCached('accounts', fn (): array => $this->list(self::GTM.'accounts', 'account'));
+    }
+
+    /** @return list<array<string, mixed>> one account's containers (kept for a while) */
+    private function gtmContainers(string $account): array
+    {
+        return $this->gtmCached('containers:'.$account, fn (): array => $this->list(self::GTM.'accounts/'.$account.'/containers', 'container'));
+    }
+
+    /**
+     * @param  callable(): list<array<string, mixed>>  $read
+     * @return list<array<string, mixed>>
+     */
+    private function gtmCached(string $key, callable $read): array
+    {
+        $key = $this->gtmCacheKey($key);
+        $cached = Cache::get($key);
+        if (is_array($cached)) {
+            return $cached;
+        }
+        $items = $read();
+        Cache::put($key, $items, now()->addMinutes(self::GTM_LIST_CACHE_MINUTES));
+
+        return $items;
+    }
+
+    private function gtmCacheKey(string $key): string
+    {
+        return 'measurement:gtm:'.$this->integration()->id.':'.$key;
+    }
+
+    /**
+     * Runs a Google call; a Tag Manager call waits its turn under the per-minute quota and is retried after a 429.
+     *
+     * @param  callable(): Response  $call
+     */
+    private function paced(string $url, callable $call): Response
+    {
+        if (! str_starts_with($url, self::GTM)) {
+            return $call();
+        }
+        $key = 'measurement:gtm-next-call:'.$this->integration()->id;
+        for ($attempt = 0; ; $attempt++) {
+            $wait = (int) Cache::get($key, 0) - (int) floor(microtime(true) * 1000);
+            if ($wait > 0) {
+                Sleep::for($wait)->milliseconds();
+            }
+            Cache::put($key, (int) floor(microtime(true) * 1000) + self::GTM_GAP_MS, now()->addMinutes(5));
+            $response = $call();
+            if ($response->status() !== 429 || $attempt >= self::GTM_QUOTA_RETRIES) {
+                return $response;
+            }
+            // Quota window used up (also by another run): wait for the next minute before the same call again.
+            $retryAfter = (int) $response->header('Retry-After');
+            Sleep::for(max($retryAfter, self::GTM_QUOTA_WAIT_SECONDS))->seconds();
+        }
     }
 
     /**
@@ -607,7 +694,7 @@ HTML;
         $items = [];
         $token = null;
         for ($page = 0; $page < 20; $page++) {
-            $response = $this->google->get($this->integration(), $url, $query + ($token !== null ? ['pageToken' => $token] : []));
+            $response = $this->paced($url, fn (): Response => $this->google->get($this->integration(), $url, $query + ($token !== null ? ['pageToken' => $token] : [])));
             $json = $this->ok($response, 'Google okuma');
             foreach ((array) ($json[$key] ?? []) as $item) {
                 $items[] = (array) $item;
