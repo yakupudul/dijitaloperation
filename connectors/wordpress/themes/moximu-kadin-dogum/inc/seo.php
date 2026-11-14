@@ -151,3 +151,18 @@ add_filter('seopress_titles_desc', function ($d) {
 	}
 	return $d;
 }, 15);
+
+/* Yönlendirilmiş sayfalar site haritasında yer almaz (301 veren adres haritada durmasın). */
+add_filter('seopress_sitemaps_single_query', function ($args) {
+	$ids = get_posts([
+		'post_type'      => 'any',
+		'post_status'    => 'publish',
+		'fields'         => 'ids',
+		'posts_per_page' => 200,
+		'meta_query'     => [['key' => '_seopress_redirections_enabled', 'value' => 'yes']],
+	]);
+	if ($ids) {
+		$args['post__not_in'] = array_merge((array) ($args['post__not_in'] ?? []), $ids);
+	}
+	return $args;
+});

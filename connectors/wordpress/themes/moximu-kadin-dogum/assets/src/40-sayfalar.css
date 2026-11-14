@@ -43,7 +43,7 @@
 .bk-orta-metin{font-size:13px;line-height:1.5;color:#4a4a4a;margin:0 0 10px}
 
 /* İçindekiler */
-.bk-toc{background:#fff;border:1px solid var(--kenar);border-left:4px solid var(--altin-koyu);border-radius:6px;box-shadow:var(--golge);padding:14px 20px}
+.bk-toc{background:#fff;border:1px solid var(--kenar);border-left:4px solid var(--altin-koyu);border-radius:6px;box-shadow:var(--golge);padding:22px 20px}
 .bk-toc summary{display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;background:var(--krem);padding:10px 15px;font-size:16px;font-weight:600;color:#000}
 .bk-toc summary::-webkit-details-marker{display:none}
 .bk-toc summary .ik{width:12px;height:16px;transition:transform .2s}
@@ -56,8 +56,8 @@
 /* İçerik metni */
 .bk-icerik{font-size:16px;line-height:1.8;color:var(--metin);margin-top:50px;overflow-wrap:break-word}
 .bk-icerik>*:first-child{margin-top:0}
-.bk-icerik h2{font-size:21px;font-weight:600;line-height:1.35;color:#000;margin:30px 0 12px;padding-left:10px;border-left:3px solid var(--altin-koyu)}
-.bk-icerik h3{font-size:18px;font-weight:600;line-height:1.35;color:#000;margin:24px 0 10px}
+.bk-icerik h2{font-size:21px;font-weight:600;line-height:1.35;color:#000;margin:28px 0 12px;padding-left:12px;border-left:3px solid var(--altin-koyu)}
+.bk-icerik h3{font-size:18px;font-weight:600;line-height:1.35;color:#000;margin:28px 0 12px}
 .bk-icerik h4{font-size:17px;font-weight:600;color:#000}
 .bk-icerik p{margin:0 0 16px}
 .bk-icerik strong,.bk-icerik b{color:#000}
@@ -69,7 +69,7 @@
 .bk-icerik .alignright{float:right;margin:0 0 16px 20px}
 .bk-icerik .alignleft{float:left;margin:0 20px 16px 0}
 .bk-icerik .aligncenter{display:block;margin:16px auto}
-.bk-icerik table{width:100%;border-collapse:separate!important;border-spacing:0;margin:20px 0 24px;border:1px solid var(--kenar)!important;border-radius:6px;overflow:hidden;font-size:15px;line-height:1.5;display:table}
+.bk-icerik table{width:100%;border-collapse:separate!important;border-spacing:0;margin:20px 0 24px;border:1px solid var(--kenar)!important;border-radius:6px;overflow:hidden;font-size:15px;line-height:1.65;display:table}
 .bk-icerik thead{background:var(--altin-koyu)!important}
 .bk-icerik th{background:var(--altin-koyu);color:#fff;font-weight:600;text-align:left;padding:12px!important;border:0!important}
 .bk-icerik td{padding:12px!important;border:0!important;border-top:1px solid var(--kenar)!important;vertical-align:top}
@@ -216,10 +216,10 @@
 .bk-sorukat-ust{background:#f9fafb;padding:20px;text-align:center}
 .bk-sorukat-ikon{width:56px;height:56px;object-fit:contain}
 .bk-sorukat-ust h1{font-size:32px;font-weight:500;color:#1d2939;margin:6px 0 4px}
-.bk-sorukat-ust p{font-size:14px;color:#566e8b;margin:0}
+.bk-sorukat-ust p{font-size:16px;color:#566e8b;margin:0}
 .bk-sorukat-aciklama{padding:20px 20px 0;color:var(--metin)}
-.bk-soru-liste{list-style:none;margin:30px 0 0;padding:0 20px 0 10px}
-.bk-soru-liste li{position:relative;padding-left:10px;font-size:15px;line-height:30px;margin-bottom:6px}
+.bk-soru-liste{list-style:none;margin:68px 0 0;padding:0 20px 0 10px}
+.bk-soru-liste li{position:relative;padding-left:10px;font-size:15px;line-height:30px;margin-bottom:10px}
 .bk-soru-liste li::before{top:11px}
 .bk-soru-liste a{color:#1d2939}
 .bk-sorukat-yan{padding:20px;gap:20px}

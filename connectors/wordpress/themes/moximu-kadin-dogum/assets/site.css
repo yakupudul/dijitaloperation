@@ -103,20 +103,22 @@ input,textarea,select{font-family:inherit;font-size:16px}
 .bk-oc.acik{visibility:visible}
 .bk-oc-arka{position:absolute;inset:0;background:rgba(0,0,0,.6);opacity:0;transition:opacity .25s}
 .bk-oc.acik .bk-oc-arka{opacity:1}
-.bk-oc-panel{position:absolute;top:0;right:0;bottom:0;width:min(351px,90vw);overflow-y:auto;background:#fff;padding:20px 20px 90px;transform:translateX(100%);transition:transform .3s ease}
+.bk-oc-panel{position:absolute;top:0;right:0;bottom:0;width:min(336px,90vw);overflow-y:auto;background:#fff;padding:20px 20px 90px;transform:translateX(100%);transition:transform .3s ease}
 .bk-oc.acik .bk-oc-panel{transform:none}
-.bk-oc-ust{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:24px}
-.bk-oc-logo img{width:240px;height:auto}
-.bk-oc-kapat{border:0;background:none;padding:0;width:26px;height:26px;color:#000}
+.bk-oc-ust{position:relative;padding-top:25px;margin-bottom:24px}
+.bk-oc-logo{display:block}
+.bk-oc-logo img{width:300px;max-width:100%;height:auto}
+.bk-oc-kapat{position:absolute;top:2px;right:-14px;border:0;background:none;padding:0;width:26px;height:26px;color:#000}
 .bk-oc-kapat .ik{width:26px;height:26px}
 .bk-oc-btn{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
 .bk-oc-btn .bk-btn{border-radius:4px;padding:15px 10px;font-size:15px;font-weight:600}
 .bk-oc-linkler{margin:0 0 24px;padding-left:40px}
-.bk-oc-linkler li{margin-bottom:6px}
-.bk-oc-linkler a{color:#2b2b26;font-size:16px;border-bottom:1px solid #e8e2cc;padding-bottom:2px}
+.bk-oc-linkler li{margin-bottom:4px}
+.bk-oc-linkler a{color:#2b2b26;font-size:15px;border-bottom:1px solid #e8e2cc;padding-bottom:2px}
 .bk-oc-etiket{font-size:11px;font-weight:700;color:var(--altin);letter-spacing:.04em;margin-bottom:6px}
 .bk-oc-kat{border-bottom:1px solid #eee}
-.bk-oc-kat-ac{display:flex;align-items:center;justify-content:space-between;width:100%;padding:16px 0;border:0;background:none;text-align:left;font-size:15px;font-weight:500;color:var(--altin)}
+.bk-oc-kat-ac{display:flex;align-items:center;justify-content:space-between;width:100%;padding:16px 0;border:0;background:none;text-align:left;font-size:14px;font-weight:600;color:#2b2b26}
+.bk-oc-kat-ac[aria-expanded=true]{color:var(--altin)}
 .bk-oc-kat-ac i{position:relative;width:12px;height:12px}
 .bk-oc-kat-ac i::before,.bk-oc-kat-ac i::after{content:"";position:absolute;left:0;top:5px;width:12px;height:2px;background:#2b2b26}
 .bk-oc-kat-ac i::after{transform:rotate(90deg);transition:transform .2s}
@@ -299,7 +301,7 @@ body.oc-acik{overflow:hidden}
 .bk-orta-metin{font-size:13px;line-height:1.5;color:#4a4a4a;margin:0 0 10px}
 
 /* İçindekiler */
-.bk-toc{background:#fff;border:1px solid var(--kenar);border-left:4px solid var(--altin-koyu);border-radius:6px;box-shadow:var(--golge);padding:14px 20px}
+.bk-toc{background:#fff;border:1px solid var(--kenar);border-left:4px solid var(--altin-koyu);border-radius:6px;box-shadow:var(--golge);padding:22px 20px}
 .bk-toc summary{display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;background:var(--krem);padding:10px 15px;font-size:16px;font-weight:600;color:#000}
 .bk-toc summary::-webkit-details-marker{display:none}
 .bk-toc summary .ik{width:12px;height:16px;transition:transform .2s}
@@ -312,8 +314,8 @@ body.oc-acik{overflow:hidden}
 /* İçerik metni */
 .bk-icerik{font-size:16px;line-height:1.8;color:var(--metin);margin-top:50px;overflow-wrap:break-word}
 .bk-icerik>*:first-child{margin-top:0}
-.bk-icerik h2{font-size:21px;font-weight:600;line-height:1.35;color:#000;margin:30px 0 12px;padding-left:10px;border-left:3px solid var(--altin-koyu)}
-.bk-icerik h3{font-size:18px;font-weight:600;line-height:1.35;color:#000;margin:24px 0 10px}
+.bk-icerik h2{font-size:21px;font-weight:600;line-height:1.35;color:#000;margin:28px 0 12px;padding-left:12px;border-left:3px solid var(--altin-koyu)}
+.bk-icerik h3{font-size:18px;font-weight:600;line-height:1.35;color:#000;margin:28px 0 12px}
 .bk-icerik h4{font-size:17px;font-weight:600;color:#000}
 .bk-icerik p{margin:0 0 16px}
 .bk-icerik strong,.bk-icerik b{color:#000}
@@ -325,7 +327,7 @@ body.oc-acik{overflow:hidden}
 .bk-icerik .alignright{float:right;margin:0 0 16px 20px}
 .bk-icerik .alignleft{float:left;margin:0 20px 16px 0}
 .bk-icerik .aligncenter{display:block;margin:16px auto}
-.bk-icerik table{width:100%;border-collapse:separate!important;border-spacing:0;margin:20px 0 24px;border:1px solid var(--kenar)!important;border-radius:6px;overflow:hidden;font-size:15px;line-height:1.5;display:table}
+.bk-icerik table{width:100%;border-collapse:separate!important;border-spacing:0;margin:20px 0 24px;border:1px solid var(--kenar)!important;border-radius:6px;overflow:hidden;font-size:15px;line-height:1.65;display:table}
 .bk-icerik thead{background:var(--altin-koyu)!important}
 .bk-icerik th{background:var(--altin-koyu);color:#fff;font-weight:600;text-align:left;padding:12px!important;border:0!important}
 .bk-icerik td{padding:12px!important;border:0!important;border-top:1px solid var(--kenar)!important;vertical-align:top}
@@ -472,10 +474,10 @@ body.oc-acik{overflow:hidden}
 .bk-sorukat-ust{background:#f9fafb;padding:20px;text-align:center}
 .bk-sorukat-ikon{width:56px;height:56px;object-fit:contain}
 .bk-sorukat-ust h1{font-size:32px;font-weight:500;color:#1d2939;margin:6px 0 4px}
-.bk-sorukat-ust p{font-size:14px;color:#566e8b;margin:0}
+.bk-sorukat-ust p{font-size:16px;color:#566e8b;margin:0}
 .bk-sorukat-aciklama{padding:20px 20px 0;color:var(--metin)}
-.bk-soru-liste{list-style:none;margin:30px 0 0;padding:0 20px 0 10px}
-.bk-soru-liste li{position:relative;padding-left:10px;font-size:15px;line-height:30px;margin-bottom:6px}
+.bk-soru-liste{list-style:none;margin:68px 0 0;padding:0 20px 0 10px}
+.bk-soru-liste li{position:relative;padding-left:10px;font-size:15px;line-height:30px;margin-bottom:10px}
 .bk-soru-liste li::before{top:11px}
 .bk-soru-liste a{color:#1d2939}
 .bk-sorukat-yan{padding:20px;gap:20px}
@@ -563,14 +565,14 @@ body.oc-acik{overflow:hidden}
 .bk-alt-kart>a.bk-alt-yol{display:inline-flex;align-items:center;background:#303329;color:#fff;padding:16px 22px;border-radius:2px;font-size:14px;font-weight:600;margin:0}
 .bk-alt-kart>a.bk-alt-yol:hover{background:#000;color:#fff}
 .bk-alt-hizmetler{padding:52px 0 30px}
-.bk-alt-hizmetler h2{font-size:27px;font-weight:600;color:var(--altin);margin:0 0 10px}
+.bk-alt-hizmetler h2{font-size:27px;font-weight:600;line-height:1.3;color:var(--altin);margin:0 0 10px}
 .bk-alt-hizmetler>p{font-size:13px;color:#65665e;margin:0 0 30px}
 .bk-alt-hizmet-izgara{display:grid;grid-template-columns:repeat(4,1fr);gap:30px}
 .bk-alt-kat{border-top:2px solid #d4bc80;padding-top:16px;margin-bottom:34px}
 .bk-alt-kat h3{font-size:16px;font-weight:600;line-height:1.35;margin:0 0 18px}
 .bk-alt-kat h3 a{color:#303329}
 .bk-alt-kat ul{list-style:none;margin:0;padding:0}
-.bk-alt-kat li{margin-bottom:12px;font-size:13px;line-height:1.45}
+.bk-alt-kat li{margin-bottom:12px;font-size:13px;line-height:1.65}
 .bk-alt-kat li a{color:#303329}
 .bk-alt-kat a:hover{color:var(--altin)}
 .bk-alt-son{border-top:1px solid #e5e0d3;background:#fff}
@@ -620,7 +622,7 @@ body.oc-acik{overflow:hidden}
 	.bk-hero-p{font-size:18px;line-height:27px}
 	.bk-hero .bk-btn-grup{gap:20px}
 	.bk-hero .bk-btn{font-size:18px}
-	.bk-hero-gorsel{padding:60px 0}
+	.bk-hero-gorsel{padding:118px 0 60px}
 	.bk-hero-gorsel img{border-radius:15px;aspect-ratio:390/585}
 	.bk-h2{font-size:32px;line-height:1}
 	.bk-hizmetler{padding:60px 0 30px}
@@ -632,11 +634,14 @@ body.oc-acik{overflow:hidden}
 	.bk-galeri-oge{width:78vw;height:300px}
 	.bk-serit-ok.sol{left:0}.bk-serit-ok.sag{right:0}
 	.bk-galeri-serit .bk-serit-ok{background:rgba(255,255,255,.85);border-radius:50%;width:36px;height:36px}
-	.bk-cta{padding:30px 20px}
-	.bk-cta-btn .bk-btn{width:100%}
+	.bk-cta{padding:30px 10px}
+	.bk-cta h2{font-size:24px}
+	.bk-cta-btn{flex-direction:column;align-items:center;width:100%;gap:15px}
 	.bk-ozellik-izgara{grid-template-columns:1fr;gap:30px}
-	.bk-ozellik-sutun{gap:30px}
-	.bk-ozellik-sutun.sag .bk-ikon-kutu{text-align:left;justify-content:flex-start;flex-direction:row-reverse}
+	.bk-ozellik-sutun{gap:40px}
+	.bk-ikon-kutu,.bk-ozellik-sutun.sag .bk-ikon-kutu{flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:15px}
+	.bk-ozellik-sutun.sag .bk-ikon-kutu{flex-direction:column-reverse}
+	.bk-ozellik-gorsel{grid-row:auto;justify-self:stretch}
 	.bk-ozellik-gorsel img{width:100%;height:auto;aspect-ratio:380/570}
 	.bk-iki-metin{grid-template-columns:1fr;gap:20px}
 	.bk-blog-serit .bk-bkart{width:78vw}
@@ -649,11 +654,12 @@ body.oc-acik{overflow:hidden}
 	.bk-hizmet-ust{grid-template-columns:1fr}
 	.bk-hizmet-baslik{min-height:0;padding:20px 10px}
 	.bk-hizmet-baslik h1{margin-top:10px}
-	.bk-hizmet-gorsel img{height:230px}
+	.bk-hizmet-gorsel img{height:190px}
 	.bk-guven{padding:14px}
 	.bk-ikili{grid-template-columns:1fr 1fr;gap:8px}
 	.bk-ikili .bk-btn{padding:12px 8px;font-size:14px}
-	.bk-icerik{margin-top:40px}
+	.bk-icerik{margin-top:40px;font-size:15px;line-height:1.75}
+	.bk-icerik h2{font-size:19px;margin:24px 0 10px}
 	.bk-icerik .alignright,.bk-icerik .alignleft{float:none;margin:16px auto;display:block}
 	.bk-icerik table{display:block;overflow-x:auto;white-space:normal}
 	.bk-icerik th,.bk-icerik td{min-width:120px}
@@ -667,8 +673,8 @@ body.oc-acik{overflow:hidden}
 	.bk-hak-devam{padding:40px 0}
 	.bk-kitap{flex-direction:column;padding:20px}
 	.bk-klinik-foto h2{font-size:32px}
-	.bk-foto-izgara{grid-template-columns:1fr 1fr;gap:10px}
-	.bk-foto-izgara a{height:130px}
+	.bk-foto-izgara{grid-template-columns:1fr;gap:0}
+	.bk-foto-izgara a{height:218px}
 
 	.bk-form-duzen,.bk-randevu-duzen{grid-template-columns:1fr}
 	.bk-alan.yarim{flex-basis:100%}
@@ -690,6 +696,7 @@ body.oc-acik{overflow:hidden}
 	.bk-alt-cta-sag{border-left:0;border-top:1px solid #525548;padding:30px 0 0}
 	.bk-alt-izgara{grid-template-columns:1fr;gap:36px}
 	.bk-alt-hizmet-izgara{grid-template-columns:1fr;gap:0}
+	.bk-alt-kat li{margin-bottom:22px}
 	.bk-alt-son .kap{flex-direction:column}
 	.bk-404-sayi{font-size:80px}
 }
@@ -700,232 +707,41 @@ body.oc-acik{overflow:hidden}
 	.bk-baslik,.bk-alt,.bk-yapiskan,.bk-yan,.bk-oc{display:none!important}
 }
 /* Burcu Kısa — İletişim Kartları */
-  .bk-contact-grid {
-    --bk-primary: #b99a00;
-    --bk-secondary: #786400;
-    --bk-border: #e8dfbb;
-    --bk-text: #41443e;
-
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 24px;
-    padding: 30px 0;
-    width: 100%;
-    font-family: inherit;
-  }
-
-  .bk-contact-grid,
-  .bk-contact-grid * {
-    box-sizing: border-box;
-  }
-
-  .bk-contact-card {
-    position: relative;
-    min-width: 0;
-    background: #fff;
-    border: 1.5px solid var(--bk-border);
-    border-radius: 5px;
-    padding: 32px 24px;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 8px 24px -12px rgba(120, 100, 0, 0.12);
-    overflow: hidden;
-    isolation: isolate;
-    transition:
-      transform 0.3s ease,
-      border-color 0.3s ease,
-      box-shadow 0.3s ease;
-  }
-
-  .bk-contact-card:hover {
-    transform: translateY(-5px);
-    border-color: var(--bk-primary);
-    box-shadow: 0 15px 35px -10px rgba(185, 154, 0, 0.2);
-  }
-
-  /* Dekoratif arka plan */
-  .bk-contact-vector {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 160px;
-    height: 160px;
-    pointer-events: none;
-    z-index: -1;
-    opacity: 0.6;
-    transition: transform 0.4s ease, opacity 0.4s ease;
-  }
-
-  .bk-contact-vector svg {
-    width: 100%;
-    height: 100%;
-    stroke: rgba(185, 154, 0, 0.22);
-  }
-
-  .bk-contact-card:hover .bk-contact-vector {
-    transform: scale(1.1) translate(-2px, 2px);
-    opacity: 0.9;
-  }
-
-  /* Kart üst alanı */
-  .bk-contact-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 24px;
-  }
-
-  .bk-contact-number {
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--bk-secondary);
-    letter-spacing: 0.08em;
-  }
-
-  .bk-contact-icon {
-    width: 36px;
-    height: 36px;
-    flex-shrink: 0;
-    color: var(--bk-primary);
-    transition: transform 0.3s ease;
-  }
-
-  .bk-contact-icon svg {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  .bk-contact-card:hover .bk-contact-icon {
-    transform: scale(1.05);
-  }
-
-  /* Metinler */
-  .bk-contact-body {
-    flex: 1;
-    margin-bottom: 28px;
-  }
-
-  .bk-contact-grid .bk-contact-body h3 {
-    font-family: inherit;
-    font-size: 20px;
-    font-weight: 600;
-    color: #000;
-    margin: 0 0 12px;
-    line-height: 1.35;
-  }
-
-  .bk-contact-grid .bk-contact-body p {
-    font-family: inherit;
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--bk-text);
-    margin: 0;
-    line-height: 1.6;
-    overflow-wrap: anywhere;
-  }
-
-  .bk-contact-grid .bk-contact-body .bk-address {
-    font-size: 14px;
-    line-height: 1.7;
-  }
-
-  .bk-contact-grid .bk-contact-body .bk-email {
-    font-size: 15px;
-  }
-
-  /* Altın butonlar — beyaz yazı */
-  .bk-contact-grid .bk-contact-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    width: 100%;
-    min-height: 48px;
-    padding: 13px 14px;
-    border: 1px solid transparent;
-    border-radius: 0;
-    background: var(--bk-primary);
-    color: #fff !important;
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    line-height: 1.4;
-    text-align: center;
-    text-decoration: none;
-    transition:
-      background-color 0.2s ease,
-      color 0.2s ease;
-  }
-
-  .bk-contact-btn svg {
-    width: 17px;
-    height: 17px;
-    flex-shrink: 0;
-  }
-
-  .bk-contact-grid .bk-contact-btn:hover {
-    background: var(--bk-secondary);
-    color: #fff !important;
-  }
-
-  .bk-contact-grid .bk-contact-btn:focus-visible {
-    outline: 2px solid var(--bk-secondary);
-    outline-offset: 3px;
-  }
-
-  /* WhatsApp — ilk koddaki koyu yeşil */
-  .bk-contact-grid .bk-contact-btn--whatsapp {
-    background: #125c30;
-    color: #fff !important;
-  }
-
-  .bk-contact-grid .bk-contact-btn--whatsapp:hover {
-    background: #197d41;
-    color: #fff !important;
-  }
-
-  /* Tablet */
-  @media (max-width: 1200px) {
-    .bk-contact-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 20px;
-      padding: 20px 0;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .bk-contact-card {
-      padding: 24px 18px;
-    }
-
-    .bk-contact-grid .bk-contact-body h3 {
-      font-size: 19px;
-    }
-
-    .bk-contact-grid .bk-contact-body p {
-      font-size: 15px;
-    }
-  }
-
-  /* Mobil */
-  @media (max-width: 500px) {
-    .bk-contact-grid {
-      grid-template-columns: 1fr;
-      gap: 16px;
-      padding: 10px 0;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .bk-contact-grid * {
-      transition: none !important;
-    }
-
-    .bk-contact-card:hover,
-    .bk-contact-card:hover .bk-contact-vector,
-    .bk-contact-card:hover .bk-contact-icon {
-      transform: none;
-    }
-  }
+.bk-contact-grid{--bk-primary:#b99a00;--bk-secondary:#786400;--bk-border:#e8dfbb;--bk-text:#41443e;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;padding:30px 0;width:100%;font-family:inherit}
+.bk-contact-grid,.bk-contact-grid *{box-sizing:border-box}
+.bk-contact-card{position:relative;min-width:0;background:#fff;border:1.5px solid var(--bk-border);border-radius:5px;padding:32px 24px;display:flex;flex-direction:column;box-shadow:0 8px 24px -12px rgba(120,100,0,.12);overflow:hidden;isolation:isolate;transition:transform .3s ease,border-color .3s ease,box-shadow .3s ease}
+.bk-contact-card:hover{transform:translateY(-5px);border-color:var(--bk-primary);box-shadow:0 15px 35px -10px rgba(185,154,0,.2)}
+.bk-contact-vector{position:absolute;top:0;right:0;width:160px;height:160px;pointer-events:none;z-index:-1;opacity:.6;transition:transform .4s ease,opacity .4s ease}
+.bk-contact-vector svg{width:100%;height:100%;stroke:rgba(185,154,0,.22)}
+.bk-contact-card:hover .bk-contact-vector{transform:scale(1.1) translate(-2px,2px);opacity:.9}
+.bk-contact-header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:24px}
+.bk-contact-number{font-size:11px;font-weight:700;color:var(--bk-secondary);letter-spacing:.08em}
+.bk-contact-icon{width:36px;height:36px;flex-shrink:0;color:var(--bk-primary);transition:transform .3s ease}
+.bk-contact-icon svg{display:block;width:100%;height:100%}
+.bk-contact-card:hover .bk-contact-icon{transform:scale(1.05)}
+.bk-contact-body{flex:1;margin-bottom:28px}
+.bk-contact-grid .bk-contact-body h3{font-family:inherit;font-size:20px;font-weight:600;color:#000;margin:0 0 12px;line-height:1.35}
+.bk-contact-grid .bk-contact-body p{font-family:inherit;font-size:16px;font-weight:500;color:var(--bk-text);margin:0;line-height:1.6;overflow-wrap:anywhere}
+.bk-contact-grid .bk-contact-body .bk-address{font-size:14px;line-height:1.7}
+.bk-contact-grid .bk-contact-body .bk-email{font-size:15px}
+.bk-contact-grid .bk-contact-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;padding:13px 14px;border:1px solid transparent;border-radius:0;background:var(--bk-primary);color:#fff!important;font-family:inherit;font-size:14px;font-weight:600;line-height:1.4;text-align:center;text-decoration:none;transition:background-color .2s ease,color .2s ease}
+.bk-contact-btn svg{width:17px;height:17px;flex-shrink:0}
+.bk-contact-grid .bk-contact-btn:hover{background:var(--bk-secondary);color:#fff!important}
+.bk-contact-grid .bk-contact-btn:focus-visible{outline:2px solid var(--bk-secondary);outline-offset:3px}
+.bk-contact-grid .bk-contact-btn--whatsapp{background:#125c30;color:#fff!important}
+.bk-contact-grid .bk-contact-btn--whatsapp:hover{background:#197d41;color:#fff!important}
+@media (max-width:1200px){
+	.bk-contact-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;padding:20px 0}
+}
+@media (max-width:768px){
+	.bk-contact-card{padding:24px 18px}
+	.bk-contact-grid .bk-contact-body h3{font-size:19px}
+	.bk-contact-grid .bk-contact-body p{font-size:15px}
+}
+@media (max-width:500px){
+	.bk-contact-grid{grid-template-columns:1fr;gap:16px;padding:10px 0}
+}
+@media (prefers-reduced-motion:reduce){
+	.bk-contact-grid *{transition:none!important}
+	.bk-contact-card:hover,.bk-contact-card:hover .bk-contact-vector,.bk-contact-card:hover .bk-contact-icon{transform:none}
+}

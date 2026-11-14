@@ -46,20 +46,22 @@
 .bk-oc.acik{visibility:visible}
 .bk-oc-arka{position:absolute;inset:0;background:rgba(0,0,0,.6);opacity:0;transition:opacity .25s}
 .bk-oc.acik .bk-oc-arka{opacity:1}
-.bk-oc-panel{position:absolute;top:0;right:0;bottom:0;width:min(351px,90vw);overflow-y:auto;background:#fff;padding:20px 20px 90px;transform:translateX(100%);transition:transform .3s ease}
+.bk-oc-panel{position:absolute;top:0;right:0;bottom:0;width:min(336px,90vw);overflow-y:auto;background:#fff;padding:20px 20px 90px;transform:translateX(100%);transition:transform .3s ease}
 .bk-oc.acik .bk-oc-panel{transform:none}
-.bk-oc-ust{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:24px}
-.bk-oc-logo img{width:240px;height:auto}
-.bk-oc-kapat{border:0;background:none;padding:0;width:26px;height:26px;color:#000}
+.bk-oc-ust{position:relative;padding-top:25px;margin-bottom:24px}
+.bk-oc-logo{display:block}
+.bk-oc-logo img{width:300px;max-width:100%;height:auto}
+.bk-oc-kapat{position:absolute;top:2px;right:-14px;border:0;background:none;padding:0;width:26px;height:26px;color:#000}
 .bk-oc-kapat .ik{width:26px;height:26px}
 .bk-oc-btn{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
 .bk-oc-btn .bk-btn{border-radius:4px;padding:15px 10px;font-size:15px;font-weight:600}
 .bk-oc-linkler{margin:0 0 24px;padding-left:40px}
-.bk-oc-linkler li{margin-bottom:6px}
-.bk-oc-linkler a{color:#2b2b26;font-size:16px;border-bottom:1px solid #e8e2cc;padding-bottom:2px}
+.bk-oc-linkler li{margin-bottom:4px}
+.bk-oc-linkler a{color:#2b2b26;font-size:15px;border-bottom:1px solid #e8e2cc;padding-bottom:2px}
 .bk-oc-etiket{font-size:11px;font-weight:700;color:var(--altin);letter-spacing:.04em;margin-bottom:6px}
 .bk-oc-kat{border-bottom:1px solid #eee}
-.bk-oc-kat-ac{display:flex;align-items:center;justify-content:space-between;width:100%;padding:16px 0;border:0;background:none;text-align:left;font-size:15px;font-weight:500;color:var(--altin)}
+.bk-oc-kat-ac{display:flex;align-items:center;justify-content:space-between;width:100%;padding:16px 0;border:0;background:none;text-align:left;font-size:14px;font-weight:600;color:#2b2b26}
+.bk-oc-kat-ac[aria-expanded=true]{color:var(--altin)}
 .bk-oc-kat-ac i{position:relative;width:12px;height:12px}
 .bk-oc-kat-ac i::before,.bk-oc-kat-ac i::after{content:"";position:absolute;left:0;top:5px;width:12px;height:2px;background:#2b2b26}
 .bk-oc-kat-ac i::after{transform:rotate(90deg);transition:transform .2s}

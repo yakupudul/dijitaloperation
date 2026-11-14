@@ -35,14 +35,14 @@
 .bk-alt-kart>a.bk-alt-yol{display:inline-flex;align-items:center;background:#303329;color:#fff;padding:16px 22px;border-radius:2px;font-size:14px;font-weight:600;margin:0}
 .bk-alt-kart>a.bk-alt-yol:hover{background:#000;color:#fff}
 .bk-alt-hizmetler{padding:52px 0 30px}
-.bk-alt-hizmetler h2{font-size:27px;font-weight:600;color:var(--altin);margin:0 0 10px}
+.bk-alt-hizmetler h2{font-size:27px;font-weight:600;line-height:1.3;color:var(--altin);margin:0 0 10px}
 .bk-alt-hizmetler>p{font-size:13px;color:#65665e;margin:0 0 30px}
 .bk-alt-hizmet-izgara{display:grid;grid-template-columns:repeat(4,1fr);gap:30px}
 .bk-alt-kat{border-top:2px solid #d4bc80;padding-top:16px;margin-bottom:34px}
 .bk-alt-kat h3{font-size:16px;font-weight:600;line-height:1.35;margin:0 0 18px}
 .bk-alt-kat h3 a{color:#303329}
 .bk-alt-kat ul{list-style:none;margin:0;padding:0}
-.bk-alt-kat li{margin-bottom:12px;font-size:13px;line-height:1.45}
+.bk-alt-kat li{margin-bottom:12px;font-size:13px;line-height:1.65}
 .bk-alt-kat li a{color:#303329}
 .bk-alt-kat a:hover{color:var(--altin)}
 .bk-alt-son{border-top:1px solid #e5e0d3;background:#fff}

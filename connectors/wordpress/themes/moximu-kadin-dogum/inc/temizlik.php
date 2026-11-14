@@ -89,10 +89,9 @@ add_action('wp_print_styles', function () {
 }, 100);
 
 /**
- * GTM: Elementor Pro açıkken onun "Özel kod" kaydı basıyor; eklenti kaldırılınca tema basar.
- * Böylece geçişin hiçbir anında etiket ne kaybolur ne iki kez yüklenir.
+ * GTM: bu tema açıkken Elementor Pro "Özel kod" çıktısı gelmiyor (önizlemede doğrulandı); etiketi her zaman tema basar, tek kopya.
  */
 function bk_gtm_tema_basar(): bool
 {
-	return ! defined('ELEMENTOR_PRO_VERSION');
+	return true;
 }

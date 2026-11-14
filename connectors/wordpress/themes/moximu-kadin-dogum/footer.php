@@ -5,7 +5,7 @@ if (! defined('ABSPATH')) {
 $randevu = bk_url('/randevu-olustur/');
 ?>
 </main>
-<footer class="bk-alt">
+<footer class="bk-altbilgi">
 	<section class="bk-alt-cta">
 		<div class="kap">
 			<div class="bk-alt-cta-sol">

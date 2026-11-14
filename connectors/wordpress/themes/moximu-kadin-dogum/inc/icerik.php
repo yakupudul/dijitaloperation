@@ -132,3 +132,10 @@ function bk_diger_hizmetler(int $id): array
 	usort($diger, fn($a, $b) => crc32($id . '-' . $a->ID) <=> crc32($id . '-' . $b->ID));
 	return array_slice(array_merge($ayni, $diger), 0, 10);
 }
+
+/** Blog ve yazı arşivleri: eski sitedeki gibi sayfada 24 yazı. */
+add_action('pre_get_posts', function (WP_Query $q) {
+	if (! is_admin() && $q->is_main_query() && ($q->is_home() || $q->is_category() || $q->is_tag() || $q->is_author() || $q->is_date())) {
+		$q->set('posts_per_page', 24);
+	}
+});
