@@ -61,6 +61,13 @@ function bk_icindekiler(array $toc): void
 	echo '</ol></details>';
 }
 
+/** İçeriğin ortasına konan randevu kartının düğmeleri içerik bağlantısı gibi boyanmaz (beyaz yazı, altı çizgisiz). */
+add_action('wp_enqueue_scripts', function () {
+	if (is_page()) {
+		wp_add_inline_style('bk-site', '.bk-icerik .bk-orta-kart a.bk-btn{color:#fff;text-decoration:none}');
+	}
+}, 21);
+
 /** Hizmet başlıkları (Hizmetlerim altında ikinci düzey sayfalar), yönlendirilmiş olanlar hariç. */
 function bk_hizmet_basliklari(): array
 {
