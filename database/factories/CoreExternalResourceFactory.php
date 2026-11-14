@@ -25,7 +25,7 @@ class CoreExternalResourceFactory extends Factory
                 ?? CoreIntegration::factory()->google()->create()->id,
             'provider' => ProviderRegistry::GOOGLE,
             'resource_type' => 'ga4',
-            'external_id' => 'properties/'.fake()->numerify('########'),
+            'external_id' => 'properties/'.fake()->unique()->numerify('#########'),
             'display_name' => fake()->company().' GA4',
             'parent_external_id' => null,
             'metadata' => [],
@@ -39,7 +39,7 @@ class CoreExternalResourceFactory extends Factory
     {
         return $this->state(fn (): array => [
             'resource_type' => 'search_console',
-            'external_id' => 'sc-domain:'.fake()->domainName(),
+            'external_id' => 'sc-domain:'.fake()->unique()->domainName(),
             'display_name' => 'Search Console property',
         ]);
     }
