@@ -342,6 +342,10 @@ final class MeasurementSetup
             $workspace = collect($workspaces)->firstWhere('name', 'Default Workspace') ?? ($workspaces[0] ?? throw new RuntimeException('GTM çalışma alanı bulunamadı.'));
             $ws = $base.'/workspaces/'.$workspace['workspaceId'];
             $fixed = [];
+            // The id is often kept in a Constant variable ({{AW id}}): a constant holding "AW-123" is left as it is (the
+            // Google tag needs that form) and the tag is pointed at a constant holding the bare number, or at the number.
+            $constants = collect($this->list($ws.'/variables', 'variable'))->filter(fn (array $v): bool => ($v['type'] ?? '') === 'c')
+                ->mapWithKeys(fn (array $v): array => [(string) $v['name'] => trim((string) (collect((array) ($v['parameter'] ?? []))->firstWhere('key', 'value')['value'] ?? ''))]);
             foreach ($this->list($ws.'/tags', 'tag') as $tag) {
                 if (($tag['type'] ?? '') !== 'awct') {
                     continue;
@@ -349,9 +353,16 @@ final class MeasurementSetup
                 $params = (array) ($tag['parameter'] ?? []);
                 $changed = false;
                 foreach ($params as $i => $param) {
-                    $value = (string) ($param['value'] ?? '');
-                    if (($param['key'] ?? '') === 'conversionId' && preg_match('/^\s*AW-(\d+)\s*$/i', $value, $m) === 1) {
-                        $params[$i]['value'] = $m[1];
+                    if (($param['key'] ?? '') !== 'conversionId') {
+                        continue;
+                    }
+                    $value = trim((string) ($param['value'] ?? ''));
+                    if (preg_match('/^\{\{(.+)\}\}$/', $value, $ref) === 1 && $constants->has($ref[1])) {
+                        $value = (string) $constants->get($ref[1]);
+                    }
+                    if (preg_match('/^AW-(\d+)$/i', $value, $m) === 1) {
+                        $numeric = $constants->search($m[1], true);
+                        $params[$i]['value'] = is_string($numeric) ? '{{'.$numeric.'}}' : $m[1];
                         $changed = true;
                     }
                 }

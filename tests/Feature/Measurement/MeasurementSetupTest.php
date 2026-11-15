@@ -44,6 +44,9 @@ final class MeasurementSetupTest extends TestCase
 
     private string $homeHtml = '<html><head></head><body>Merhaba</body></html>';
 
+    /** @var list<array<string, mixed>> variables already in the GTM workspace */
+    private array $existingVariables = [];
+
     /** @var list<array<string, mixed>> tags already in the GTM workspace */
     private array $existingTags = [];
 
@@ -120,6 +123,7 @@ final class MeasurementSetupTest extends TestCase
             str_ends_with($url, '/triggers') => $method === 'post' ? ['triggerId' => (string) (100 + count($this->writes))] : ['trigger' => []],
             str_ends_with($url, '/tags') => $method === 'post' ? ['tagId' => '1'] : ['tag' => $this->existingTags],
             $method === 'put' && str_contains($url, '/tags/') => $body,
+            $method === 'get' && str_ends_with($url, '/variables') => ['variable' => $this->existingVariables],
             str_ends_with($url, ':create_version') => ['containerVersion' => ['containerVersionId' => '5']],
             str_ends_with($url, ':publish') => ['containerVersion' => ['containerVersionId' => '5']],
             str_contains($url, 'conversionActions:mutate') => ['results' => [['resourceName' => 'x']]],
@@ -304,5 +308,22 @@ final class MeasurementSetupTest extends TestCase
         $url = 'https://tagmanager.googleapis.com/tagmanager/v2/accounts/1/containers/2/workspaces/3/tags/4';
         $this->expectException(RuntimeException::class);
         app(GoogleApiClient::class)->updateGtmConversionTag(CoreIntegration::query()->first(), $url, ['type' => 'html', 'parameter' => [['key' => 'conversionId', 'value' => '1']]]);
+    }
+
+    public function test_an_id_kept_in_a_constant_variable_points_the_tag_at_the_numeric_constant(): void
+    {
+        $const = fn (string $name, string $value): array => ['variableId' => $name, 'name' => $name, 'type' => 'c', 'parameter' => [['type' => 'template', 'key' => 'value', 'value' => $value]]];
+        $this->existingVariables = [$const('AW tag', 'AW-18427773438'), $const('AW id', '18427773438'), $const('Other', 'AW-555')];
+        $awct = fn (string $id, string $tagId): array => ['tagId' => $tagId, 'name' => 'Ads '.$tagId, 'type' => 'awct',
+            'parameter' => [['type' => 'template', 'key' => 'conversionId', 'value' => $id], ['type' => 'template', 'key' => 'conversionLabel', 'value' => 'l']]];
+        $this->existingTags = [$awct('{{AW id}}', '25'), $awct('{{AW tag}}', '26'), $awct('{{Other}}', '27')];
+
+        $result = app(MeasurementSetup::class)->fixConversionIds(['gtm_account' => '42', 'container_id' => '9']);
+
+        $puts = collect($this->writes)->where(0, 'put')->values();
+        $this->assertSame(['26', '27'], array_column($result['fixed'], 'tag_id'));
+        $this->assertSame('{{AW id}}', collect($puts[0][2]['parameter'])->firstWhere('key', 'conversionId')['value']);
+        $this->assertSame('555', collect($puts[1][2]['parameter'])->firstWhere('key', 'conversionId')['value']);
+        $this->assertFalse(collect($this->writes)->contains(fn ($w): bool => str_contains($w[1], '/variables')));
     }
 }
