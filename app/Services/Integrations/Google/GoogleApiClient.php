@@ -381,7 +381,8 @@ class GoogleApiClient
     private function send(PendingRequest $pending, string $method, string $url, array $payload): Response
     {
         return match ($method) {
-            'post' => $pending->asJson()->post($url, $payload),
+            // An empty array would be sent as "[]", which Google refuses ("Root element must be a message").
+            'post' => $payload === [] ? $pending->withBody('{}', 'application/json')->post($url) : $pending->asJson()->post($url, $payload),
             'put' => $pending->asJson()->put($url, $payload),
             'patch' => $pending->asJson()->patch($url, $payload),
             'delete' => $pending->delete($url),

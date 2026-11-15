@@ -376,6 +376,17 @@ final class MeasurementSetup
                     $this->ok($this->paced($url, fn (): Response => $this->google->updateGtmConversionTag($this->integration(), $url, $tag)), 'GTM etiket düzeltmesi');
                 }
             }
+            // A run whose publication failed left its version unpublished: publish that version (ours only).
+            if ($fixed === [] && ! ($options['dry_run'] ?? false) && ($options['publish'] ?? true)) {
+                $latest = $this->ok($this->paced($base.'/version_headers:latest', fn (): Response => $this->google->get($this->integration(), $base.'/version_headers:latest')), 'GTM son sürüm');
+                $live = $this->ok($this->paced($base.'/versions:live', fn (): Response => $this->google->get($this->integration(), $base.'/versions:live')), 'GTM yayındaki sürüm');
+                $latestId = (string) ($latest['containerVersionId'] ?? '');
+                if ($latestId !== '' && $latestId !== (string) ($live['containerVersionId'] ?? '') && str_starts_with((string) ($latest['name'] ?? ''), 'MoxDOP dönüşüm kimliği düzeltmesi')) {
+                    $this->ok($this->write('post', $base.'/versions/'.$latestId.':publish'), 'GTM yayını');
+
+                    return ['fixed' => [], 'dry_run' => false, 'published_version' => $latestId, 'note' => 'Önceki çalışmanın yayınlanmamış sürümü yayınlandı.'];
+                }
+            }
             if ($fixed === [] || ($options['dry_run'] ?? false) || ! ($options['publish'] ?? true)) {
                 return ['fixed' => $fixed, 'dry_run' => (bool) ($options['dry_run'] ?? false), 'published_version' => null];
             }

@@ -124,6 +124,8 @@ final class MeasurementSetupTest extends TestCase
             str_ends_with($url, '/tags') => $method === 'post' ? ['tagId' => '1'] : ['tag' => $this->existingTags],
             $method === 'put' && str_contains($url, '/tags/') => $body,
             $method === 'get' && str_ends_with($url, '/variables') => ['variable' => $this->existingVariables],
+            str_ends_with($url, '/version_headers:latest') => ['containerVersionId' => '16', 'name' => 'MoxDOP dönüşüm kimliği düzeltmesi 2026-11-15 20:10'],
+            str_ends_with($url, '/versions:live') => ['containerVersionId' => '15'],
             str_ends_with($url, ':create_version') => ['containerVersion' => ['containerVersionId' => '5']],
             str_ends_with($url, ':publish') => ['containerVersion' => ['containerVersionId' => '5']],
             str_contains($url, 'conversionActions:mutate') => ['results' => [['resourceName' => 'x']]],
@@ -325,5 +327,22 @@ final class MeasurementSetupTest extends TestCase
         $this->assertSame('{{AW id}}', collect($puts[0][2]['parameter'])->firstWhere('key', 'conversionId')['value']);
         $this->assertSame('555', collect($puts[1][2]['parameter'])->firstWhere('key', 'conversionId')['value']);
         $this->assertFalse(collect($this->writes)->contains(fn ($w): bool => str_contains($w[1], '/variables')));
+    }
+
+    public function test_a_fix_whose_publication_failed_publishes_its_version_on_the_next_run_with_a_json_object_body(): void
+    {
+        $sent = [];
+        Http::globalRequestMiddleware(function ($request) use (&$sent) {
+            if (str_ends_with((string) $request->getUri(), ':publish')) {
+                $sent[] = (string) $request->getBody();
+            }
+
+            return $request;
+        });
+
+        $result = app(MeasurementSetup::class)->fixConversionIds(['gtm_account' => '42', 'container_id' => '9']);
+
+        $this->assertSame('16', $result['published_version']);
+        $this->assertSame(['{}'], $sent);
     }
 }
