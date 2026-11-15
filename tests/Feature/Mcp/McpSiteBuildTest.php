@@ -10,6 +10,7 @@ use App\Mcp\Tools\InspectSite;
 use App\Mcp\Tools\ListSites;
 use App\Mcp\Tools\ReadSite;
 use App\Mcp\Tools\SiteBuilds;
+use App\Mcp\Tools\SiteTool;
 use App\Models\Brand;
 use App\Models\CoreConnection;
 use App\Models\CoreConnectionCredential;
@@ -76,6 +77,7 @@ final class McpSiteBuildTest extends TestCase
             $nonce = $request->header(WordPressConnectorClient::HEADER_NONCE)[0] ?? '';
             $data = match (true) {
                 str_ends_with($request->url(), '/status') => ['plugin_version' => '1.8.0', 'capabilities' => $this->statusCapabilities],
+                str_contains(urldecode($request->url()), '/moxdop/v1/ai/tool') => ['schema_version' => 1, 'structuredContent' => ['ok' => true, 'tool' => json_decode($request->body(), true)['tool']]],
                 $request->method() === 'GET' => ['schema_version' => 1, 'acf' => ['active' => true, 'pro' => true], 'elementor' => ['active' => true, 'pro' => true], 'built' => []],
                 str_ends_with($request->url(), '/build/undo') => ['schema_version' => 1, 'results' => array_map(fn (string $id): array => $this->undoConflict && ! json_decode($request->body(), true)['force']
                     ? ['change_id' => $id, 'ok' => false, 'error' => 'changed_since', 'post_id' => 10]
@@ -253,5 +255,20 @@ final class McpSiteBuildTest extends TestCase
         Livewire::test(SiteConnectorShow::class, ['connector' => 'wordpress'])->set('selectedAssetId', $this->site->id)
             ->call('setBuildMode', 'off')->assertForbidden();
         $this->assertSame('direct', data_get($this->connection->fresh()->config, 'claude_build.mode'));
+    }
+    public function test_a_brandless_site_with_stale_capabilities_asks_the_site_once_before_refusing_a_write_tool(): void
+    {
+        // parlarozelegitim.com 2026-11-15: the plugin had "Site building" on, MoxDOP still held the old capability list.
+        $this->site->forceFill(['brand_id' => null])->save();
+        $this->connection->forceFill(['config' => array_merge($this->connection->config, ['plugin_version' => '1.37.0', 'capabilities' => ['drafts'],
+            'claude_build' => ['enabled' => true, 'mode' => 'direct', 'by' => $this->admin->id, 'at' => now()->toIso8601String()]])])->save();
+        $this->statusCapabilities = ['drafts', 'build'];
+
+        MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'clear_cache'])->assertOk()->assertSee('clear_cache');
+        $this->assertContains('build', (array) data_get($this->connection->fresh()->config, 'capabilities'));
+
+        $this->statusCapabilities = ['drafts'];
+        $this->connection->forceFill(['config' => array_merge($this->connection->fresh()->config, ['capabilities' => ['drafts']])])->save();
+        MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'clear_cache'])->assertHasErrors(['markaya bağlı değil']);
     }
 }

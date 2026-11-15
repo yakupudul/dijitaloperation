@@ -80,7 +80,7 @@ final class WordPressSiteBuilder
 
     /** site-tool: tools that change nothing, allowed on a brandless site too. */
     public const READ_TOOLS = ['list', 'site_info', 'list_content', 'get_content', 'list_media', 'list_changes', 'inspect_site', 'list_plugins', 'search_plugins',
-        'plugin_settings', 'setup_guide', 'site_check', 'list_comments', 'list_form_messages', 'list_themes', 'list_theme_files', 'read_theme_file'];
+        'plugin_settings', 'setup_guide', 'site_check', 'list_comments', 'list_form_messages', 'list_themes', 'list_theme_files', 'read_theme_file', 'get_elementor_data'];
 
     /** Connector 1.34.0 theme file tools. */
     public const THEME_FILE_TOOLS = ['list_themes', 'list_theme_files', 'read_theme_file', 'write_theme_files', 'switch_theme', 'delete_theme'];
@@ -103,7 +103,9 @@ final class WordPressSiteBuilder
         // A brandless site being built (its "Claude site kurulumu" switch on, yakup 2026-10-29) gets the write tools
         // too: plugins, Polylang and pages are part of the build the operator asked for; nothing automatic runs.
         $serviced = $connection->digitalAsset !== null && BrandlessSites::serviced($connection->digitalAsset);
-        if (! in_array($tool, self::READ_TOOLS, true) && ! $serviced && $this->state($connection) !== null) {
+        // The stored capabilities can be older than the site (a pull site never answers the periodic status call):
+        // ask the site once before refusing, as connection() does (parlarozelegitim.com 2026-11-15).
+        if (! in_array($tool, self::READ_TOOLS, true) && ! $serviced && $this->freshState($connection) !== null) {
             throw new RuntimeException(BrandlessSites::REASON);
         }
 
@@ -513,9 +515,19 @@ final class WordPressSiteBuilder
         if ($connection === null) {
             throw new RuntimeException('Bu sitede eşleştirilmiş WordPress Connector yok.');
         }
+        $reason = $this->freshState($connection);
+        if ($reason !== null) {
+            throw new RuntimeException($reason);
+        }
+
+        return $connection;
+    }
+
+    /** state(), after asking the site once when the stored version / capabilities may be older than the site. */
+    private function freshState(CoreConnection $connection): ?string
+    {
         $reason = $this->state($connection);
         if ($reason !== null && self::switchedOn($connection) && ! $this->pluginReady($connection)) {
-            // The stored version / capabilities may be older than the site: ask the site once before refusing.
             try {
                 $this->client->status($connection);
             } catch (Throwable) {
@@ -523,11 +535,8 @@ final class WordPressSiteBuilder
             $connection->refresh();
             $reason = $this->state($connection);
         }
-        if ($reason !== null) {
-            throw new RuntimeException($reason);
-        }
 
-        return $connection;
+        return $reason;
     }
 
     /** Undo works while the plugin allows building, even after the MoxDOP switch was turned off. */
