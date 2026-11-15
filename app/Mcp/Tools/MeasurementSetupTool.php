@@ -21,6 +21,7 @@ use Throwable;
 - action=accounts: GA4 accounts with properties, GTM accounts with containers (gtm_account = only that account's containers; containers=false = GTM account list only). Tag Manager allows ~15 queries a minute: GTM calls wait their turn and lists are kept 30 minutes. A call stops after ~40 s with paused=true (apply) or gtm_error (accounts) instead of timing out; wait a minute and send the SAME call again, it goes on where it stopped (create-only, publishes the leftover changes). Give gtm_account / container_id to apply to save calls.
 - action=apply (brand_id; ga4_account "accounts/N" when the brand has no GA4 property, or property_id; gtm_account when a new container is needed, or container_id; skip_ads; events = only some of phone_click / whatsapp_click / generate_lead; key_events=false when GA4 already has its own key events for them; allow_existing; publish default true): creates only what is missing (by name), never deletes or edits a working conversion; it STOPS and reports when the property or container already has its own conversion events or tags, unless allow_existing=true (then judge double counting first).
 - action=verify (brand_id): Search Console verification by the Tag Manager (then Analytics) method, once the container is on the site.
+- action=fix_conversion_ids (gtm_account, container_id; dry_run; publish default true): repairs Google Ads conversion tags (awct) whose Conversion ID was typed as "AW-123…" (Google Ads never counts those hits): only that field becomes the bare number, then the container is versioned and published. dry_run=true only lists the broken tags. Nothing else in a tag is changed.
 Putting the container on a WordPress site is a site-tool step (GTM4WP plugin from WordPress.org + its option, or the theme). A brandless site gets nothing. Health sites: no tracking of health data in event parameters.
 TEXT)]
 class MeasurementSetupTool extends Tool
@@ -30,7 +31,7 @@ class MeasurementSetupTool extends Tool
     public function handle(Request $request): Response
     {
         $validated = $request->validate([
-            'action' => ['required', 'in:status,accounts,apply,verify'],
+            'action' => ['required', 'in:status,accounts,apply,verify,fix_conversion_ids'],
             'brand_id' => ['nullable', 'integer'],
             'ga4_account' => ['nullable', 'string', 'max:40'],
             'property_id' => ['nullable', 'string', 'max:40'],
@@ -42,15 +43,22 @@ class MeasurementSetupTool extends Tool
             'events' => ['nullable', 'array'],
             'key_events' => ['nullable', 'boolean'],
             'containers' => ['nullable', 'boolean'],
+            'dry_run' => ['nullable', 'boolean'],
             'events.*' => ['string', 'in:phone_click,whatsapp_click,generate_lead'],
         ]);
         $action = (string) $validated['action'];
-        if (in_array($action, ['apply', 'verify'], true) && EmergencyStop::active()) {
+        if (in_array($action, ['apply', 'verify', 'fix_conversion_ids'], true) && EmergencyStop::active()) {
             return Response::error(EmergencyStop::REASON);
         }
         try {
             if ($action === 'accounts') {
                 return Response::json($this->setup->accounts(array_filter($validated, fn ($v): bool => $v !== null)));
+            }
+            if ($action === 'fix_conversion_ids') {
+                $result = $this->setup->fixConversionIds(array_filter($validated, fn ($v): bool => $v !== null));
+                Log::info('Ölçüm onarımı: dönüşüm kimliği', ['container_id' => $validated['container_id'] ?? null, 'fixed' => $result['fixed'] ?? null, 'dry_run' => $result['dry_run'] ?? null]);
+
+                return Response::json($result);
             }
             $brand = Brand::query()->find((int) ($validated['brand_id'] ?? 0));
             if (! $brand instanceof Brand) {
@@ -75,13 +83,14 @@ class MeasurementSetupTool extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'action' => $schema->string()->enum(['status', 'accounts', 'apply', 'verify'])->description('status | accounts | apply | verify')->required(),
+            'action' => $schema->string()->enum(['status', 'accounts', 'apply', 'verify', 'fix_conversion_ids'])->description('status | accounts | apply | verify | fix_conversion_ids')->required(),
             'brand_id' => $schema->integer()->description('Brand id from list-brands (status, apply, verify).'),
             'ga4_account' => $schema->string()->description('apply: GA4 account "accounts/N" for a new property.'),
             'property_id' => $schema->string()->description('apply: an existing GA4 property to use.'),
             'gtm_account' => $schema->string()->description('apply: GTM account id for a new container (also limits the container search to it). accounts: only this account\'s containers.'),
             'containers' => $schema->boolean()->description('accounts: false = GTM accounts without their containers (default true).'),
-            'container_id' => $schema->string()->description('apply: an existing GTM container id to use.'),
+            'container_id' => $schema->string()->description('apply: an existing GTM container id to use. fix_conversion_ids: the container to repair.'),
+            'dry_run' => $schema->boolean()->description('fix_conversion_ids: only list the broken tags.'),
             'skip_ads' => $schema->boolean()->description('apply: leave Google Ads out.'),
             'allow_existing' => $schema->boolean()->description('apply: add the standard although the property / container already measures conversions.'),
             'publish' => $schema->boolean()->description('apply: publish the GTM version (default true).'),

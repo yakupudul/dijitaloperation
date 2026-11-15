@@ -176,6 +176,27 @@ class GoogleApiClient
     }
 
     /**
+     * Ölçüm onarımı (yakup 2026-11-15, OPC Klinik): the only GTM tag update MoxDOP performs. A Google Ads conversion tag
+     * (awct) whose Conversion ID was typed with the "AW-" prefix sends its hits to /pagead/conversion/AW-…/ and Google
+     * Ads never counts them; this rewrites that one field to the bare number. The body must be an awct tag whose
+     * conversionId is digits only. Callers are restricted to App\Services\Measurement\MeasurementSetup.
+     *
+     * @param  array<string, mixed>  $tag  the whole tag as read, with only conversionId corrected
+     */
+    public function updateGtmConversionTag(CoreIntegration $integration, string $url, array $tag): Response
+    {
+        $conversionId = collect((array) ($tag['parameter'] ?? []))->firstWhere('key', 'conversionId')['value'] ?? null;
+        $valid = preg_match('#^https://tagmanager\.googleapis\.com/tagmanager/v2/accounts/\d+/containers/\d+/workspaces/\d+/tags/\d+$#', $url) === 1
+            && ($tag['type'] ?? null) === 'awct'
+            && is_string($conversionId) && preg_match('/^\d+$/', $conversionId) === 1;
+        if (! $valid) {
+            throw new RuntimeException('GTM etiket güncellemesi izinli değil: '.$url);
+        }
+
+        return $this->request($integration, 'put', $url, $tag);
+    }
+
+    /**
      * Ölçüm kurulumu (yakup 2026-11-13: Google Ads writes are allowed for conversion setup only): creates WEBPAGE
      * conversion actions through conversionActions:mutate. Only `create` operations; nothing is updated or removed, so a
      * working conversion is never touched. Callers are restricted to App\Services\Measurement\MeasurementSetup.

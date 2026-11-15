@@ -44,6 +44,9 @@ final class MeasurementSetupTest extends TestCase
 
     private string $homeHtml = '<html><head></head><body>Merhaba</body></html>';
 
+    /** @var list<array<string, mixed>> tags already in the GTM workspace */
+    private array $existingTags = [];
+
     /** How many Tag Manager calls still answer 429 (quota exceeded). */
     private int $quotaHits = 0;
 
@@ -115,7 +118,8 @@ final class MeasurementSetupTest extends TestCase
             str_ends_with($url, '/workspaces') => ['workspace' => [['workspaceId' => '3', 'name' => 'Default Workspace']]],
             str_contains($url, '/built_in_variables') => $method === 'post' ? [] : ['builtInVariable' => [['type' => 'pageUrl']]],
             str_ends_with($url, '/triggers') => $method === 'post' ? ['triggerId' => (string) (100 + count($this->writes))] : ['trigger' => []],
-            str_ends_with($url, '/tags') => $method === 'post' ? ['tagId' => '1'] : ['tag' => []],
+            str_ends_with($url, '/tags') => $method === 'post' ? ['tagId' => '1'] : ['tag' => $this->existingTags],
+            $method === 'put' && str_contains($url, '/tags/') => $body,
             str_ends_with($url, ':create_version') => ['containerVersion' => ['containerVersionId' => '5']],
             str_ends_with($url, ':publish') => ['containerVersion' => ['containerVersionId' => '5']],
             str_contains($url, 'conversionActions:mutate') => ['results' => [['resourceName' => 'x']]],
@@ -266,5 +270,39 @@ final class MeasurementSetupTest extends TestCase
         $this->assertStringContainsString('tagmanager.publish', $query['scope']);
         $this->assertStringContainsString('analytics.edit', $query['scope']);
         $this->assertSame('consent', $query['prompt']);
+    }
+
+    public function test_conversion_tags_with_an_aw_prefixed_id_are_repaired_and_published(): void
+    {
+        $awct = fn (string $id, string $tagId): array => ['tagId' => $tagId, 'name' => 'Ads '.$tagId, 'type' => 'awct', 'fingerprint' => 'f'.$tagId, 'firingTriggerId' => ['7'],
+            'parameter' => [['type' => 'template', 'key' => 'conversionId', 'value' => $id], ['type' => 'template', 'key' => 'conversionLabel', 'value' => 'lbl'.$tagId]]];
+        $this->existingTags = [$awct('18427773438', '25'), $awct('AW-18427773438', '26'), $awct('AW-18427773438', '27'),
+            ['tagId' => '8', 'name' => 'GA4', 'type' => 'gaawe', 'parameter' => [['type' => 'template', 'key' => 'conversionId', 'value' => 'AW-1']]]];
+        $setup = app(MeasurementSetup::class);
+
+        $dry = $setup->fixConversionIds(['gtm_account' => '42', 'container_id' => '9', 'dry_run' => true]);
+        $this->assertSame(['26', '27'], array_column($dry['fixed'], 'tag_id'));
+        $this->assertSame([], $this->writes);
+
+        $result = $setup->fixConversionIds(['gtm_account' => '42', 'container_id' => '9']);
+
+        $puts = collect($this->writes)->where(0, 'put')->values();
+        $this->assertSame([
+            'https://tagmanager.googleapis.com/tagmanager/v2/accounts/42/containers/9/workspaces/3/tags/26',
+            'https://tagmanager.googleapis.com/tagmanager/v2/accounts/42/containers/9/workspaces/3/tags/27',
+        ], $puts->pluck(1)->all());
+        $body = $puts[0][2];
+        $this->assertSame('18427773438', collect($body['parameter'])->firstWhere('key', 'conversionId')['value']);
+        $this->assertSame('lbl26', collect($body['parameter'])->firstWhere('key', 'conversionLabel')['value']);
+        $this->assertSame(['7'], $body['firingTriggerId']);
+        $this->assertSame('5', $result['published_version']);
+        $this->assertTrue(collect($this->writes)->contains(fn ($w): bool => str_ends_with($w[1], ':publish')));
+    }
+
+    public function test_the_tag_update_refuses_anything_but_a_numeric_conversion_id_on_an_ads_tag(): void
+    {
+        $url = 'https://tagmanager.googleapis.com/tagmanager/v2/accounts/1/containers/2/workspaces/3/tags/4';
+        $this->expectException(RuntimeException::class);
+        app(GoogleApiClient::class)->updateGtmConversionTag(CoreIntegration::query()->first(), $url, ['type' => 'html', 'parameter' => [['key' => 'conversionId', 'value' => '1']]]);
     }
 }

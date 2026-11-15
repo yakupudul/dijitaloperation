@@ -321,6 +321,68 @@ final class MeasurementSetup
     }
 
     /**
+     * Ölçüm onarımı (yakup 2026-11-15): Google Ads conversion tags in an existing container whose Conversion ID carries
+     * the "AW-" prefix never reach Google Ads (OPC Klinik: WhatsApp and form tags, 0 conversions on 58k TL). Only that
+     * field is rewritten to the bare number, then the workspace is versioned and published. dry_run=true only lists.
+     *
+     * @param  array<string, mixed>  $options  gtm_account, container_id, dry_run, publish
+     * @return array<string, mixed>
+     */
+    public function fixConversionIds(array $options): array
+    {
+        $this->deadline = now()->getTimestampMs() / 1000 + self::TIME_BUDGET_SECONDS;
+        $account = preg_replace('/\D+/', '', (string) ($options['gtm_account'] ?? '')) ?: null;
+        $containerId = preg_replace('/\D+/', '', (string) ($options['container_id'] ?? '')) ?: null;
+        if ($account === null || $containerId === null) {
+            throw new RuntimeException('gtm_account ve container_id gerekli (action=accounts).');
+        }
+        try {
+            $base = self::GTM.'accounts/'.$account.'/containers/'.$containerId;
+            $workspaces = $this->list($base.'/workspaces', 'workspace');
+            $workspace = collect($workspaces)->firstWhere('name', 'Default Workspace') ?? ($workspaces[0] ?? throw new RuntimeException('GTM çalışma alanı bulunamadı.'));
+            $ws = $base.'/workspaces/'.$workspace['workspaceId'];
+            $fixed = [];
+            foreach ($this->list($ws.'/tags', 'tag') as $tag) {
+                if (($tag['type'] ?? '') !== 'awct') {
+                    continue;
+                }
+                $params = (array) ($tag['parameter'] ?? []);
+                $changed = false;
+                foreach ($params as $i => $param) {
+                    $value = (string) ($param['value'] ?? '');
+                    if (($param['key'] ?? '') === 'conversionId' && preg_match('/^\s*AW-(\d+)\s*$/i', $value, $m) === 1) {
+                        $params[$i]['value'] = $m[1];
+                        $changed = true;
+                    }
+                }
+                if (! $changed) {
+                    continue;
+                }
+                $fixed[] = ['tag' => (string) ($tag['name'] ?? $tag['tagId']), 'tag_id' => (string) $tag['tagId']];
+                if (! ($options['dry_run'] ?? false)) {
+                    $tag['parameter'] = array_values($params);
+                    $url = $ws.'/tags/'.$tag['tagId'];
+                    $this->ok($this->paced($url, fn (): Response => $this->google->updateGtmConversionTag($this->integration(), $url, $tag)), 'GTM etiket düzeltmesi');
+                }
+            }
+            if ($fixed === [] || ($options['dry_run'] ?? false) || ! ($options['publish'] ?? true)) {
+                return ['fixed' => $fixed, 'dry_run' => (bool) ($options['dry_run'] ?? false), 'published_version' => null];
+            }
+            $this->withinBudget(2 * self::GTM_GAP_MS / 1000 + 5);
+            $version = $this->ok($this->write('post', $ws.':create_version', ['name' => 'MoxDOP dönüşüm kimliği düzeltmesi '.now('Europe/Istanbul')->format('Y-m-d H:i'), 'notes' => 'Google Ads dönüşüm etiketlerinde "AW-" önekli Dönüşüm Kimliği sayıya çevrildi.']), 'GTM sürümü');
+            $versionId = (string) data_get($version, 'containerVersion.containerVersionId');
+            if ($versionId === '') {
+                throw new RuntimeException('GTM sürümü oluşmadı: '.json_encode(data_get($version, 'compilerError') ?? $version));
+            }
+            $this->ok($this->write('post', $base.'/versions/'.$versionId.':publish'), 'GTM yayını');
+
+            return ['fixed' => $fixed, 'dry_run' => false, 'published_version' => $versionId];
+        } catch (GtmQuotaPause $e) {
+            return ['stopped' => true, 'paused' => true, 'reason' => $e->getMessage()];
+        }
+    }
+
+    /**
      * Search Console verification by the Tag Manager method (the container must be on the site), Analytics as fallback.
      *
      * @return array<string, mixed>
