@@ -192,10 +192,6 @@
                             <p class="flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
                                 @if ($selected->conversation !== null)<span>{{ InboxQueue::phoneLabel($selected->conversation->contact_id) }}</span>@elseif ($lead?->phone)<span>{{ $lead->phone }}</span>@else<span>{{ $selected->channel }}</span>@endif
                                 @if ($selected->subtitle !== '')<span>· {{ $selected->subtitle }}</span>@endif
-                                @if ($selected->conversation !== null && isset($ads[$selected->conversation->id]))
-                                    @php $ad = $ads[$selected->conversation->id]; @endphp
-                                    <span class="min-w-0 truncate text-warning-700 dark:text-warning-300" title="{{ $ad['type'] }}: {{ $ad['ad'] }}{{ $ad['campaign'] !== '' ? ' · Kampanya: '.$ad['campaign'] : '' }}{{ $ad['headline'] !== '' && $ad['headline'] !== $ad['ad'] ? ' · Başlık: '.$ad['headline'] : '' }}" data-inbox-ad-source>· Reklamdan geldi: @if ($ad['url'] !== '')<a href="{{ $ad['url'] }}" target="_blank" rel="noopener" class="underline decoration-dotted underline-offset-2">{{ $ad['ad'] }}</a>@else{{ $ad['ad'] }}@endif{{ $ad['campaign'] !== '' ? ' ('.$ad['campaign'].')' : '' }}</span>
-                                @endif
                                 @if ($detail['fromBackup'])<span title="Telefondaki yedekten geldi; cevap telefondan gider.">· Yedekten</span>@endif
                                 @if ($detail['window'] !== null)
                                     @if ($detail['window']['open'])<span class="text-success-600" title="Son gelen mesajdan sonraki 24 saat içinde buradan cevap gider.">· cevap penceresi ~{{ $detail['window']['hours'] }} sa</span>@else<span title="24 saat geçti; WhatsApp kuralı gereği telefondan yazılır.">· pencere kapalı</span>@endif
@@ -212,6 +208,14 @@
                         <button type="button" wire:click="$toggle('who')" @class(['btn h-8 px-2.5 text-[13px] xl:hidden', 'ring-1 ring-gray-400' => $who]) title="Bu kişi hakkında bilinen her şey" data-inbox-who-toggle>Kim?</button>
                     </div>
                 </header>
+                @if ($selected->conversation !== null && isset($ads[$selected->conversation->id]))
+                    @php $ad = $ads[$selected->conversation->id]; @endphp
+                    {{-- Hangi reklamdan geldi (yakup 2026-11-15): its own line, so the ad and campaign names are readable. --}}
+                    <div class="flex min-w-0 items-center gap-2 border-b border-gray-200 bg-white px-4 py-1.5 text-xs dark:border-gray-800 dark:bg-gray-900" title="{{ $ad['headline'] !== '' && $ad['headline'] !== $ad['ad'] ? 'Başlık: '.$ad['headline'] : '' }}{{ $ad['text'] !== '' ? ' · '.\Illuminate\Support\Str::limit($ad['text'], 200) : '' }}" data-inbox-ad-source>
+                        <span class="shrink-0 rounded bg-warning-50 px-1.5 text-[11px] text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">{{ $ad['type'] === 'Gönderi' ? 'Gönderiden geldi' : 'Reklamdan geldi' }}</span>
+                        <span class="min-w-0 truncate text-gray-700 dark:text-gray-300">@if ($ad['url'] !== '')<a href="{{ $ad['url'] }}" target="_blank" rel="noopener" class="font-medium text-gray-900 hover:underline dark:text-white">{{ $ad['ad'] }}</a>@else<span class="font-medium text-gray-900 dark:text-white">{{ $ad['ad'] }}</span>@endif{{ $ad['campaign'] !== '' && $ad['campaign'] !== $ad['ad'] ? ' · Kampanya: '.$ad['campaign'] : '' }}</span>
+                    </div>
+                @endif
                 @if ($laterOpen)
                     <div class="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-2.5 text-[13px] dark:border-gray-800 dark:bg-white/[0.02]" data-inbox-later>
                         <span class="text-gray-500">Ne zaman dönsün?</span>
