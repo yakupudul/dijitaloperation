@@ -114,3 +114,19 @@
     if (srcEl) srcEl.addEventListener('error', fail);
   });
 })();
+
+/* Ölçüm: hangi hazır sorunun tıklandığı dataLayer'a yazılır (ucret, gun, uygunluk, tarih). Sağlık bilgisi yazılmaz.
+   WhatsApp ve arama tıklamalarını Google Tag Manager kapsayıcısı bağlantı adresinden kendisi yakalar. */
+(function () {
+  document.addEventListener('click', function (ev) {
+    var a = ev.target.closest ? ev.target.closest('a') : null;
+    if (!a) return;
+    var soru = a.getAttribute('data-soru');
+    if (!soru && a.hasAttribute('data-ask-link')) {
+      var r = document.querySelector('[data-ask] input[name="soru"]:checked');
+      var m = r && (r.getAttribute('data-qr') || '').match(/qr-[a-z]+-([a-z]+)\.svg/);
+      soru = m ? m[1] : '';
+    }
+    if (soru) (window.dataLayer = window.dataLayer || []).push({ event: 'hazir_soru', soru: soru });
+  }, true);
+})();

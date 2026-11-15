@@ -8,7 +8,7 @@ if (! defined('ABSPATH')) {
 	exit;
 }
 
-define('MME_VER', '1.0.0');
+define('MME_VER', '1.1.0');
 define('MME_DIR', get_template_directory());
 define('MME_URI', get_template_directory_uri());
 
@@ -91,6 +91,22 @@ add_filter('pre_get_document_title', function ($title) {
 	$page = mme_current();
 	return $page ? $page['title'] : $title;
 }, 20);
+
+/* Ölçüm: Google Tag Manager kapsayıcısı (seçenek mme_gtm_id) yalnız ziyaretçi çerez şeridinde kabul edince yüklenir.
+   Kimlik yoksa şerit de çıkmaz. Olaylarda sağlık bilgisi yoktur. */
+add_action('wp_footer', function () {
+	$id = (string) get_option('mme_gtm_id', '');
+	if (! preg_match('/^GTM-[A-Z0-9]{4,12}$/', $id)) {
+		return;
+	}
+	echo '<div class="cerez" data-cerez hidden role="region" aria-label="Çerez tercihi"><p>Sayfanın nasıl kullanıldığını ölçmek için çerez kullanıyoruz. <a href="https://drserapkorkmaz.com/kvkk" target="_blank" rel="noopener">KVKK metni</a></p><div class="cerez__act"><button type="button" data-cerez-no>Reddet</button><button type="button" data-cerez-ok>Kabul et</button></div></div>' . "
+";
+	echo "<script>(function(){var k='mme_cerez',v=null,id=" . wp_json_encode($id) . ";try{v=localStorage.getItem(k)}catch(e){}"
+		. "function load(){var w=window,d=document;w.dataLayer=w.dataLayer||[];w.dataLayer.push({'gtm.start':Date.now(),event:'gtm.js'});var j=d.createElement('script');j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+id;d.head.appendChild(j);}"
+		. "if(v==='1'){load();return;}if(v==='0')return;var b=document.querySelector('[data-cerez]');if(!b)return;b.hidden=false;"
+		. "b.addEventListener('click',function(e){var t=e.target.closest('button');if(!t)return;var ok=t.hasAttribute('data-cerez-ok');try{localStorage.setItem(k,ok?'1':'0')}catch(x){}b.hidden=true;if(ok)load();});})();</script>
+";
+}, 5);
 
 /* Gereksiz çıktılar: emoji betiği, oEmbed, RSD, kısa bağlantı, yorum akışları. */
 remove_action('wp_head', 'print_emoji_detection_script', 7);
