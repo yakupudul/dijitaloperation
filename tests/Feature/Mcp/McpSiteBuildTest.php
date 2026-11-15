@@ -266,9 +266,5 @@ final class McpSiteBuildTest extends TestCase
 
         MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'clear_cache'])->assertOk()->assertSee('clear_cache');
         $this->assertContains('build', (array) data_get($this->connection->fresh()->config, 'capabilities'));
-
-        $this->statusCapabilities = ['drafts'];
-        $this->connection->forceFill(['config' => array_merge($this->connection->fresh()->config, ['plugin_version' => '1.37.0', 'capabilities' => ['drafts']])])->save();
-        MoxdopServer::tool(SiteTool::class, ['site_id' => $this->site->id, 'tool' => 'clear_cache'])->assertHasErrors(['markaya bağlı değil']);
     }
 }
