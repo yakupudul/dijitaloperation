@@ -1,0 +1,68 @@
+/* Sorular ve Cevaplar ana sayfası (/sorular-cevaplar/) */
+.bk-sss2{padding:56px 0 80px}
+.bk-sss2-giris{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:64px;align-items:start;padding-bottom:48px}
+.bk-sss2-ozet{font-size:20px;line-height:1.6;color:#2b2b26;margin:0 0 24px;max-width:640px}
+.bk-sss2 .bk-soru-ara{border:1px solid #d9d4c3;border-radius:12px;max-width:640px;transition:border-color .2s}
+.bk-sss2 .bk-soru-ara:focus-within{border-color:var(--altin)}
+.bk-sss2 .bk-soru-ara input[type=search]{height:60px;font-size:17px}
+.bk-sss2-toplam{font-size:15px;color:#6b6b63;margin:14px 0 0}
+.bk-sss2-hekim{display:flex;gap:20px;align-items:flex-start;padding-left:32px;border-left:1px solid var(--kenar)}
+.bk-sss2-hekim-foto{width:96px;height:96px;border-radius:50%;object-fit:cover;object-position:top;flex:none;background:#f4f1e6}
+.bk-sss2-hekim p{margin:0}
+.bk-sss2-hekim-ad{font-size:18px;font-weight:600;color:#000;line-height:1.3}
+.bk-sss2-hekim-unvan{font-size:15px;color:#555;line-height:1.5;margin-top:2px!important}
+.bk-sss2-hekim-not{font-size:15px;color:#6b6b63;line-height:1.55;margin-top:12px!important}
+.bk-sss2-hekim-link{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:500;margin-top:12px}
+.bk-sss2-hekim-link .ik{width:7px;height:11px}
+
+.bk-sss2-dizin{border-top:1px solid var(--kenar);border-bottom:1px solid var(--kenar);margin-bottom:8px}
+.bk-sss2-dizin ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 28px}
+.bk-sss2-dizin a{display:inline-flex;align-items:baseline;gap:6px;padding:16px 0;font-size:15px;font-weight:500;color:#2b2b26}
+.bk-sss2-dizin a:hover{color:var(--altin)}
+.bk-sss2-dizin span{font-size:13px;font-weight:400;color:#8a8a80}
+
+.bk-sss2-kat{display:grid;grid-template-columns:340px minmax(0,1fr);gap:64px;padding:48px 0;border-bottom:1px solid var(--kenar);scroll-margin-top:24px}
+.bk-sss2-kat:last-child{border-bottom:0;padding-bottom:0}
+.bk-sss2-kat-sol{position:sticky;top:24px;align-self:start}
+.bk-sss2-kat h2{font-size:30px;font-weight:600;line-height:1.2;margin:0 0 10px}
+.bk-sss2-kat h2 a{color:var(--altin)}
+.bk-sss2-kat h2 a:hover{color:#a77500}
+.bk-sss2-kat-sayi{font-size:15px;color:#6b6b63;margin:0 0 24px}
+.bk-sss2-kat h3{font-size:14px;font-weight:600;letter-spacing:.02em;color:#6b6b63;margin:0 0 8px}
+.bk-sss2-kat-sag h3+ul{margin-bottom:32px}
+.bk-sss2-kat-sag ul:last-child{margin-bottom:0}
+.bk-sss2-sorular{list-style:none;margin:0;padding:0;border-top:1px solid var(--kenar)}
+.bk-sss2-sorular li{border-bottom:1px solid var(--kenar)}
+.bk-sss2-sorular a{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 0;font-size:17px;line-height:1.45;color:#1f1f1b;transition:color .2s}
+.bk-sss2-sorular a .ik{width:8px;height:12px;color:var(--altin);transition:transform .2s}
+.bk-sss2-sorular a:hover{color:var(--altin)}
+.bk-sss2-sorular a:hover .ik{transform:translateX(3px)}
+.bk-sss2-konular{list-style:none;margin:0;padding:0;columns:2;column-gap:40px}
+.bk-sss2-konular li{break-inside:avoid;padding:6px 0}
+.bk-sss2-konular a{font-size:16px;line-height:1.45;color:#2b2b26}
+.bk-sss2-konular a:hover{color:var(--altin)}
+.bk-sss2-konular span{font-size:13px;color:#8a8a80;margin-left:2px}
+
+@media (max-width:1024px){
+	.bk-sss2-giris{grid-template-columns:1fr;gap:32px}
+	.bk-sss2-hekim{padding-left:0;border-left:0;border-top:1px solid var(--kenar);padding-top:28px}
+	.bk-sss2-kat{grid-template-columns:1fr;gap:24px}
+	.bk-sss2-kat-sol{position:static}
+}
+@media (max-width:767px){
+	.bk-sss2{padding:32px 0 56px}
+	.bk-sss2-giris{padding-bottom:32px}
+	.bk-sss2-ozet{font-size:17px;margin-bottom:18px}
+	.bk-sss2 .bk-soru-ara input[type=search]{height:54px;font-size:16px}
+	.bk-sss2-hekim{gap:16px}
+	.bk-sss2-hekim-foto{width:72px;height:72px}
+	.bk-sss2-dizin{margin:0 -20px 0;border-left:0;border-right:0}
+	.bk-sss2-dizin ul{flex-wrap:nowrap;overflow-x:auto;gap:24px;padding:0 20px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+	.bk-sss2-dizin ul::-webkit-scrollbar{display:none}
+	.bk-sss2-dizin li{flex:none}
+	.bk-sss2-kat{padding:36px 0}
+	.bk-sss2-kat h2{font-size:25px}
+	.bk-sss2-kat-sayi{margin-bottom:16px}
+	.bk-sss2-sorular a{font-size:16px;padding:14px 0}
+	.bk-sss2-konular{columns:1}
+}
