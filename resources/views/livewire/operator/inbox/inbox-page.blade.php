@@ -149,6 +149,7 @@
                             <span class="mt-0.5 flex items-center justify-between gap-2">
                                 <span class="truncate text-[13px] text-gray-500">{{ $row->preview !== '' ? $row->preview : ($row->subtitle !== '' ? $row->subtitle : $row->channel) }}</span>
                                 <span class="flex shrink-0 items-center gap-1">
+                                    @if ($row->conversation !== null && isset($ads[$row->conversation->id]))<span class="max-w-[7rem] truncate rounded bg-warning-50 px-1.5 text-[11px] text-warning-700 dark:bg-warning-500/15 dark:text-warning-300" title="Reklamdan yazdı: {{ $ads[$row->conversation->id]['ad'] }}" data-inbox-ad>Reklam</span>@endif
                                     @if ($row->fromCustomer)<span class="rounded bg-gray-100 px-1.5 text-[11px] text-gray-600 dark:bg-white/10 dark:text-gray-300">Müşteri</span>@endif
                                     @if ($row->type === InboxItem::RISK)<span class="chip chip-down h-5! px-1.5! text-[11px]!">Risk</span>@endif
                                     @if ($row->type !== InboxItem::WHATSAPP)<span class="text-[11px] text-gray-400">{{ $row->channel }}</span>@endif
@@ -191,6 +192,10 @@
                             <p class="flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
                                 @if ($selected->conversation !== null)<span>{{ InboxQueue::phoneLabel($selected->conversation->contact_id) }}</span>@elseif ($lead?->phone)<span>{{ $lead->phone }}</span>@else<span>{{ $selected->channel }}</span>@endif
                                 @if ($selected->subtitle !== '')<span>· {{ $selected->subtitle }}</span>@endif
+                                @if ($selected->conversation !== null && isset($ads[$selected->conversation->id]))
+                                    @php $ad = $ads[$selected->conversation->id]; @endphp
+                                    <span class="min-w-0 truncate text-warning-700 dark:text-warning-300" title="{{ $ad['type'] }}: {{ $ad['ad'] }}{{ $ad['campaign'] !== '' ? ' · Kampanya: '.$ad['campaign'] : '' }}{{ $ad['headline'] !== '' && $ad['headline'] !== $ad['ad'] ? ' · Başlık: '.$ad['headline'] : '' }}" data-inbox-ad-source>· Reklamdan geldi: @if ($ad['url'] !== '')<a href="{{ $ad['url'] }}" target="_blank" rel="noopener" class="underline decoration-dotted underline-offset-2">{{ $ad['ad'] }}</a>@else{{ $ad['ad'] }}@endif{{ $ad['campaign'] !== '' ? ' ('.$ad['campaign'].')' : '' }}</span>
+                                @endif
                                 @if ($detail['fromBackup'])<span title="Telefondaki yedekten geldi; cevap telefondan gider.">· Yedekten</span>@endif
                                 @if ($detail['window'] !== null)
                                     @if ($detail['window']['open'])<span class="text-success-600" title="Son gelen mesajdan sonraki 24 saat içinde buradan cevap gider.">· cevap penceresi ~{{ $detail['window']['hours'] }} sa</span>@else<span title="24 saat geçti; WhatsApp kuralı gereği telefondan yazılır.">· pencere kapalı</span>@endif

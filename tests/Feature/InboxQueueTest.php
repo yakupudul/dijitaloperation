@@ -6,6 +6,7 @@ use App\Livewire\Operator\Inbox\InboxPage;
 use App\Models\AgencySetting;
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\DigitalAsset;
 use App\Models\Reminder;
 use App\Models\SalesLead;
 use App\Models\SocialAccount;
@@ -16,6 +17,8 @@ use App\Models\WhatsAppMessage;
 use App\Models\WhatsAppWebhookReceipt;
 use App\Services\Inbox\InboxItem;
 use App\Services\Inbox\InboxQueue;
+use App\Services\Marketing\AdLeads;
+use App\Services\Marketing\AdSource;
 use App\Services\Sales\Agreements;
 use App\Services\Sales\SalesLeads;
 use App\Services\Social\SocialInbox;
@@ -27,6 +30,7 @@ use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -349,5 +353,30 @@ final class InboxQueueTest extends TestCase
         $page->call('setLeadStatus', 'olumsuz')->assertSeeHtml('data-inbox-closing')->set('closing', 'price')->call('closeLead');
         $this->assertSame('lost', $lead->fresh()->stage);
         $this->assertSame('price', $lead->fresh()->lost_reason);
+    }
+
+    public function test_a_chat_from_an_ad_names_the_ad_and_its_campaign_from_the_ad_account(): void
+    {
+        $chat = $this->chat('905001112244', 'Dr. Reklam');
+        $chat->update(['phone_number_id' => '222222222', 'referral' => ['source_type' => 'ad', 'source_id' => '120211111111', 'headline' => 'Kampanyadan faydalanın',
+            'body' => 'Kliniğiniz için reklam yasak, ancak SEO serbest.', 'source_url' => 'https://fb.me/abc', 'at' => now()->toIso8601String()]]);
+        $asset = DigitalAsset::factory()->create(['type' => 'meta_ads']);
+        DB::table('meta_geo_results_daily')->insert([
+            'digital_asset_id' => $asset->id, 'account_id' => 'act_1', 'reporting_date' => now()->subDays(3)->toDateString(), 'level' => 'country', 'country' => 'TR',
+            'ad_id' => '120211111111', 'ad_name' => 'Mevzuat reels A', 'campaign_id' => '9', 'campaign_name' => '04 | Mevzuat denetimi', 'spend' => 174, 'messages' => 2,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        Livewire::test(InboxPage::class)->assertSeeHtml('data-inbox-ad')
+            ->call('select', 'wa-'.$chat->id)->assertSeeHtml('data-inbox-ad-source')->assertSee('Mevzuat reels A')->assertSee('04 | Mevzuat denetimi');
+
+        $rows = app(AdLeads::class)->rows();
+        $this->assertSame('Mevzuat reels A', $rows[0]['ad']);
+        $this->assertSame('Kampanyadan faydalanın', $rows[0]['headline']);
+        $this->assertSame([174.0, 2, 1], [$rows[0]['spend'], $rows[0]['meta_messages'], $rows[0]['wrote']]);
+
+        // An ad the ad account does not know (another account, not synced yet) still shows Meta's headline.
+        $chat->update(['referral' => ['source_id' => '999999999', 'headline' => 'Web sitesi']]);
+        $this->assertSame('Web sitesi', app(AdSource::class)->of($chat->fresh()->referral)['ad']);
     }
 }

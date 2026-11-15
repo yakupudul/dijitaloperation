@@ -10,6 +10,7 @@ use App\Models\SocialThread;
 use App\Models\WhatsAppMessage;
 use App\Services\Inbox\InboxItem;
 use App\Services\Inbox\InboxQueue;
+use App\Services\Marketing\AdSource;
 use App\Services\Sales\Agreements;
 use App\Services\Sales\CustomerSignals;
 use App\Services\Sales\PersonMemory;
@@ -496,6 +497,16 @@ final class InboxPage extends Component
             $this->reply = (string) $detail['draft']['text'];
         }
         $owed = $items->filter(fn (InboxItem $i): bool => $i->owed);
+        // Hangi reklamdan geldi (yakup 2026-11-15): a Click-to-WhatsApp chat names its ad in the list and above the chat.
+        $ads = [];
+        $withAd = $rows->concat(array_filter([$selected]))->map(fn (InboxItem $i) => $i->conversation)->filter(fn ($c): bool => is_array($c?->referral) && $c->referral !== []);
+        if ($withAd->isNotEmpty()) {
+            $source = app(AdSource::class);
+            $source->names($withAd->map(fn ($c): string => (string) ($c->referral['source_id'] ?? ''))->all());
+            foreach ($withAd as $conversation) {
+                $ads[$conversation->id] = $source->of($conversation->referral);
+            }
+        }
         $oldest = $owed->map(fn (InboxItem $i) => $i->at)->filter()->sort()->first();
 
         return view('livewire.operator.inbox.inbox-page', [
@@ -504,6 +515,7 @@ final class InboxPage extends Component
             'channelCounts' => $channelCounts,
             'selected' => $selected,
             'detail' => $detail,
+            'ads' => $ads,
             'strip' => [
                 'owed' => $owed->count(),
                 'late' => $items->filter(fn (InboxItem $i): bool => $i->late)->count(),

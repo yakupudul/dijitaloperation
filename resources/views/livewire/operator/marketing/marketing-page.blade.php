@@ -274,12 +274,18 @@
                         {{-- Hangi reklam gerçek aday getiriyor (Satış Düzeni 4.3): the ad is judged by who it brought, not by its message count. --}}
                         <div class="mt-6" data-marketing-ad-leads>
                             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Hangi reklam aday getiriyor</h3>
-                            <p class="text-[13px] text-gray-500">Son {{ \App\Services\Marketing\AdLeads::DAYS }} günde reklamdan WhatsApp'a yazanlar, kayıtlarının bugünkü durumuyla.</p>
+                            <p class="text-[13px] text-gray-500">Son {{ \App\Services\Marketing\AdLeads::DAYS }} günde reklamdan WhatsApp'a yazanlar, kayıtlarının bugünkü durumuyla. Reklamın adı ve kampanyası reklam hesabından; harcama ve Meta'nın saydığı konuşma aynı günler için.</p>
                             <div class="card mt-3 overflow-x-auto">
-                                <table class="data-table"><thead><tr><th>Reklam</th><th class="text-right">Yazan</th><th class="text-right">Aday</th><th class="text-right">Kapıda elenen</th><th class="text-right">Teklif</th><th class="text-right">Müşteri</th><th class="text-right">Son yazan</th></tr></thead><tbody>
+                                <table class="data-table"><thead><tr><th>Reklam</th><th class="text-right" title="Meta'nın bu reklam için saydığı harcama, aynı günlerde">Harcama</th><th class="text-right" title="Meta'nın bu reklam için saydığı başlayan konuşma">Meta'nın saydığı</th><th class="text-right">Yazan</th><th class="text-right">Aday</th><th class="text-right">Kapıda elenen</th><th class="text-right">Teklif</th><th class="text-right">Müşteri</th><th class="text-right">Son yazan</th></tr></thead><tbody>
                                     @foreach ($adLeads as $ad)
                                         <tr data-marketing-ad-row>
-                                            <td class="max-w-[22rem]"><span class="block truncate font-medium text-gray-900 dark:text-white" title="{{ $ad['ad'] }}">{{ $ad['ad'] }}</span>@if ($ad['text'] !== '')<span class="block truncate text-xs text-gray-500" title="{{ $ad['text'] }}">{{ $ad['text'] }}</span>@endif</td>
+                                            <td class="max-w-[22rem]">
+                                                @if ($ad['url'] !== '')<a href="{{ $ad['url'] }}" target="_blank" rel="noopener" class="block truncate font-medium text-gray-900 hover:underline dark:text-white" title="{{ $ad['ad'] }} · reklamı aç">{{ $ad['ad'] }}</a>@else<span class="block truncate font-medium text-gray-900 dark:text-white" title="{{ $ad['ad'] }}">{{ $ad['ad'] }}</span>@endif
+                                                @if ($ad['campaign'] !== '')<span class="block truncate text-xs text-gray-500" title="Kampanya">{{ $ad['campaign'] }}</span>@endif
+                                                @if ($ad['headline'] !== '' || $ad['text'] !== '')<span class="block truncate text-xs text-gray-400" title="{{ $ad['text'] }}">{{ trim($ad['headline'].($ad['headline'] !== '' && $ad['text'] !== '' ? ' · ' : '').$ad['text']) }}</span>@endif
+                                            </td>
+                                            <td class="text-right tabular-nums text-gray-500">{{ $ad['spend'] !== null ? $tl($ad['spend']) : '—' }}</td>
+                                            <td class="text-right tabular-nums text-gray-500">{{ $ad['meta_messages'] !== null ? $n($ad['meta_messages']) : '—' }}</td>
                                             <td class="text-right tabular-nums">{{ $n($ad['wrote']) }}</td>
                                             <td class="text-right tabular-nums font-semibold text-gray-900 dark:text-white">{{ $n($ad['prospects']) }}</td>
                                             <td class="text-right tabular-nums text-gray-500">{{ $n($ad['screened']) }}</td>
