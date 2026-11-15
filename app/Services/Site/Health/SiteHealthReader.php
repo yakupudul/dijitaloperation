@@ -3,6 +3,7 @@
 namespace App\Services\Site\Health;
 
 use App\Models\DigitalAsset;
+use App\Services\Assistant\UptimeMonitor;
 use App\Support\SchemaState;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -94,7 +95,9 @@ final class SiteHealthReader
         return match ((string) $state->state) {
             'up' => ['key' => 'uptime', 'label' => 'Erişilebilirlik', 'state' => 'ok', 'date' => $checked, 'line' => 'Açık'],
             'down' => ['key' => 'uptime', 'label' => 'Erişilebilirlik', 'state' => 'critical', 'date' => $checked,
-                'line' => 'Erişilemiyor'.($state->down_since !== null ? ' · '.CarbonImmutable::parse($state->down_since)->format('d.m.Y H:i').' itibarıyla' : '').(filled($state->last_error) ? ' · '.mb_substr((string) $state->last_error, 0, 80) : '')],
+                'line' => 'Erişilemiyor'.($state->down_since !== null ? ' · '.CarbonImmutable::parse($state->down_since)->timezone('Europe/Istanbul')->format('d.m.Y H:i').' itibarıyla' : '')
+                    .($state->down_since !== null && CarbonImmutable::parse($state->down_since)->gt(now()->subMinutes(UptimeMonitor::notifyAfterMinutes())) ? ' · bildirim '.UptimeMonitor::notifyAfterMinutes().' dk kesintide gider' : '')
+                    .(filled($state->last_error) ? ' · '.mb_substr((string) $state->last_error, 0, 80) : '')],
             default => ['key' => 'uptime', 'label' => 'Erişilebilirlik', 'state' => 'unknown', 'date' => $checked, 'line' => 'Bilinmiyor'],
         };
     }

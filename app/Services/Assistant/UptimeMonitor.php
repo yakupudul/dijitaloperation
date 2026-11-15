@@ -7,13 +7,17 @@ use App\Models\CoreConnection;
 use App\Models\DigitalAsset;
 use App\Services\Integrations\WordPress\WordPressConnectorCommands;
 use App\Services\Website\PageFetcher;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
  * Uptime of client websites: the primary URL is fetched through the safe public fetcher every 5 minutes
- * (one queued job per site). A site is "down" after N consecutive failures (default 2 → ~10 minutes); going
- * down and coming back each send one phone push and open / resolve the website's `site_down` alert. A failure counts
+ * (one queued job per site). Every check is kept in `uptime_checks` (the panel's Erişim kaydı; kept 30 days, the ones with
+ * an error 180 days). A site is "down" after N consecutive failures (default 2 → ~10 minutes), which the panel shows at
+ * once; the phone push and the website's `site_down` alert wait until it has been down without a break for
+ * `notify_after_minutes` (default 60; yakup 2026-11-15: short drops were noise). Coming back sends the "yeniden açık"
+ * push only for an outage that was announced; shorter ones stay in the log only. A failure counts
  * only when the other spelling of the host (www / bare) fails too and the site's connector has not asked for work lately.
  * Before a site is called down (and while it stays down) an outside service is asked too ({@see OutsideReachCheck}):
  * when the site answers there, only MoxDOP's own server cannot reach it (a hosting firewall dropping MoxDOP's address),
@@ -79,7 +83,7 @@ final class UptimeMonitor
 
         $failures = $ok ? 0 : (int) ($state->consecutive_failures ?? 0) + 1;
         $new = $ok ? 'up' : ($failures >= $threshold ? 'down' : ($previous === 'down' ? 'down' : $previous));
-        $downSince = $new === 'down' ? ($previous === 'down' ? $state->down_since : now()) : null;
+        $downSince = $new === 'down' ? ($previous === 'down' && $state->down_since !== null ? Carbon::parse($state->down_since) : $this->firstFailureAt($site->id, $failures)) : null;
         DB::table('uptime_states')->updateOrInsert(['digital_asset_id' => $site->id], [
             'state' => $new, 'consecutive_failures' => $failures, 'down_since' => $downSince,
             'last_checked_at' => now(), 'last_up_at' => $ok ? now() : ($state->last_up_at ?? null), 'last_error' => $error,
@@ -87,20 +91,42 @@ final class UptimeMonitor
         ]);
 
         $changed = $new !== $previous;
-        if ($new === 'down' && $previous !== 'down') {
-            $this->openAlert($site, $error);
-            $this->push->send('uptime:down:'.$site->id, 'Site erişilemiyor: '.($site->domain ?: $site->name), ($site->brand?->name ?? '').' — '.$url.' yanıt vermiyor ('.$error.').', 'critical', $url, 1);
+        $notifyAfter = self::notifyAfterMinutes();
+        if ($new === 'down' && $downSince !== null && $downSince->lte(now()->subMinutes($notifyAfter))) {
+            // Announce once, on the first check past the mark: the previous check was still before it (or the site just went down).
+            $lastChecked = $previous === 'down' && $state?->last_checked_at !== null ? Carbon::parse($state->last_checked_at) : null;
+            if ($lastChecked === null || $lastChecked->lt($downSince->copy()->addMinutes($notifyAfter))) {
+                $minutes = (int) $downSince->diffInMinutes(now(), true);
+                $this->openAlert($site, $error, $minutes);
+                $this->push->send('uptime:down:'.$site->id, ($minutes > 0 ? 'Site '.$minutes.' dakikadır erişilemiyor: ' : 'Site erişilemiyor: ').($site->domain ?: $site->name), ($site->brand?->name ?? '').' — '.$url.' '.$downSince->format('H:i').'’den beri yanıt vermiyor ('.$error.').', 'critical', $url, 1);
+            }
         }
         if ($new === 'up' && $previous === 'down') {
             AssetAlert::query()->open()->where('digital_asset_id', $site->id)->where('kind', 'site_down')->update(['resolved_at' => now()]);
-        }
-        if ($new === 'up' && $previous === 'down' && ! $seenFromOutside) {
-            // A site that only MoxDOP could not reach was never down for visitors: its alert closes without a second push.
             $minutes = $state?->down_since !== null ? (int) now()->diffInMinutes($state->down_since, true) : null;
-            $this->push->send('uptime:up:'.$site->id.':'.now()->format('YmdHi'), 'Site yeniden açık: '.($site->domain ?: $site->name), $url.' tekrar yanıt veriyor'.($minutes !== null ? ' (kesinti ~'.$minutes.' dk).' : '.'), 'critical', $url, 1);
+            if (! $seenFromOutside && $minutes !== null && $minutes >= $notifyAfter) {
+                // Only an outage that was announced gets the "back" push; a shorter one, or one only MoxDOP could not
+                // reach, stays in the log.
+                $this->push->send('uptime:up:'.$site->id.':'.now()->format('YmdHi'), 'Site yeniden açık: '.($site->domain ?: $site->name), $url.' tekrar yanıt veriyor (kesinti ~'.$minutes.' dk).', 'critical', $url, 1);
+            }
         }
 
         return ['ok' => $ok, 'state' => $new, 'changed' => $changed];
+    }
+
+    /** Minutes a site must stay down without a break before the alert and the phone push (0 = at once). */
+    public static function notifyAfterMinutes(): int
+    {
+        return max(0, (int) config('moxdop-assistant.uptime.notify_after_minutes', 60));
+    }
+
+    /** When this run of failures began: the oldest of the last $failures failed checks (the current one included). */
+    private function firstFailureAt(int $siteId, int $failures): Carbon
+    {
+        $first = DB::table('uptime_checks')->where('digital_asset_id', $siteId)->where('ok', false)
+            ->orderByDesc('checked_at')->orderByDesc('id')->limit(max(1, $failures))->pluck('checked_at')->last();
+
+        return $first !== null ? Carbon::parse($first) : now();
     }
 
     /** The same address with or without "www.", or null when the address has no host to toggle. */
@@ -127,7 +153,7 @@ final class UptimeMonitor
         return $seen !== null && $seen->gte(now()->subMinutes(self::ASKED_LATELY_MINUTES));
     }
 
-    private function openAlert(DigitalAsset $site, ?string $error): void
+    private function openAlert(DigitalAsset $site, ?string $error, int $minutes): void
     {
         $alert = AssetAlert::query()->firstOrNew(['digital_asset_id' => $site->id, 'alert_key' => hash('sha256', 'site_down')]);
         if (! $alert->exists || $alert->resolved_at !== null) {
@@ -138,7 +164,7 @@ final class UptimeMonitor
         }
         $alert->fill([
             'brand_id' => $site->brand_id, 'kind' => 'site_down', 'severity' => 'critical', 'title' => 'Site erişilemiyor',
-            'message' => 'Ana sayfa art arda yanıt vermedi ('.($error ?? 'hata').'). Sunucu, alan adı veya SSL sorununu kontrol edin.',
+            'message' => 'Ana sayfa '.$minutes.' dakikadır kesintisiz yanıt vermiyor ('.($error ?? 'hata').'). Sunucu, alan adı veya SSL sorununu kontrol edin.',
             'data' => ['error' => $error], 'last_detected_at' => now(),
         ])->save();
     }

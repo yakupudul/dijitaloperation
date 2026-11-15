@@ -45,4 +45,15 @@
             @error('hostingDate')<span class="text-xs text-error-600">{{ $message }}</span>@enderror
         </form>
     </div>
+
+    <section class="mt-8" data-uptime-section>
+        <div class="section-head">
+            <h2 class="section-title">Erişim kaydı <span class="section-count">son 180 gün</span></h2>
+        </div>
+        <p class="mb-3 text-[13px] text-gray-500 dark:text-gray-400">
+            Site 5 dakikada bir ölçülür. Telefona bildirim yalnız {{ $notifyAfter }} dakika kesintisiz erişilemeyince gider; kısa kesintiler burada kalır.
+            @if ($uptimeSummary['percent'] !== null) Son 30 gün: %{{ number_format($uptimeSummary['percent'], 2, ',', '.') }} erişilebilir ({{ number_format($uptimeSummary['checks'], 0, ',', '.') }} ölçüm, {{ $uptimeSummary['failed'] }} başarısız).@endif
+        </p>
+        @include('livewire.operator.partials.uptime-log', ['episodes' => $uptimeEpisodes, 'showSite' => false, 'empty' => 'Son 180 günde erişim sorunu kaydı yok.'])
+    </section>
 </div>

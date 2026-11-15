@@ -74,7 +74,10 @@ return [
         'google_integration_discovery_attempts' => ['created_at', 90],
         'meta_integration_discovery_attempts' => ['created_at', 90],
         'search_demand_provider_payloads' => ['captured_at', 90],
-        'uptime_checks' => ['checked_at', 30],
+        // Erişim kaydı: clean checks 30 days, checks with an error (outages, MoxDOP-only drops) 180 days.
+        // A key "table@name" is a second rule for the same table.
+        'uptime_checks@clean' => ['checked_at', 30, ['error', '=', null]],
+        'uptime_checks' => ['checked_at', 180],
         'push_notifications' => ['created_at', 90],
         'app_error_groups' => ['last_seen_at', 90],
         // Write bookkeeping of collections (627k rows / 563 MB on 2026-10-21); a re-run batch is simply written again.

@@ -12,9 +12,11 @@ use App\Models\Customer;
 use App\Models\DigitalAsset;
 use App\Services\Alerts\AssetAlertScanner;
 use App\Services\Assistant\PushNotifier;
+use App\Services\Assistant\UptimeLog;
 use App\Services\Website\PageFetcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
@@ -65,30 +67,73 @@ final class UptimeAndPushTest extends TestCase
         $this->assertSame(2, DB::table('push_notifications')->where('status', 'sent')->count());
     }
 
-    public function test_site_goes_down_after_two_failures_and_comes_back(): void
+    public function test_site_goes_down_after_two_failures_but_the_phone_hears_only_after_an_hour(): void
     {
-        self::$statuses = [200, null, null, 503, 503, 503, 503, 200];
+        // Every failing check asks both spellings (atlasdis.com and www.atlasdis.com): two statuses per failure.
+        self::$statuses = [200, ...array_fill(0, 28, null), 200];
 
         UptimeCheckJob::dispatchSync($this->site->id);
+        $start = now();
+        $this->travel(5)->minutes();
         UptimeCheckJob::dispatchSync($this->site->id);
         $this->assertSame('up', DB::table('uptime_states')->value('state'), 'one failure is not an outage');
+        $this->travel(5)->minutes();
         UptimeCheckJob::dispatchSync($this->site->id);
 
-        $this->assertSame('down', DB::table('uptime_states')->value('state'));
+        $this->assertSame('down', DB::table('uptime_states')->value('state'), 'the panel shows it down at once');
+        $this->assertSame($start->copy()->addMinutes(5)->toDateTimeString(), Carbon::parse(DB::table('uptime_states')->value('down_since'))->toDateTimeString(), 'counted from the first failed check');
+        $this->assertFalse(AssetAlert::query()->open()->where('kind', 'site_down')->exists(), 'no alert before 60 minutes');
+        $this->assertSame(0, DB::table('push_notifications')->count());
+
+        for ($i = 0; $i < 10; $i++) { // 10 → 55 minutes down
+            $this->travel(5)->minutes();
+            UptimeCheckJob::dispatchSync($this->site->id);
+        }
+        $this->assertSame(0, DB::table('push_notifications')->count(), '55 minutes is still quiet');
+
+        $this->travel(5)->minutes(); // 60 minutes
+        UptimeCheckJob::dispatchSync($this->site->id);
         $alert = AssetAlert::query()->open()->where('kind', 'site_down')->sole();
         $this->assertSame('critical', $alert->severity);
-        $this->assertSame(2, DB::table('push_notifications')->where('title', 'like', 'Site erişilemiyor%')->count());
+        $this->assertSame(2, DB::table('push_notifications')->where('title', 'like', 'Site 60 dakikadır erişilemiyor%')->count());
 
-        UptimeCheckJob::dispatchSync($this->site->id); // still down: no new push
+        $this->travel(5)->minutes(); // still down: no new push
+        UptimeCheckJob::dispatchSync($this->site->id);
         app(AssetAlertScanner::class)->scan($this->site);
         $this->assertTrue(AssetAlert::query()->open()->where('kind', 'site_down')->exists(), 'daily scan keeps the uptime alert');
-        $this->assertSame(2, DB::table('push_notifications')->where('title', 'like', 'Site erişilemiyor%')->count());
+        $this->assertSame(2, DB::table('push_notifications')->where('title', 'like', 'Site%erişilemiyor%')->count());
 
+        $this->travel(5)->minutes();
         UptimeCheckJob::dispatchSync($this->site->id);
         $this->assertSame('up', DB::table('uptime_states')->value('state'));
         $this->assertFalse(AssetAlert::query()->open()->where('kind', 'site_down')->exists());
         $this->assertSame(2, DB::table('push_notifications')->where('title', 'like', 'Site yeniden açık%')->count());
-        $this->assertSame(5, DB::table('uptime_checks')->count());
+        $this->assertSame(16, DB::table('uptime_checks')->count(), 'every check is kept');
+
+        $episodes = app(UptimeLog::class)->episodes($this->site->id);
+        $this->assertCount(1, $episodes);
+        $this->assertSame('outage', $episodes[0]['kind']);
+        $this->assertSame(65, $episodes[0]['minutes']);
+        $this->assertTrue($episodes[0]['notified']);
+        $this->assertFalse($episodes[0]['ongoing']);
+    }
+
+    public function test_a_short_outage_stays_in_the_log_without_any_push(): void
+    {
+        self::$statuses = [...array_fill(0, 8, null), 200];
+
+        for ($i = 0; $i < 5; $i++) { // 4 failures over 15 minutes, then back
+            UptimeCheckJob::dispatchSync($this->site->id);
+            $this->travel(5)->minutes();
+        }
+
+        $this->assertSame('up', DB::table('uptime_states')->value('state'));
+        $this->assertSame(0, DB::table('push_notifications')->count(), 'neither "erişilemiyor" nor "yeniden açık"');
+        $this->assertSame(0, AssetAlert::query()->where('kind', 'site_down')->count());
+        $episodes = app(UptimeLog::class)->episodes();
+        $this->assertCount(1, $episodes);
+        $this->assertSame(['outage', 15, false, 4, 'atlasdis.com'], [$episodes[0]['kind'], $episodes[0]['minutes'], $episodes[0]['notified'], $episodes[0]['checks'], $episodes[0]['site']]);
+        $this->assertSame(['checks' => 5, 'failed' => 4, 'percent' => 20.0], app(UptimeLog::class)->summary($this->site->id));
     }
 
     public function test_a_redirect_only_host_or_a_site_that_just_asked_for_work_is_not_an_outage(): void
@@ -142,7 +187,7 @@ final class UptimeAndPushTest extends TestCase
 
     public function test_a_site_down_outside_too_still_alerts(): void
     {
-        config(['moxdop-assistant.uptime.outside_check' => true]);
+        config(['moxdop-assistant.uptime.outside_check' => true, 'moxdop-assistant.uptime.notify_after_minutes' => 0]);
         Http::fake([
             'check-host.net/check-http*' => Http::response(['ok' => 1, 'request_id' => 'def456']),
             'check-host.net/check-result/def456' => Http::response(['at1.node.check-host.net' => [[0, 5.0, 'Connection timed out', null, null]], 'se2.node.check-host.net' => [[0, 0.3, 'Service Unavailable', '503', '1.2.3.4']]]),
@@ -160,7 +205,7 @@ final class UptimeAndPushTest extends TestCase
 
     public function test_no_outside_opinion_keeps_moxdops_own_verdict(): void
     {
-        config(['moxdop-assistant.uptime.outside_check' => true]);
+        config(['moxdop-assistant.uptime.outside_check' => true, 'moxdop-assistant.uptime.notify_after_minutes' => 0]);
         Http::fake(['check-host.net/*' => Http::response('', 503), '*' => Http::response(['ok' => true])]);
         self::$statuses = [null, null, null, null];
 

@@ -7,6 +7,8 @@ return [
     'uptime' => [
         'enabled' => (bool) env('MOXDOP_UPTIME_ENABLED', true),
         'failures_before_down' => (int) env('MOXDOP_UPTIME_FAILURES_BEFORE_DOWN', 2),
+        // The alert and the phone push wait until a site has been down this long without a break (yakup 2026-11-15).
+        'notify_after_minutes' => (int) env('MOXDOP_UPTIME_NOTIFY_AFTER_MINUTES', 60),
         // Ask check-host.net from outside before a site is called down (a host firewall that drops MoxDOP is not an outage).
         'outside_check' => (bool) env('MOXDOP_UPTIME_OUTSIDE_CHECK', true),
     ],

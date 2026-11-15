@@ -3,6 +3,7 @@
 namespace Tests\Feature\Retention;
 
 use App\Models\CoreExternalResource;
+use App\Models\DigitalAsset;
 use App\Services\Retention\DataRetentionService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -70,6 +71,20 @@ final class DataRetentionTest extends TestCase
         app(DataRetentionService::class)->purgeTelemetry();
 
         $this->assertSame(['new'], DB::table('provider_api_counters')->pluck('operation')->all());
+    }
+
+    public function test_uptime_log_keeps_clean_checks_30_days_and_errors_180_days(): void
+    {
+        $site = DigitalAsset::factory()->create(['type' => 'website']);
+        $row = fn (int $days, ?string $error): array => ['digital_asset_id' => $site->id, 'url' => 'https://x.test', 'ok' => $error === null,
+            'error' => $error, 'checked_at' => now()->subDays($days)];
+        DB::table('uptime_checks')->insert([$row(2, null), $row(40, null), $row(40, 'timeout'), $row(170, 'timeout'), $row(200, 'timeout')]);
+
+        $result = app(DataRetentionService::class)->purgeTelemetry();
+
+        $this->assertSame(1, $result['uptime_checks@clean']);
+        $this->assertSame(1, $result['uptime_checks']);
+        $this->assertSame([2, 40, 170], DB::table('uptime_checks')->get()->map(fn ($r): int => (int) round(now()->diffInDays($r->checked_at, true)))->sort()->values()->all());
     }
 
     public function test_old_raw_payloads_are_deleted_but_each_pages_latest_html_is_kept(): void

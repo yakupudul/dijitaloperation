@@ -107,8 +107,13 @@ final class HealthAndAssetsTest extends TestCase
         ])]);
         DB::table('uptime_states')->insert(['digital_asset_id' => $this->site->id, 'state' => 'down', 'consecutive_failures' => 3, 'down_since' => now()->subHour(),
             'last_checked_at' => now(), 'last_error' => 'HTTP 503', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('uptime_checks')->insert([
+            ['digital_asset_id' => $this->site->id, 'url' => 'https://x.test', 'ok' => false, 'error' => 'HTTP 503', 'checked_at' => now()->subMinutes(65)],
+            ['digital_asset_id' => $this->site->id, 'url' => 'https://x.test', 'ok' => false, 'error' => 'HTTP 503', 'checked_at' => now()],
+        ]);
 
         Livewire::test(HealthTab::class, ['assetId' => $this->site->id])
+            ->assertSee('Erişim kaydı')->assertSee('60 dakika kesintisiz')->assertSee('yalnız kayıt')
             ->assertSee('6.5.2 → 6.6.1')->assertSee('Eklenti: SEO Eklentisi')->assertSee('2.0 → 2.1')->assertDontSee('Eklenti: Güncel')
             ->assertSee('2 kritik sorun')->assertSee('Erişilemiyor')->assertSee('HTTP 503')
             ->assertSee('Bitiş tarihi girilmedi')->assertSee("WordPress'e giriş", false)

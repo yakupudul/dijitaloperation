@@ -352,6 +352,12 @@
                 </section>
             </div>
 
+            <section data-uptime-section>
+                <div class="section-head"><h2 class="section-title">Site erişim kaydı <span class="section-count">son 30 gün, tüm siteler</span></h2></div>
+                <p class="mb-3 text-[13px] text-gray-500 dark:text-gray-400">Her site 5 dakikada bir ölçülür. Telefona bildirim yalnız {{ $notifyAfter }} dakika kesintisiz erişilemeyince gider. Kayıtlar 180 gün durur; site başına geçmiş Site › Teknik › Erişim kaydı'nda.</p>
+                @include('livewire.operator.partials.uptime-log', ['episodes' => $uptimeEpisodes, 'showSite' => true, 'empty' => 'Son 30 günde hiçbir sitede erişim sorunu kaydı yok.'])
+            </section>
+
             <section>
                 <div class="section-head"><h2 class="section-title">Bağlantı yetkileri</h2></div>
                 <div class="card overflow-x-auto">

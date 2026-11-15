@@ -4,6 +4,8 @@ namespace App\Livewire\Operator\Settings;
 
 use App\Jobs\Verification\RunLiveVerificationJob;
 use App\Models\AgencySetting;
+use App\Services\Assistant\UptimeLog;
+use App\Services\Assistant\UptimeMonitor;
 use App\Services\Integrations\Google\GoogleWorkspace;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Observability\ErrorTriage;
@@ -127,7 +129,7 @@ final class SystemHealthPage extends Component
         $this->datasetsFor = $this->datasetsFor === $automationId ? null : $automationId;
     }
 
-    public function render(SystemHealthReader $reader, ErrorTriage $triage, ServerStatusReader $server): View
+    public function render(SystemHealthReader $reader, ErrorTriage $triage, ServerStatusReader $server, UptimeLog $uptimeLog): View
     {
         $health = $reader->read();
         if ($this->onlyProblems) {
@@ -140,6 +142,8 @@ final class SystemHealthPage extends Component
             'status' => $server->read(),
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
             'drive' => ['linked' => app(DriveBackupCopy::class)->configured(), 'connect' => rescue(fn (): ?string => app(GoogleWorkspace::class)->connectUrl(), null, false)],
+            'uptimeEpisodes' => $uptimeLog->episodes(null, 30, 40),
+            'notifyAfter' => UptimeMonitor::notifyAfterMinutes(),
             'datasets' => $this->datasetsFor !== null ? $reader->datasets($this->datasetsFor) : [],
         ]);
     }

@@ -5,6 +5,8 @@ namespace App\Livewire\Operator\Website\V2;
 use App\Jobs\Site\CheckSiteExpiryJob;
 use App\Livewire\Operator\Website\V2\Concerns\WebsiteTab;
 use App\Models\CoreConnection;
+use App\Services\Assistant\UptimeLog;
+use App\Services\Assistant\UptimeMonitor;
 use App\Services\Site\Health\SiteHealthReader;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -12,7 +14,8 @@ use Livewire\Component;
 
 /**
  * Site Sağlığı: WordPress update warnings + critical Site Health items (Connector), one-click WordPress login (admin,
- * existing audited path), SSL and domain expiry (daily automatic check), hosting expiry (manual date), uptime.
+ * existing audited path), SSL and domain expiry (daily automatic check), hosting expiry (manual date), uptime and its
+ * Erişim kaydı (every outage and MoxDOP-only drop of the last 180 days).
  * Each row: durum · tarih · tek satır.
  */
 final class HealthTab extends Component
@@ -37,7 +40,7 @@ final class HealthTab extends Component
         $this->message = 'SSL ve alan adı kontrolü kuyrukta.';
     }
 
-    public function render(SiteHealthReader $reader): View
+    public function render(SiteHealthReader $reader, UptimeLog $uptimeLog): View
     {
         $site = $this->site();
         if ($this->hostingDate === '' && $site->getAttribute('hosting_expires_on') !== null) {
@@ -48,6 +51,9 @@ final class HealthTab extends Component
         return view('livewire.operator.website.v2.health-tab', [
             'site' => $site,
             'rows' => $reader->rows($site),
+            'uptimeEpisodes' => $uptimeLog->episodes($site->id, 180, 30),
+            'uptimeSummary' => $uptimeLog->summary($site->id),
+            'notifyAfter' => UptimeMonitor::notifyAfterMinutes(),
             'wordpress' => CoreConnection::query()->where('digital_asset_id', $site->id)->where('type', 'wordpress_connector')->where('enabled', true)->exists(),
             'isAdmin' => $user !== null && $user->hasRole(Roles::ADMIN),
         ]);

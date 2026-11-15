@@ -9,6 +9,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -233,8 +234,9 @@ final class DataRetentionService
     public function purgeTelemetry(bool $dryRun = false): array
     {
         $result = [];
-        foreach ((array) config('moxdop-retention.telemetry', []) as $table => $rule) {
+        foreach ((array) config('moxdop-retention.telemetry', []) as $key => $rule) {
             [$column, $days] = $rule;
+            $table = Str::before((string) $key, '@');
             if (! SchemaState::hasTable($table) || ! SchemaState::hasColumn($table, $column)) {
                 continue;
             }
@@ -242,7 +244,7 @@ final class DataRetentionService
             if (isset($rule[2])) {
                 $query->where(...$rule[2]);
             }
-            $result[$table] = $dryRun ? $query->count() : $query->delete();
+            $result[$key] = $dryRun ? $query->count() : $query->delete();
         }
 
         return $result;
