@@ -2,80 +2,94 @@
 
 namespace App\Http\Controllers\Integrations;
 
-use App\Models\Customer;
+use App\Jobs\WhatsApp\BuildWhatsAppExport;
 use App\Models\WhatsAppBackupLine;
-use App\Models\WhatsAppConversation;
-use App\Models\WhatsAppMessage;
 use App\Services\WhatsApp\WhatsAppConnection;
+use App\Services\WhatsApp\WhatsAppExport;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use OpenSpout\Common\Entity\Row;
-use OpenSpout\Writer\XLSX\Writer;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
- * "Excel'e aktar" on the WhatsApp screen: every conversation (or the open one with ?conversation=) as an .xlsx with a
- * "Mesajlar" sheet (one row per message, oldest first within each chat) and a "Görüşmeler" summary sheet. With ?line=
- * the chats of that backup row only, wherever they sit.
+ * "Excel'e aktar" on the WhatsApp screens: every conversation (or the open one with ?conversation=) as an .xlsx; with
+ * ?line= the chats of that backup row only, wherever they sit. A small export downloads at once; a big one (a whole
+ * phone backup) is written by a heavy-queue job while a waiting page polls and then starts the download, because
+ * writing 394k messages in the request ran past PHP's 30 s limit (500, 2026-11-15).
  */
 final class WhatsAppExportController
 {
-    private const DIRECTIONS = ['incoming' => 'Gelen', 'outgoing' => 'Giden'];
+    private const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-    private const TYPES = [
-        'text' => 'Metin', 'image' => 'Fotoğraf', 'audio' => 'Ses', 'video' => 'Video', 'document' => 'Belge',
-        'sticker' => 'Çıkartma', 'location' => 'Konum', 'contacts' => 'Kişi kartı', 'gif' => 'GIF',
-    ];
-
-    public function __invoke(Request $request, WhatsAppConnection $connection): BinaryFileResponse
+    public function __invoke(Request $request, WhatsAppConnection $connection): Response
     {
         $connection->authorize($request->user());
         $line = ($request->integer('line') ?: null) === null ? null : WhatsAppBackupLine::query()->findOrFail($request->integer('line'));
         $integrationId = $connection->integration()?->id;
         abort_if($line === null && $integrationId === null, 404);
         $only = $request->integer('conversation') ?: null;
-        $conversations = ($line !== null ? $line->conversations() : WhatsAppConversation::query()->where('integration_id', $integrationId))
-            ->when($only, fn ($query) => $query->whereKey($only))
-            ->orderByDesc('last_message_at')->orderByDesc('id')->get();
-        abort_if($only !== null && $conversations->isEmpty(), 404);
-        $customers = Customer::query()->whereIn('id', $conversations->pluck('customer_id')->filter()->unique())->pluck('name', 'id');
-        $label = fn (WhatsAppConversation $chat): array => [
-            (string) ($chat->contact_name ?? ''),
-            ctype_digit((string) $chat->contact_id) ? '+'.$chat->contact_id : 'Gizli numara',
-        ];
-        $time = fn ($at): string => $at ? $at->timezone('Europe/Istanbul')->format('Y-m-d H:i') : '';
+        $conversations = WhatsAppExport::conversations($line, $integrationId, $only);
+        abort_if($only !== null && ! (clone $conversations)->exists(), 404);
+        $name = WhatsAppExport::fileName($line, $only);
 
-        $path = tempnam(sys_get_temp_dir(), 'wa-export');
-        $writer = new Writer;
-        $writer->openToFile($path);
-        $writer->getCurrentSheet()->setName('Mesajlar');
-        $writer->addRow(Row::fromValues(['Kişi', 'Numara', 'Müşteri', 'Tarih', 'Yön', 'Tür', 'Mesaj']));
-        foreach ($conversations as $chat) {
-            [$name, $number] = $label($chat);
-            WhatsAppMessage::query()->where('conversation_id', $chat->id)->orderBy('sent_at')->orderBy('id')
-                ->each(function (WhatsAppMessage $message) use ($writer, $name, $number, $chat, $customers, $time): void {
-                    $writer->addRow(Row::fromValues([
-                        $name, $number, (string) ($customers[$chat->customer_id] ?? ''), $time($message->sent_at),
-                        self::DIRECTIONS[$message->direction] ?? $message->direction, self::TYPES[$message->message_type] ?? (string) $message->message_type,
-                        (string) $message->body,
-                    ]));
-                }, 1000);
-        }
-        $writer->addNewSheetAndMakeItCurrent()->setName('Görüşmeler');
-        $writer->addRow(Row::fromValues(['Kişi', 'Numara', 'Müşteri', 'Son mesaj', 'Son gelen mesaj', 'Mesaj sayısı', 'Mesaj istemiyor']));
-        $counts = WhatsAppMessage::query()->whereIn('conversation_id', $conversations->pluck('id'))
-            ->selectRaw('conversation_id, count(*) as total')->groupBy('conversation_id')->pluck('total', 'conversation_id');
-        foreach ($conversations as $chat) {
-            [$name, $number] = $label($chat);
-            $writer->addRow(Row::fromValues([
-                $name, $number, (string) ($customers[$chat->customer_id] ?? ''), $time($chat->last_message_at),
-                $time($chat->last_incoming_at), (int) ($counts[$chat->id] ?? 0), $chat->opted_out_at ? 'Evet' : '',
-            ]));
-        }
-        $writer->close();
-        $file = 'whatsapp-'.($line !== null ? Str::slug($line->name).'-' : '').($only ? 'gorusme-'.$only : 'konusmalar').'-'.now('Europe/Istanbul')->format('Y-m-d').'.xlsx';
+        if ($only !== null || WhatsAppExport::messageCount($conversations) <= WhatsAppExport::inlineLimit()) {
+            $path = (string) tempnam(sys_get_temp_dir(), 'wa-export');
+            WhatsAppExport::write($conversations, $path);
 
-        return response()->download($path, $file, ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])
+            return response()->download($path, $name, ['Content-Type' => self::XLSX, 'Cache-Control' => 'no-store, private'])
+                ->deleteFileAfterSend();
+        }
+
+        // One background build per person and scope: a second click while it runs waits for the same file.
+        $userId = (int) $request->user()->getKey();
+        $slot = 'whatsapp-export-slot:'.$userId.':'.($line?->id ?? 'inbox');
+        $token = Cache::get($slot);
+        $state = is_string($token) ? WhatsAppExport::state($token) : null;
+        if ($state === null || $state['status'] !== 'pending' || now()->diffInMinutes($state['at'], true) > 20) {
+            $token = (string) Str::uuid();
+            WhatsAppExport::remember($token, ['user_id' => $userId, 'status' => 'pending', 'name' => $name, 'at' => now()->toIso8601String(), 'line_id' => $line?->id]);
+            Cache::put($slot, $token, now()->addMinutes(20));
+            BuildWhatsAppExport::dispatch($token, $line?->id);
+        }
+
+        return response()->view('operator.whatsapp.export-wait', [
+            'title' => $line !== null ? $line->name : 'Tüm görüşmeler',
+            'statusUrl' => route('operator.whatsapp.export.status', ['token' => $token]),
+            'fileUrl' => route('operator.whatsapp.export.file', ['token' => $token]),
+            'backUrl' => $line !== null ? route('operator.whatsapp', ['tab' => 'setup']) : route('operator.whatsapp'),
+        ])->header('Cache-Control', 'no-store, private');
+    }
+
+    public function status(Request $request, string $token, WhatsAppConnection $connection): JsonResponse
+    {
+        $connection->authorize($request->user());
+        $state = $this->owned($request, $token);
+        $status = $state['status'] === 'ready' && ! File::exists(WhatsAppExport::path($token)) ? 'gone' : $state['status'];
+
+        return response()->json(['status' => $status])->header('Cache-Control', 'no-store, private');
+    }
+
+    public function file(Request $request, string $token, WhatsAppConnection $connection): BinaryFileResponse
+    {
+        $connection->authorize($request->user());
+        $state = $this->owned($request, $token);
+        $path = WhatsAppExport::path($token);
+        abort_unless($state['status'] === 'ready' && File::exists($path), 404);
+        WhatsAppExport::remember($token, [...$state, 'status' => 'downloaded']);
+
+        return response()->download($path, $state['name'], ['Content-Type' => self::XLSX, 'Cache-Control' => 'no-store, private'])
             ->deleteFileAfterSend();
+    }
+
+    /** @return array{user_id: int, status: string, name: string, at: string, line_id: ?int} */
+    private function owned(Request $request, string $token): array
+    {
+        $state = WhatsAppExport::state($token);
+        abort_if($state === null || (int) $state['user_id'] !== (int) $request->user()->getKey(), 404);
+
+        return $state;
     }
 }

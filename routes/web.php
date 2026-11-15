@@ -166,6 +166,10 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])->group(function (
         ->whereUuid('import')->middleware('throttle:20,1,wa-backup-excel')->name('operator.whatsapp.backup.excel');
     Route::get('/whatsapp/export', WhatsAppExportController::class)
         ->middleware('throttle:10,1,wa-export')->name('operator.whatsapp.export');
+    Route::get('/whatsapp/export/{token}/status', [WhatsAppExportController::class, 'status'])
+        ->whereUuid('token')->middleware('throttle:120,1,wa-export-status')->name('operator.whatsapp.export.status');
+    Route::get('/whatsapp/export/{token}/file', [WhatsAppExportController::class, 'file'])
+        ->whereUuid('token')->middleware('throttle:10,1,wa-export-file')->name('operator.whatsapp.export.file');
     // WhatsApp konuşmaları (2026-11-13): every chat from every source, searched in the message text; read only.
     Route::livewire('/whatsapp/konusmalar', WhatsAppConversations::class)
         ->name('operator.whatsapp.conversations');

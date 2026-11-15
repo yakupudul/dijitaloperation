@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Ai\Agents\WhatsAppBrainAgent;
 use App\Ai\Agents\WhatsAppReplyAgent;
+use App\Jobs\WhatsApp\BuildWhatsAppExport;
 use App\Jobs\WhatsApp\ExtractWhatsAppBackup;
 use App\Jobs\WhatsApp\FillLiveFromBackup;
 use App\Jobs\WhatsApp\GenerateWhatsAppSuggestion;
@@ -24,6 +25,7 @@ use App\Services\WhatsApp\Backup\WhatsAppBackupReader;
 use App\Services\WhatsApp\WhatsAppBrain;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Services\WhatsApp\WhatsAppDispatch;
+use App\Services\WhatsApp\WhatsAppExport;
 use App\Services\WhatsApp\WhatsAppSuggestions;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -31,6 +33,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -584,6 +587,51 @@ final class WhatsAppBackupImportTest extends TestCase
         $one = WhatsAppConversation::query()->where('contact_id', '905321112244')->value('id');
         $this->get(route('operator.whatsapp.export', ['conversation' => $one]))->assertOk();
         $this->get(route('operator.whatsapp.export', ['conversation' => 999999]))->assertNotFound();
+    }
+
+    public function test_a_big_backup_excel_is_written_in_the_background_and_downloaded_once(): void
+    {
+        // A whole phone backup (394k messages) ran past PHP's 30 s limit inside the request: 500 (2026-11-15).
+        Queue::fake();
+        $this->extract($this->upload($this->backup([
+            ['905321112233', 's.whatsapp.net', [['A1', 0, '2026-09-01 10:00', 0, 'Fiyat nedir?'], ['A2', 1, '2026-09-01 10:05', 0, 'Kurumsal site 14.000 TL.']]],
+            ['905321112244', 's.whatsapp.net', [['B1', 0, '2026-09-02 10:00', 0, 'Merhaba']]],
+        ])));
+        $line = WhatsAppBackupLine::query()->sole();
+        config(['whatsapp.export_inline_limit' => 2]);
+        $this->actingAs($this->admin);
+
+        $this->get(route('operator.whatsapp.export', ['line' => $line->id]))->assertOk()
+            ->assertSee('Excel hazırlanıyor')->assertSee('data-wa-export-wait', false);
+        $this->get(route('operator.whatsapp.export', ['line' => $line->id]))->assertOk();
+        $jobs = Queue::pushed(BuildWhatsAppExport::class);
+        $this->assertCount(1, $jobs, 'a second click waits for the same file');
+        $job = $jobs->first();
+        $this->assertSame($line->id, $job->lineId);
+        $this->getJson(route('operator.whatsapp.export.status', ['token' => $job->token]))->assertExactJson(['status' => 'pending']);
+        $this->get(route('operator.whatsapp.export.file', ['token' => $job->token]))->assertNotFound();
+
+        $other = User::factory()->create(['is_active' => true]);
+        $other->assignRole(Roles::ADMIN);
+        $this->actingAs($other)->getJson(route('operator.whatsapp.export.status', ['token' => $job->token]))->assertNotFound();
+        $this->actingAs($this->admin);
+
+        app()->call([$job, 'handle']);
+        $this->getJson(route('operator.whatsapp.export.status', ['token' => $job->token]))->assertExactJson(['status' => 'ready']);
+        $response = $this->get(route('operator.whatsapp.export.file', ['token' => $job->token]))->assertOk();
+        $this->assertStringContainsString('whatsapp-'.Str::slug($line->name).'-konusmalar-', (string) $response->headers->get('content-disposition'));
+        $sheets = $this->sheets($response);
+        $this->assertSame(['', '+905321112233', '', '2026-09-01 10:00', 'Gelen', 'Metin', 'Fiyat nedir?'], $sheets['Mesajlar'][2]);
+        $this->assertCount(4, $sheets['Mesajlar']);
+        $this->assertEqualsCanonicalizing([2, 1], array_column(array_slice($sheets['Görüşmeler'], 1), 5));
+        $response->sendContent();
+
+        // The file holds private chats: gone after the download, a new click builds a fresh one.
+        $this->assertFileDoesNotExist(WhatsAppExport::path($job->token));
+        $this->getJson(route('operator.whatsapp.export.status', ['token' => $job->token]))->assertExactJson(['status' => 'downloaded']);
+        $this->get(route('operator.whatsapp.export.file', ['token' => $job->token]))->assertNotFound();
+        $this->get(route('operator.whatsapp.export', ['line' => $line->id]))->assertOk();
+        $this->assertCount(2, Queue::pushed(BuildWhatsAppExport::class));
     }
 
     public function test_the_inbox_filters_previews_and_done_then_next_flow(): void
