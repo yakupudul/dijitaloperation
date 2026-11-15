@@ -521,3 +521,24 @@ main:has(> .band:last-child){padding-bottom:0}
 .cerez button{font:inherit;font-size:14px;font-weight:500;height:38px;padding:0 14px;border-radius:8px;cursor:pointer;border:1px solid var(--line-strong);background:var(--bg);color:var(--ink)}
 .cerez button[data-cerez-ok]{background:var(--brown);border-color:var(--brown);color:#fff}
 @media (max-width:860px){.cerez{bottom:calc(84px + env(safe-area-inset-bottom,0px));left:12px;right:12px;padding:10px 12px}}
+
+/* Video şeridi: hekimin kendi videoları yan yana; telefonda yatay kaydırma */
+.vids .sec__head p{max-width:40em}
+.vids__row{margin-top:48px}
+.vids__track{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,260px);justify-content:center;gap:28px;max-width:1180px;margin:0 auto;padding:0 max(24px,env(safe-area-inset-left,0px))}
+.clip--card{margin:0;grid-column:auto;max-width:none}
+.clip--card .clip__frame{box-shadow:0 18px 50px rgba(37,24,23,.18)}
+.clip--card figcaption{margin-top:16px}
+.clip--card h3{font-size:18px;line-height:26px}
+.clip--card figcaption p{margin-top:4px;font-size:15px;line-height:22px;color:var(--mute)}
+.clip--card .clip__play{padding:16px}
+.clip--card .clip__play span{width:52px;height:52px}
+.vids__cap{margin-top:28px;font-size:15px;line-height:22px;color:var(--mute);text-align:center}
+@media (max-width:860px){
+  .vids__row{margin-top:32px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .vids__row::-webkit-scrollbar{display:none}
+  .vids__track{grid-auto-columns:62%;justify-content:start;gap:16px;padding:0 max(20px,env(safe-area-inset-left,0px));width:max-content;max-width:none}
+  .vids__track{grid-auto-columns:min(62vw,260px)}
+  .clip--card{scroll-snap-align:center}
+  .vids__cap{text-align:left}
+}
