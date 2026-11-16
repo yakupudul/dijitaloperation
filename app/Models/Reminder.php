@@ -23,9 +23,19 @@ class Reminder extends Model
     /** A free note (toplantı notu, telefon notu, fikir): no date, never pushed, kept until deleted (2026-11-10). */
     public const string NOTE = 'note';
 
+    /**
+     * Onay (2026-11-16): a task that is Claude's own work waiting for the operator's yes. It shows Onayla / Reddet
+     * instead of a tick; the answer closes it (done_at) and Onayla hands the job back to Claude as a Moxi işi.
+     */
+    public const string ASKED = 'asked';
+
+    public const string APPROVED = 'approved';
+
+    public const string REJECTED = 'rejected';
+
     protected $fillable = [
         'user_id', 'customer_id', 'brand_id', 'prospect_id', 'sales_lead_id', 'kind', 'title', 'notes', 'remind_at', 'ends_at', 'all_day',
-        'place', 'outcome', 'repeat', 'notified_at', 'followup_notified_at', 'done_at', 'url', 'google_event_id',
+        'place', 'outcome', 'repeat', 'notified_at', 'followup_notified_at', 'done_at', 'url', 'google_event_id', 'approval',
     ];
 
     /** Günlük Düzen 4.3: with Google Takvim linked, a saved or deleted entry follows there (queued, after commit). */
@@ -72,6 +82,12 @@ class Reminder extends Model
     public function isNote(): bool
     {
         return $this->kind === self::NOTE;
+    }
+
+    /** An open question about Claude's own work (Onayla / Reddet), not a job for the operator's hands. */
+    public function waitsForApproval(): bool
+    {
+        return $this->approval === self::ASKED && $this->done_at === null;
     }
 
     public function isMeeting(): bool

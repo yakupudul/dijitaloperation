@@ -3,6 +3,7 @@
 namespace App\Services\Calendar;
 
 use App\Models\Brand;
+use App\Models\MoxiMessage;
 use App\Models\Reminder;
 use App\Models\User;
 use App\Services\Assistant\ReminderService;
@@ -15,6 +16,7 @@ use Illuminate\Support\Str;
  * "yarın 10'da Şaban Bey'i ara" → reminder tomorrow 10:00; "cuma teklif gönder" → Friday, all day;
  * "not: …" → a note; "toplantı: perşembe 14:00 Dentocare" → a meeting; anything else → a to-do without a date that
  * stays on Takvim until it is ticked. The first line is the title, the rest is kept as the note.
+ * Onay (2026-11-16): Claude's own work that needs the operator's yes is asked here too, answered with Onayla / Reddet.
  */
 final class QuickCapture
 {
@@ -110,6 +112,58 @@ final class QuickCapture
         ]);
     }
 
+    /**
+     * Onay (yakup 2026-11-16: "madem ekliyorsun o zaman onaylayabileceğim şekilde yap"): Claude asks before doing its
+     * own work. The first line is the question, the rest says exactly what will be done, so any Claude can do it from
+     * the Moxi işi alone. No date is read from the text: a question waits for its answer, it is not a reminder.
+     */
+    public function ask(User $user, string $text, ?Brand $brand = null, ?string $url = null): Reminder
+    {
+        $lines = preg_split('/\R/u', trim($text)) ?: [];
+        $title = self::title((string) array_shift($lines));
+        if ($title === '') {
+            throw new \InvalidArgumentException('Soru boş.');
+        }
+        $notes = trim(implode("\n", $lines));
+        $url = trim((string) $url);
+        // The same open question is asked once, so several Claude sessions can ask it safely.
+        $same = Reminder::query()->where('user_id', $user->id)->where('approval', Reminder::ASKED)->whereNull('done_at')->where('title', $title)->first();
+        if ($same !== null) {
+            return $same;
+        }
+
+        return Reminder::query()->create([
+            'user_id' => $user->id, 'kind' => 'task', 'approval' => Reminder::ASKED, 'title' => $title, 'notes' => $notes !== '' ? $notes : null,
+            'remind_at' => null, 'all_day' => false, 'repeat' => 'none',
+            'url' => preg_match('#^https?://#i', $url) === 1 && filter_var($url, FILTER_VALIDATE_URL) !== false ? mb_substr($url, 0, 1000) : null,
+            'brand_id' => $brand?->id, 'customer_id' => $brand?->customer_id,
+        ]);
+    }
+
+    /**
+     * The operator's answer to an ask. Both close it; Onayla also hands the job to Claude as a Moxi işi (the same
+     * channel Moxi uses), which the next queue round does before anything else and answers in Moxi's box.
+     */
+    public function decide(int $userId, int $id, bool $yes): Reminder
+    {
+        $row = Reminder::query()->with('brand:id,name')->where('user_id', $userId)->where('approval', Reminder::ASKED)->whereNull('done_at')->findOrFail($id);
+        $row->forceFill(['approval' => $yes ? Reminder::APPROVED : Reminder::REJECTED, 'done_at' => now()])->save();
+        if ($yes) {
+            $detail = trim(implode("\n", array_filter([
+                (string) $row->notes,
+                $row->url ? 'Yer: '.$row->url : null,
+                'Operatör bunu Takvim › Yapılacaklar\'da onayladı (iş #'.$row->id.'). Yap, sonucu kısa yaz.',
+            ])));
+            MoxiMessage::query()->create([
+                'user_id' => $userId, 'role' => MoxiMessage::REQUEST, 'status' => MoxiMessage::PENDING, 'page' => '/takvim',
+                'body' => mb_substr('Onaylandı: '.$row->title, 0, 200),
+                'meta' => ['detail' => mb_substr($detail, 0, 4000), 'brand_id' => $row->brand_id, 'brand' => $row->brand?->name, 'reminder_id' => $row->id],
+            ]);
+        }
+
+        return $row;
+    }
+
     /** One line saying where the capture went, for the extension and Takvim's notice. */
     public static function said(Reminder $row): string
     {
@@ -134,9 +188,10 @@ final class QuickCapture
     }
 
     /**
-     * Yapılacaklar for one user: today's own items, the late ones, the ones without a date, and the latest notes.
+     * Yapılacaklar for one user: the questions waiting for a yes, today's own items, the late ones, the ones without a
+     * date, and the latest notes.
      *
-     * @return array{today: list<array<string, mixed>>, late: list<array<string, mixed>>, open: list<array<string, mixed>>, notes: list<array<string, mixed>>, count: int}
+     * @return array{asks: list<array<string, mixed>>, today: list<array<string, mixed>>, late: list<array<string, mixed>>, open: list<array<string, mixed>>, notes: list<array<string, mixed>>, count: int}
      */
     public function board(int $userId, int $notes = 12): array
     {
@@ -151,11 +206,13 @@ final class QuickCapture
             $today[$i]['url'] = $urls[$item['id']] ?? null;
         }
 
-        $late = $open = [];
+        $asks = $late = $open = [];
         Reminder::query()->with('brand:id,name')->openTodos($userId)->orderByRaw('remind_at is null')->orderBy('remind_at')->orderBy('id')->limit(200)->get()
-            ->each(function (Reminder $row) use (&$late, &$open, $now): void {
+            ->each(function (Reminder $row) use (&$asks, &$late, &$open, $now): void {
                 $item = self::row($row);
-                if ($row->remind_at !== null) {
+                if ($row->waitsForApproval()) {
+                    $asks[] = $item;
+                } elseif ($row->remind_at !== null) {
                     $days = (int) CarbonImmutable::instance($row->remind_at)->setTimezone(CalendarFeed::TZ)->startOfDay()->diffInDays($now->startOfDay());
                     $item['late'] = $days <= 1 ? 'dünden kaldı' : $days.' gün gecikti';
                     $late[] = $item;
@@ -169,13 +226,17 @@ final class QuickCapture
 
         $openToday = count(array_filter($today, fn (array $t): bool => ! $t['done']));
 
-        return ['today' => $today, 'late' => $late, 'open' => $open, 'notes' => $noteRows, 'count' => $openToday + count($late) + count($open)];
+        return ['asks' => $asks, 'today' => $today, 'late' => $late, 'open' => $open, 'notes' => $noteRows, 'count' => count($asks) + $openToday + count($late) + count($open)];
     }
 
     /** Ticks an item (a repeating one moves to its next date); a second tick opens it again. */
     public function toggle(int $userId, int $id): Reminder
     {
         $row = Reminder::query()->where('user_id', $userId)->where('kind', '!=', Reminder::NOTE)->findOrFail($id);
+        if ($row->approval !== null) {
+            // A question is answered with Onayla / Reddet, never ticked.
+            return $row;
+        }
         if ($row->done_at !== null) {
             $row->forceFill(['done_at' => null])->save();
         } else {
@@ -212,7 +273,7 @@ final class QuickCapture
     private static function row(Reminder $row): array
     {
         return ['id' => (int) $row->id, 'kind' => (string) $row->kind, 'title' => (string) $row->title, 'notes' => $row->notes, 'url' => $row->url,
-            'brand' => $row->brand?->name, 'done' => $row->done_at !== null, 'time' => null, 'late' => null];
+            'brand' => $row->brand?->name, 'done' => $row->done_at !== null, 'time' => null, 'late' => null, 'ask' => $row->waitsForApproval()];
     }
 
     /** @return array{0: string, 1: ?CarbonImmutable} */

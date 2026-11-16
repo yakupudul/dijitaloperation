@@ -151,6 +151,9 @@ final class CalendarPage extends Component
     public function toggle(int $id, ReminderService $reminders): void
     {
         $row = $this->mine($id);
+        if ($row->approval !== null) {
+            return;
+        }
         if ($row->done_at !== null) {
             $row->forceFill(['done_at' => null])->save();
 
@@ -188,6 +191,19 @@ final class CalendarPage extends Component
         $this->noteFor = null;
         $this->note = '';
         $this->say($row->sales_lead_id !== null ? 'Not kaydedildi ve adayın kartına yazıldı; görüşme sonrası mesajı Claude yazıyor.' : 'Not kaydedildi.');
+    }
+
+    /** Onay (2026-11-16): the operator says yes to Claude's own work; the job goes back to Claude as a Moxi işi. */
+    public function approve(int $id, QuickCapture $capture): void
+    {
+        $capture->decide((int) auth()->id(), $id, true);
+        $this->say('Onaylandı. Claude bir sonraki turda yapar, sonucu Moxi kutusuna ve telefona yazar.');
+    }
+
+    public function reject(int $id, QuickCapture $capture): void
+    {
+        $capture->decide((int) auth()->id(), $id, false);
+        $this->say('Reddedildi; yapılmayacak.');
     }
 
     public function remove(int $id): void

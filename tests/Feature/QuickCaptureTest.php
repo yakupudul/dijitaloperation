@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Livewire\Operator\Calendar\CalendarPage;
 use App\Models\AgencySetting;
 use App\Models\Brand;
+use App\Models\MoxiMessage;
 use App\Models\Reminder;
 use App\Models\User;
 use App\Services\Assistant\ReminderService;
@@ -187,5 +188,27 @@ class QuickCaptureTest extends TestCase
         app(QuickCapture::class)->capture($this->admin, 'pazartesi logo');
 
         $this->assertSame(1, OperatorMenu::computeBadges()['operator.calendar']['count']);
+    }
+
+    /** Onay (2026-11-16): Takvim shows Onayla / Reddet for Claude's questions; the buttons answer them. */
+    public function test_takvim_shows_asks_with_onayla_and_reddet(): void
+    {
+        $capture = app(QuickCapture::class);
+        $yes = $capture->ask($this->admin, "Bağlantılar paketini Büyüme yapayım mı?\nAyda 4 doğrulanmış link hedefi.");
+        $no = $capture->ask($this->admin, 'Eski sayfaları çöpe atayım mı?');
+        $capture->capture($this->admin, 'Suada: ödeme hatırlat');
+
+        $this->actingAs($this->admin);
+        Livewire::test(CalendarPage::class)
+            ->assertSee('Onayını bekleyen')->assertSee('Bağlantılar paketini Büyüme yapayım mı?')->assertSee('Ayda 4 doğrulanmış link hedefi.')
+            ->assertSee('Onayla')->assertSee('Reddet')
+            ->call('toggle', $yes->id)
+            ->call('approve', $yes->id)
+            ->call('reject', $no->id)
+            ->assertDontSee('Bağlantılar paketini Büyüme yapayım mı?')->assertDontSee('Onayını bekleyen')->assertSee('Suada: ödeme hatırlat');
+
+        $this->assertSame(Reminder::APPROVED, $yes->refresh()->approval);
+        $this->assertSame(Reminder::REJECTED, $no->refresh()->approval);
+        $this->assertSame(1, MoxiMessage::query()->where('role', MoxiMessage::REQUEST)->count());
     }
 }

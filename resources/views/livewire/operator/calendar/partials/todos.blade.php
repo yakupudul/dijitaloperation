@@ -20,6 +20,33 @@
     @if ($board === null)
         <p class="mt-3 text-[13px] text-error-600">Liste şu an okunamadı; hata kaydedildi.</p>
     @else
+        {{-- Onay (2026-11-16): Claude's own work waiting for a yes. Onayla hands it back to Claude, Reddet closes it. --}}
+        @if (($board['asks'] ?? []) !== [])
+            <h3 class="mt-4 text-xs font-medium text-gray-500">Onayını bekleyen</h3>
+            <ul class="mt-1.5 space-y-3">
+                @foreach ($board['asks'] as $t)
+                    @php $long = $t['notes'] && mb_strlen($t['notes']) > 160; @endphp
+                    <li x-data="{ o: false }" class="text-[13px]" wire:key="todo-ask-{{ $t['id'] }}" data-calendar-ask>
+                        <p class="break-words text-gray-800 dark:text-gray-200">{{ $t['title'] }}</p>
+                        @if ($t['notes'])
+                            <p class="mt-0.5 whitespace-pre-line break-words text-xs text-gray-600 dark:text-gray-400" @if ($long) x-show="! o" @endif>{{ $long ? mb_strimwidth($t['notes'], 0, 160, '…') : $t['notes'] }}</p>
+                            @if ($long)
+                                <p class="mt-0.5 whitespace-pre-line break-words text-xs text-gray-600 dark:text-gray-400" x-show="o" x-cloak>{{ $t['notes'] }}</p>
+                            @endif
+                        @endif
+                        @php $meta = array_filter([$t['brand']]); @endphp
+                        @if ($meta !== [] || $t['url'] || $long)
+                            <p class="mt-0.5 text-xs text-gray-500">{{ implode(' · ', $meta) }}@if ($t['url']){{ $meta !== [] ? ' · ' : '' }}<a href="{{ $t['url'] }}" target="_blank" rel="noopener" class="link-neutral">{{ $host($t['url']) }} ↗</a>@endif @if ($long)<button type="button" x-on:click="o = ! o" class="link-neutral" x-text="o ? 'Kısalt' : 'Tamamı'">Tamamı</button>@endif</p>
+                        @endif
+                        <div class="mt-1.5 flex items-center gap-1.5">
+                            <button type="button" wire:click="approve({{ $t['id'] }})" class="btn-primary h-7! px-2.5! text-xs!" data-calendar-approve>Onayla</button>
+                            <button type="button" wire:click="reject({{ $t['id'] }})" class="btn-quiet h-7! px-2! text-xs!" data-calendar-reject>Reddet</button>
+                        </div>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+
         @php
             $groups = [
                 ['key' => 'today', 'label' => 'Bugün', 'items' => $board['today']],
@@ -47,7 +74,7 @@
                 </ul>
             @endif
         @endforeach
-        @if ($board['today'] === [] && $board['late'] === [] && $board['open'] === [])
+        @if (($board['asks'] ?? []) === [] && $board['today'] === [] && $board['late'] === [] && $board['open'] === [])
             <p class="mt-4 text-[13px] text-gray-400">Açık iş yok.</p>
         @endif
 

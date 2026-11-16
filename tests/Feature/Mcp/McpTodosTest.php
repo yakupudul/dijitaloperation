@@ -6,8 +6,10 @@ use App\Mcp\Servers\MoxdopServer;
 use App\Mcp\Tools\Todos;
 use App\Models\Brand;
 use App\Models\Customer;
+use App\Models\MoxiMessage;
 use App\Models\Reminder;
 use App\Models\User;
+use App\Services\Calendar\QuickCapture;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -66,5 +68,60 @@ final class McpTodosTest extends TestCase
 
         MoxdopServer::tool(Todos::class, ['action' => 'add', 'text' => 'not: bu bir not'])->assertHasErrors();
         $this->assertSame(1, Reminder::query()->count());
+    }
+
+    /** Onay (yakup 2026-11-16): Claude's own work is asked, not handed to him as a job; Onayla sends it back to Claude. */
+    public function test_an_ask_waits_for_a_yes_and_onayla_hands_the_job_back_to_claude(): void
+    {
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Atlas Diş']);
+        $text = "Ayrılan 3 hekimin İngilizce sayfalarını kaldırayım mı?\n15 aralık sonrası bile kalmasın: /en/dis-hekimi/a/ çöpe gider.";
+
+        MoxdopServer::tool(Todos::class, ['action' => 'ask', 'text' => $text, 'brand_id' => $brand->id, 'url' => 'https://app.moximu.com/onarim'])
+            ->assertOk()->assertSee('onayına sunuldu');
+        MoxdopServer::tool(Todos::class, ['action' => 'ask', 'text' => $text, 'brand_id' => $brand->id])->assertOk()->assertSee('Zaten onayında');
+
+        $ask = Reminder::query()->sole();
+        $this->assertSame(Reminder::ASKED, $ask->approval);
+        $this->assertNull($ask->remind_at, 'A date inside the details does not turn a question into a reminder.');
+        $this->assertSame('Ayrılan 3 hekimin İngilizce sayfalarını kaldırayım mı?', $ask->title);
+        $this->assertSame('https://app.moximu.com/onarim', $ask->url, 'A panel page is kept for an ask.');
+
+        $board = app(QuickCapture::class)->board($this->admin->id, 0);
+        $this->assertSame([$ask->id], array_column($board['asks'], 'id'));
+        $this->assertSame([], $board['open'], 'An ask is not a job for his hands.');
+        MoxdopServer::tool(Todos::class, ['action' => 'list'])->assertOk()->assertSee('asks');
+
+        // A tick cannot answer it.
+        app(QuickCapture::class)->toggle($this->admin->id, $ask->id);
+        $this->assertNull($ask->refresh()->done_at);
+
+        app(QuickCapture::class)->decide($this->admin->id, $ask->id, true);
+        $this->assertSame(Reminder::APPROVED, $ask->refresh()->approval);
+        $this->assertNotNull($ask->done_at);
+        $job = MoxiMessage::query()->sole();
+        $this->assertSame(MoxiMessage::REQUEST, $job->role);
+        $this->assertSame(MoxiMessage::PENDING, $job->status);
+        $this->assertStringStartsWith('Onaylandı: Ayrılan 3 hekimin', $job->body);
+        $this->assertStringContainsString('/en/dis-hekimi/a/', (string) data_get($job->meta, 'detail'));
+        $this->assertSame($brand->id, (int) data_get($job->meta, 'brand_id'));
+
+        MoxdopServer::tool(Todos::class, ['action' => 'list'])->assertOk()->assertSee('onaylandı');
+    }
+
+    public function test_reddet_closes_the_ask_without_a_job_and_done_closes_an_ask_no_longer_needed(): void
+    {
+        MoxdopServer::tool(Todos::class, ['action' => 'ask', 'text' => 'Bağlantılar paketini Büyüme yapayım mı?'])->assertOk();
+        MoxdopServer::tool(Todos::class, ['action' => 'ask', 'text' => 'Eski sayfaları çöpe atayım mı?'])->assertOk();
+        [$first, $second] = Reminder::query()->orderBy('id')->get()->all();
+
+        app(QuickCapture::class)->decide($this->admin->id, $first->id, false);
+        $this->assertSame(Reminder::REJECTED, $first->refresh()->approval);
+        $this->assertSame(0, MoxiMessage::query()->count());
+
+        MoxdopServer::tool(Todos::class, ['action' => 'done', 'id' => $second->id])->assertOk();
+        $this->assertNotNull($second->refresh()->done_at);
+        $this->assertSame(Reminder::ASKED, $second->approval);
+        $this->assertSame(0, MoxiMessage::query()->count());
+        $this->assertSame([], app(QuickCapture::class)->board($this->admin->id, 0)['asks']);
     }
 }

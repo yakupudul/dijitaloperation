@@ -143,7 +143,7 @@ final class Agenda
         foreach (Reminder::query()->with(['brand:id,name'])->openTodos($userId)->orderByRaw('remind_at is null')->orderBy('remind_at')->orderBy('id')->limit(20)->get() as $todo) {
             $late = $todo->remind_at !== null;
             $out['task:'.$todo->id] ??= ['key' => 'task:'.$todo->id, 'kind' => 'task', 'when' => null, 'title' => (string) $todo->title,
-                'line' => trim(($late ? CarbonImmutable::instance($todo->remind_at)->setTimezone(self::TZ)->locale('tr')->isoFormat('D MMMM').' gününden kaldı' : '')
+                'line' => trim(($todo->waitsForApproval() ? 'Onayını bekliyor' : '').($late ? CarbonImmutable::instance($todo->remind_at)->setTimezone(self::TZ)->locale('tr')->isoFormat('D MMMM').' gününden kaldı' : '')
                     .($todo->brand?->name ? ' · '.$todo->brand->name : ''), ' ·'), 'url' => route('operator.calendar'), 'late' => $late];
         }
 

@@ -365,7 +365,7 @@ final class MoxiTools
         if ($q === '') {
             $board = app(QuickCapture::class)->board((int) $user->id, 10);
 
-            return ['takvim' => $link, 'count' => $board['count'], 'today' => $board['today'], 'late' => $board['late'], 'open' => $board['open'], 'notes' => $board['notes']];
+            return ['takvim' => $link, 'count' => $board['count'], 'onay_bekleyen' => $board['asks'], 'today' => $board['today'], 'late' => $board['late'], 'open' => $board['open'], 'notes' => $board['notes']];
         }
         $like = '%'.mb_strtolower($q).'%';
         $rows = Reminder::query()->where('user_id', $user->id)
