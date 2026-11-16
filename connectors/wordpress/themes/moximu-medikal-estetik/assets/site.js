@@ -130,3 +130,22 @@
     if (soru) (window.dataLayer = window.dataLayer || []).push({ event: 'hazir_soru', soru: soru });
   }, true);
 })();
+
+/* Randevu formu: ad ve zaman WhatsApp mesajına yazılır; sunucuya hiçbir şey gitmez.
+   Ölçüm için yalnız olay adı ve uygulama gider (ad gönderilmez). */
+(function () {
+  var f = document.querySelector('[data-lf]');
+  if (!f) return;
+  f.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var ad = (f.ad.value || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    var z = f.zaman.value;
+    var svc = f.getAttribute('data-svc');
+    var msg = 'Merhaba, ' + (ad ? 'ben ' + ad + '. ' : '') + 'Randevu sayfanızdan yazıyorum. ' +
+      (/bilmiyorum/i.test(z) ? svc + ' hakkında bilgi almak istiyorum.' : svc + ' için ' + z.toLowerCase() + ' uygun bir gününüz var mı?');
+    var url = f.getAttribute('data-wa') + encodeURIComponent(msg);
+    (window.dataLayer = window.dataLayer || []).push({ event: 'randevu_formu', uygulama: svc });
+    var w = window.open(url, '_blank');
+    if (w) { try { w.opener = null; } catch (e) {} } else { location.href = url; }
+  });
+})();

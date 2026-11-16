@@ -542,3 +542,70 @@ main:has(> .band:last-child){padding-bottom:0}
   .clip--card{scroll-snap-align:center}
   .vids__cap{text-align:left}
 }
+
+/* ------------------------------------------------------------------ Reklam sayfası (16.11.2026)
+   İlk ekran: solda başlık, üç güvence ve randevu formu; sağda kenara kadar hekimin fotoğrafı. */
+.hero--lp{padding:0;border-bottom:0}
+.hero--lp .hero__grid{display:grid;grid-template-columns:minmax(0,1.04fr) minmax(0,.96fr);column-gap:0;align-items:stretch;min-height:min(calc(100vh - 76px),880px)}
+.hero--lp .hero__txt{align-self:center;padding-block:56px 64px;padding-left:max(var(--gutter),calc((100vw - var(--w)) / 2));padding-right:72px}
+.hero--lp h1{font-size:60px;line-height:1.04;font-weight:500;letter-spacing:-.035em;max-width:11em}
+.hero--lp .lead{margin-top:22px;font-size:19px;line-height:30px;max-width:31em}
+.ticks{list-style:none;padding:0;margin:24px 0 0;display:grid;gap:8px;font-size:17px;line-height:26px;color:var(--ink)}
+.ticks li{display:flex;gap:12px;align-items:flex-start}
+.ticks .ic{flex:none;margin-top:3px;color:var(--wa)}
+.hero--lp .hero__fig{position:relative;margin:0;min-height:520px}
+.hero__ph{position:absolute;inset:0;overflow:hidden;background:var(--photo-ground)}
+.hero__ph img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 30%}
+.hero__who{position:absolute;left:32px;bottom:32px;display:grid;gap:2px;padding:14px 20px;border-radius:14px;background:rgba(255,255,255,.96);box-shadow:0 12px 34px rgba(37,24,23,.18);font-size:15px;line-height:22px;color:var(--mute)}
+.hero__who strong{color:var(--ink);font-weight:600;font-size:16px}
+
+/* Randevu formu: bilgi sunucuya gitmez, WhatsApp'ta hazır mesaj açılır */
+.lf{margin-top:32px;max-width:560px;padding:24px;border:1px solid var(--line);border-radius:18px;background:var(--bg);box-shadow:0 22px 60px rgba(37,24,23,.10)}
+.lf__h{font-size:19px;line-height:26px;font-weight:600;color:var(--ink)}
+.lf__row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:16px}
+.lf__f{display:grid;gap:6px;font-size:14px;line-height:20px;color:var(--mute)}
+.lf__f input,.lf__f select{width:100%;height:52px;padding:0 14px;border:1px solid var(--line-strong);border-radius:var(--r-ui);background:var(--bg);color:var(--ink);font:400 16px/1 var(--font);appearance:none;-webkit-appearance:none}
+.lf__f select{padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23726e6b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;text-overflow:ellipsis}
+.lf__f input:focus,.lf__f select:focus{outline:none;border-color:var(--brown);box-shadow:0 0 0 3px rgba(104,65,61,.16)}
+.lf__btn{width:100%;margin-top:14px;height:56px;font-size:17px}
+.lf__note{margin-top:12px;font-size:14px;line-height:21px;color:var(--mute)}
+.lf__note a{color:var(--brown);font-weight:600;white-space:nowrap}
+
+/* Güven şeridi: koyu bant, üç bilgi */
+.trust{background:var(--night);color:#fff}
+.trust__in{list-style:none;margin-block:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;padding-block:26px}
+.trust li{display:flex;gap:14px;align-items:flex-start;font-size:15px;line-height:22px;color:var(--on-dark)}
+.trust li .ic{flex:none;margin-top:2px;color:#e2b9b1}
+.trust li strong{display:block;color:#fff;font-weight:600;font-size:16px}
+.trust + .facts{border-top:0}
+
+/* Sayfa ortasında kısa çağrı */
+.cstrip{padding-top:var(--gap-sec)}
+.cstrip__in{display:flex;align-items:center;justify-content:space-between;gap:32px}
+.cstrip__in > p{flex:1;min-width:0;padding:32px 0 32px 0;font-size:24px;line-height:34px;color:var(--ink);font-weight:500;letter-spacing:-.01em;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cstrip__btns{display:flex;gap:12px;flex:none}
+
+@media (max-width:1180px){
+  .hero--lp .hero__txt{padding-right:48px}
+  .hero--lp h1{font-size:50px}
+}
+@media (max-width:860px){
+  .hero--lp .hero__grid{display:flex;flex-direction:column;min-height:0}
+  .hero--lp .hero__txt{display:contents}
+  .hero--lp h1{order:1;font-size:38px;line-height:1.08;padding:28px max(20px,env(safe-area-inset-left,0px)) 0}
+  .hero--lp .lead{order:2;font-size:17px;line-height:27px;margin-top:14px;padding-inline:max(20px,env(safe-area-inset-left,0px))}
+  .hero--lp .hero__fig{order:3;min-height:0;margin-top:22px}
+  .hero__ph{position:relative;aspect-ratio:4/3.4}
+  .hero__who{left:16px;bottom:16px;padding:10px 14px;font-size:13.5px;line-height:19px}
+  .hero__who strong{font-size:15px}
+  .ticks{order:4;margin:22px 0 0;padding-inline:max(20px,env(safe-area-inset-left,0px));font-size:16px;line-height:24px}
+  .hero--lp [data-cta]{order:5;padding:0 max(16px,env(safe-area-inset-left,0px)) 32px}
+  .lf{margin-top:22px;padding:18px;border-radius:16px}
+  .lf__row{grid-template-columns:minmax(0,1fr)}
+  .trust__in{grid-template-columns:minmax(0,1fr);gap:14px;padding-block:22px}
+  .cstrip{padding-top:72px}
+  .cstrip__in{flex-direction:column;align-items:stretch;gap:18px}
+  .cstrip__in > p{font-size:20px;line-height:29px;padding:24px 0 0;border-bottom:0}
+  .cstrip__btns{flex-direction:column}
+  .cstrip__btns .btn{width:100%}
+}
