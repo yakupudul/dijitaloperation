@@ -22,6 +22,16 @@ final class StagingDeployScriptTest extends TestCase
         return (int) $position;
     }
 
+    /** 2026-11-17: the home screen changed class and the deploy stopped at this guard after 35 minutes of green tests. */
+    public function test_root_route_guard_accepts_the_current_home_screen(): void
+    {
+        $this->assertSame(1, preg_match('/grep -Eq -- "(Route::livewire[^"]+)" routes\/demo\.php/', $this->script(), $guard));
+        $pattern = '/'.str_replace('/', '\/', $guard[1]).'/';
+
+        $this->assertSame(1, preg_match($pattern, (string) file_get_contents(base_path('routes/demo.php'))),
+            'routes/demo.php root route does not match the deploy.sh guard; add the new home class to the guard.');
+    }
+
     public function test_config_and_route_caches_are_replaced_atomically(): void
     {
         // Production: "require(bootstrap/cache/routes-v7.php): Failed to open stream" during a deploy — route:cache

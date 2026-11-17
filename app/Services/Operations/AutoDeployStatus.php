@@ -67,7 +67,14 @@ final class AutoDeployStatus
     public static function failure(int $bytes = 6000): ?string
     {
         try {
-            $text = is_file(self::failurePath()) ? (string) file_get_contents(self::failurePath(), false, null, 0, $bytes) : '';
+            $text = is_file(self::failurePath()) ? (string) file_get_contents(self::failurePath()) : '';
+            // A deploy failure is the log's tail: the cause is in its last lines, after the test dots (2026-11-17:
+            // the first bytes were only dots and the reason could not be read without the server).
+            $text = (string) preg_replace('/\x1B\[[0-9;]*[A-Za-z]/', '', $text);
+            if (strlen($text) > $bytes) {
+                $head = strtok($text, "\n");
+                $text = str_contains((string) $head, '· deploy') ? $head."\n…\n".substr($text, -$bytes) : substr($text, 0, $bytes);
+            }
         } catch (Throwable) {
             return null;
         }
