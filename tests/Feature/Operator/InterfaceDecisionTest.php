@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Operator;
 
+use App\Livewire\Operator\Moxi;
 use App\Livewire\Operator\Portfolio\BrandShow;
 use App\Livewire\Operator\Today\TodayPage;
 use App\Models\Brand;
@@ -20,6 +21,7 @@ use App\Support\AssetIntent;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Once;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -87,7 +89,7 @@ final class InterfaceDecisionTest extends TestCase
         $this->assertFalse(AssetIntent::quiet($old->id));
 
         Livewire::test(BrandShow::class, ['brand' => $this->brand->id])->call('setAssetIntent', $old->id, DigitalAsset::INTENT_RETIRED, 'yeni hesaba geçildi');
-        \Illuminate\Support\Once::flush();
+        Once::flush();
 
         $old->refresh();
         $this->assertSame(DigitalAsset::INTENT_RETIRED, $old->intent);
@@ -99,7 +101,7 @@ final class InterfaceDecisionTest extends TestCase
         $this->assertStringContainsString('yeni hesaba geçildi', $row['line']);
 
         Livewire::test(BrandShow::class, ['brand' => $this->brand->id])->call('setAssetIntent', $old->id, '');
-        \Illuminate\Support\Once::flush();
+        Once::flush();
         $this->assertFalse(AssetIntent::quiet($old->id));
     }
 
@@ -140,8 +142,10 @@ final class InterfaceDecisionTest extends TestCase
 
         $note = ClaudeNote::query()->create(['brand_id' => $this->brand->id, 'kind' => ClaudeNote::AUDIT, 'text' => 'Reklam parasının üçte biri rakip hekim adlarına gidiyor.', 'status' => ClaudeNote::OPEN]);
         $other = ClaudeNote::query()->create(['brand_id' => null, 'kind' => ClaudeNote::AUDIT, 'text' => 'Ekranlar 4 saniyede açılıyor.', 'status' => ClaudeNote::OPEN]);
-        Livewire::test(TodayPage::class)->assertSee('Denetçi diyor ki')->assertSee('rakip hekim adlarına')->assertSee('Haklısın')
-            ->call('agree', $note->id)->call('disagree', $other->id)->assertDontSee('Denetçi diyor ki');
+        // yakup 2026-11-17: the Denetçi lives in Moxi's chat as a tab, not on Bugün.
+        Livewire::test(TodayPage::class)->assertDontSee('rakip hekim adlarına');
+        Livewire::test(Moxi::class)->assertSeeInOrder(['Sohbet', 'Denetçi', 'Defter'])->assertSee('rakip hekim adlarına')->assertSee('Haklısın')
+            ->call('agree', $note->id)->call('disagree', $other->id)->assertDontSee('Haklısın')->assertSee('söyleyeceği bir şey yok');
         $this->assertSame(ClaudeNote::AGREED, $note->refresh()->status);
         $this->assertSame(ClaudeNote::REJECTED, $other->refresh()->status);
 

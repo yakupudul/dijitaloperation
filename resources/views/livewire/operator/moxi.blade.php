@@ -1,5 +1,5 @@
 {{-- Moxi, the corner assistant (yakup 2026-11-09). The corner button is a chat icon made from the Moximu cone (no character); sounds and speech: operator/partials/moxi-script. --}}
-<div class="mx-root @if ($alert) has-alert @endif" x-data="moxiChat()" x-init="boot()" @moxi-open.window="open = true"
+<div class="mx-root @if ($alert) has-alert @endif" x-data="moxiChat()" x-init="boot()" @moxi-open.window="open = true; tab = ($event.detail && $event.detail.tab) || tab"
     @moxi-think.window="think()" @moxi-said.window="said($event.detail)" @moxi-happy.window="happy($event.detail)"
     data-rank="{{ $rank['level'] ?? 1 }}" data-rank-name="{{ $rank['name'] ?? 'Çırak' }}" data-cards="{{ $doneCards }}"
     wire:poll.{{ $busy ? '2s' : ($waitingJobs ? '30s' : '90s') }}="refresh" data-moxi>
@@ -113,6 +113,13 @@
 .mx-bubble.tip{border-color:#FDCF3C; box-shadow:inset 3px 0 0 #FDCF3C, 0 8px 24px rgba(20,40,38,.18)}
 .mx-bubble.milestone{border-color:#c8452c}
 .mx-bubble small{display:block; font-weight:500; color:#1f6461; margin-top:2px}
+/* sekmeler */
+.mx-tabs{display:flex; gap:2px; padding:0 10px; border-bottom:1px solid #eeebe0; background:#fff}
+.mx-tabs button{border:0; background:none; font:inherit; font-size:13px; font-weight:500; color:#6b7473; padding:9px 10px 8px; border-bottom:2px solid transparent; margin-bottom:-1px; cursor:pointer; display:flex; align-items:center; gap:6px}
+.mx-tabs button:hover{color:#1f2a2a}
+.mx-tabs button.on{color:#1f6461; border-bottom-color:#1f6461; font-weight:600}
+.mx-tabs button:focus-visible{outline:2px solid #1f6461; outline-offset:-2px; border-radius:6px}
+.mx-n{min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#FDCF3C; color:#1f2a2a; font-size:11px; font-weight:700; display:inline-grid; place-items:center}
 /* defter */
 .mx-book{flex:1; overflow-y:auto; padding:12px; background:#fbfaf6; display:grid; gap:8px; align-content:start}
 .mx-book li{display:flex; gap:8px; align-items:flex-start; background:#fff; border:1px solid #eeebe0; border-radius:10px; padding:7px 10px; list-style:none}
@@ -127,7 +134,6 @@
         <header class="mx-head">
             @include('operator.partials.moxi-cone', ['class' => 'sm'])
             <div class="mx-ttl"><b>Moxi</b><span class="mx-status"><i class="mx-live"></i><span x-text="status">{{ $busy ? 'düşünüyor…' : 'hazır' }}</span></span></div>
-            <button type="button" class="mx-hb" :class="book ? 'on' : ''" @click="book = !book; menu = false" :aria-pressed="book" title="Moxi'nin defteri: senden öğrendikleri">Defter</button>
             <div class="mx-menu-w" @click.outside="menu = false">
                 <button type="button" class="mx-hb mx-hb-i" @click="menu = !menu" :aria-expanded="menu" aria-label="Ayarlar" title="Ayarlar"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
                 <div class="mx-menu" x-show="menu" x-cloak x-transition.origin.top.right>
@@ -140,7 +146,30 @@
             <button type="button" class="mx-hb mx-hb-i" @click="toggle()" aria-label="Kapat" title="Kapat"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
         </header>
 
-        <div class="mx-book" x-show="book" x-cloak>
+        <nav class="mx-tabs" role="tablist" aria-label="Moxi sekmeleri">
+            <button type="button" role="tab" :class="tab === 'chat' ? 'on' : ''" :aria-selected="tab === 'chat'" @click="tab = 'chat'; menu = false">Sohbet</button>
+            <button type="button" role="tab" :class="tab === 'audit' ? 'on' : ''" :aria-selected="tab === 'audit'" @click="tab = 'audit'; menu = false" title="Claude'un markalara, yapılan işlere ve sistemin kendisine bakıp söyledikleri">Denetçi @if ($audits !== [])<span class="mx-n">{{ count($audits) }}</span>@endif</button>
+            <button type="button" role="tab" :class="tab === 'book' ? 'on' : ''" :aria-selected="tab === 'book'" @click="tab = 'book'; menu = false" title="Moxi'nin senden öğrendikleri">Defter</button>
+        </nav>
+
+        <div class="mx-book" x-show="tab === 'audit'" x-cloak data-auditor>
+            @forelse ($audits as $audit)
+                <div class="mx-card audit" wire:key="mx-audit-{{ $audit['id'] }}" data-audit="{{ $audit['id'] }}">
+                    <span class="mx-tag">{{ $audit['brand'] ?? 'Sistem' }}, {{ $audit['at'] }}</span>
+                    <div>{{ $audit['text'] }}</div>
+                    <div class="mx-acts">
+                        <button type="button" class="mx-btn pri" wire:click="agree({{ $audit['id'] }})" wire:loading.attr="disabled" title="Claude bunu yapar ya da geliştirme havuzuna alır">Haklısın</button>
+                        <button type="button" class="mx-btn" wire:click="disagree({{ $audit['id'] }})" wire:loading.attr="disabled" title="Bir daha söylenmez">Katılmıyorum</button>
+                        @if ($audit['brand_id'] !== null)<a class="moxi-link mx-tag ok" href="{{ route('operator.brand', $audit['brand_id']) }}" wire:navigate>Markayı aç</a>@endif
+                        @foreach (array_slice($audit['refs'], 0, 1) as $ref)<a class="moxi-link mx-tag ok" href="{{ $ref }}" target="_blank" rel="noopener noreferrer">Kanıtı aç</a>@endforeach
+                    </div>
+                </div>
+            @empty
+                <div class="mx-empty">Denetçi'nin şu an söyleyeceği bir şey yok. Haftada bir markalara, yapılan işlere ve sistemin kendisine bakar; gördüğünü buraya yazar.</div>
+            @endforelse
+        </div>
+
+        <div class="mx-book" x-show="tab === 'book'" x-cloak>
             <div class="mx-tag">Moxi'nin senden öğrendikleri. Her cevapta bunlara uyar; yanlışsa ✕ ile unuttur.</div>
             @if ($notebook === [])
                 <div class="mx-empty">Defter boş. "Bundan sonra fiyatları +KDV yaz" gibi şeyler söyledikçe buraya not eder.</div>
@@ -154,7 +183,7 @@
             @endif
         </div>
 
-        <div class="mx-log" x-ref="log" x-show="!book">
+        <div class="mx-log" x-ref="log" x-show="tab === 'chat'">
             @forelse ($rows as $row)
                 @switch($row->role)
                     @case('user')
@@ -229,7 +258,7 @@
             @endif
         </div>
 
-        <form class="mx-form" @submit.prevent="submit()">
+        <form class="mx-form" x-show="tab === 'chat'" @submit.prevent="submit()">
             <textarea rows="1" wire:model="text" x-ref="input" placeholder="Moxi'ye yaz…" aria-label="Moxi'ye mesaj"
                 @input="typing()" @keydown.enter.prevent="if (! $event.shiftKey) $el.form.requestSubmit()" @if ($busy) disabled @endif></textarea>
             <button type="submit" class="mx-btn pri" @if ($busy) disabled @endif>Gönder</button>

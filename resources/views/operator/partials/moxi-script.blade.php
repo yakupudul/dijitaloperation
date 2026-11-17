@@ -15,7 +15,7 @@ window.moxiChat = function () {
         timer: null,
         trVoice: null,
         speaking: false,
-        book: false,
+        tab: 'chat',
         menu: false,
         bubbles: store.get('bubbles', '1') === '1',
         bubbleText: '', bubbleUrl: null, bubbleKind: '', bubbleTimer: null,

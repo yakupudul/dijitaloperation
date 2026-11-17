@@ -26,34 +26,6 @@
         </div>
     </header>
 
-    @if ($audits !== [])
-        <section data-auditor>
-            <div class="section-head">
-                <h2 class="section-title">Denetçi diyor ki <span class="section-count">{{ count($audits) }}</span></h2>
-                <span class="text-sm text-gray-500">markalara, yapılan işlere ve sistemin kendisine bakıp söyledikleri</span>
-            </div>
-            <div class="card">
-                @foreach ($audits as $audit)
-                    <div class="card-row items-start! gap-3 max-sm:flex-wrap" wire:key="audit-{{ $audit['id'] }}" data-audit="{{ $audit['id'] }}">
-                        <div class="min-w-0 flex-1">
-                            <p class="text-[13px] text-gray-500">{{ $audit['brand'] ?? 'Sistem' }}, {{ $audit['at'] }}</p>
-                            <p class="mt-1 max-w-[72ch] text-sm leading-6 text-gray-900 dark:text-white">{{ $audit['text'] }}</p>
-                            @if ($audit['refs'] !== [])
-                                <p class="mt-1 flex flex-wrap gap-x-3 text-xs">@foreach (array_slice($audit['refs'], 0, 2) as $ref)<a href="{{ $ref }}" target="_blank" rel="noopener noreferrer" class="link-neutral">Kanıtı aç</a>@endforeach</p>
-                            @endif
-                        </div>
-                        @if ($isAdmin)
-                            <div class="flex shrink-0 items-center gap-2 max-sm:w-full">
-                                <button type="button" wire:click="agree({{ $audit['id'] }})" class="btn-primary" title="Claude bunu yapar ya da geliştirme havuzuna alır">Haklısın</button>
-                                <button type="button" wire:click="disagree({{ $audit['id'] }})" class="btn" title="Bir daha söylenmez">Katılmıyorum</button>
-                            </div>
-                        @endif
-                    </div>
-                @endforeach
-            </div>
-        </section>
-    @endif
-
     {{-- Moximu's own line (Aşama 3): the agency's inbox and today's sales steps in one sentence; loads after the page. --}}
     <div data-sales-today><livewire:operator.sales.today-card lazy /></div>
 

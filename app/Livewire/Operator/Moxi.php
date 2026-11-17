@@ -3,11 +3,13 @@
 namespace App\Livewire\Operator;
 
 use App\Jobs\Moxi\MoxiTurnJob;
+use App\Models\ClaudeNote;
 use App\Models\MoxiMessage;
 use App\Models\SystemChange;
 use App\Services\Moxi\MoxiActions;
 use App\Services\Moxi\MoxiCharacter;
 use App\Services\Operations\SystemChangeDesk;
+use App\Services\Operator\BrandToday;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +22,8 @@ use Throwable;
  * Moxi, the corner assistant (yakup 2026-11-09): a small samurai at the bottom right of every panel screen (admins only).
  * The operator writes; the answer is made off the request (MoxiTurnJob) and the chat polls until it lands. Cards wait
  * for Yap / Vazgeç, Claude's answers to handed-over jobs arrive here, and Moxi's improvement proposals wait for Onayla /
- * Sonra. The mascot's moves, sounds and speech run in the browser (Alpine) on the events this component sends.
+ * Sonra. The chat has tabs (yakup 2026-11-17): Sohbet, Denetçi (Claude's remarks on brands, the work done and the system
+ * itself, answered with Haklısın / Katılmıyorum) and Defter. The mascot's moves, sounds and speech run in the browser (Alpine) on the events this component sends.
  */
 final class Moxi extends Component
 {
@@ -113,6 +116,25 @@ final class Moxi extends Component
         $row->forceFill(['status' => $approve ? MoxiMessage::DONE : MoxiMessage::CANCELLED])->save();
     }
 
+    /** Denetçi: Haklısın. Claude does it on its next round (brand work) or it goes to the development pool (system). */
+    public function agree(int $noteId): void
+    {
+        $this->answerAudit($noteId, ClaudeNote::AGREED);
+        $this->dispatch('moxi-happy', text: 'Tamam, Claude sıradaki turunda yapar.');
+    }
+
+    /** Denetçi: Katılmıyorum. Learned; the same remark is not raised again. */
+    public function disagree(int $noteId): void
+    {
+        $this->answerAudit($noteId, ClaudeNote::REJECTED);
+    }
+
+    private function answerAudit(int $noteId, string $status): void
+    {
+        abort_unless(self::allowed(), 403);
+        ClaudeNote::query()->whereKey($noteId)->where('kind', ClaudeNote::AUDIT)->where('status', ClaudeNote::OPEN)->update(['status' => $status, 'updated_at' => now()]);
+    }
+
     /**
      * A speech bubble over Moxi's head (the browser asks now and then, only while the chat is closed).
      *
@@ -186,14 +208,16 @@ final class Moxi extends Component
             : collect();
 
         $character = app(MoxiCharacter::class);
+        $audits = self::allowed() ? app(BrandToday::class)->audits() : [];
 
         return view('livewire.operator.moxi', [
             'rows' => $rows->where('role', '!=', MoxiMessage::NOTE)->values(),
             'rank' => self::allowed() ? $character->rank((int) Auth::id()) : null,
             'doneCards' => self::allowed() ? $character->doneCards((int) Auth::id()) : 0,
             'notebook' => self::allowed() ? $character->notebook((int) Auth::id()) : [],
+            'audits' => $audits,
             'busy' => self::allowed() && $this->busy(),
-            'alert' => self::allowed() && MoxiMessage::query()->where('user_id', Auth::id())->where('role', MoxiMessage::AUDIT)->where('status', MoxiMessage::PENDING)->exists(),
+            'alert' => $audits !== [] || self::allowed() && MoxiMessage::query()->where('user_id', Auth::id())->where('role', MoxiMessage::AUDIT)->where('status', MoxiMessage::PENDING)->exists(),
             'waitingJobs' => self::allowed() && MoxiMessage::query()->where('user_id', Auth::id())->where('role', MoxiMessage::REQUEST)->where('status', MoxiMessage::PENDING)->exists(),
         ]);
     }
