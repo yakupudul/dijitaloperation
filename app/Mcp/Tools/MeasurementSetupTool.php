@@ -22,6 +22,7 @@ use Throwable;
 - action=apply (brand_id; ga4_account "accounts/N" when the brand has no GA4 property, or property_id; gtm_account when a new container is needed, or container_id; skip_ads; events = only some of phone_click / whatsapp_click / generate_lead; key_events=false when GA4 already has its own key events for them; allow_existing; publish default true): creates only what is missing (by name), never deletes or edits a working conversion; it STOPS and reports when the property or container already has its own conversion events or tags, unless allow_existing=true (then judge double counting first).
 - action=verify (brand_id): Search Console verification by the Tag Manager (then Analytics) method, once the container is on the site.
 - action=fix_conversion_ids (gtm_account, container_id; dry_run; publish default true): repairs Google Ads conversion tags (awct) whose Conversion ID was typed as "AW-123…" (Google Ads never counts those hits): only that field becomes the bare number, then the container is versioned and published. dry_run=true only lists the broken tags. Nothing else in a tag is changed.
+- action=primary_for_goal (brand_id, names, primary; dry_run): makes the named Google Ads conversion actions primary or secondary, only that setting, only after the operator approved it (todos ask). Run with dry_run=true first. Refused when no enabled primary action would be left. It never creates, deletes or renames an action.
 Putting the container on a WordPress site is a site-tool step (GTM4WP plugin from WordPress.org + its option, or the theme). A brandless site gets nothing. Health sites: no tracking of health data in event parameters.
 TEXT)]
 class MeasurementSetupTool extends Tool
@@ -31,7 +32,7 @@ class MeasurementSetupTool extends Tool
     public function handle(Request $request): Response
     {
         $validated = $request->validate([
-            'action' => ['required', 'in:status,accounts,apply,verify,fix_conversion_ids'],
+            'action' => ['required', 'in:status,accounts,apply,verify,fix_conversion_ids,primary_for_goal'],
             'brand_id' => ['nullable', 'integer'],
             'ga4_account' => ['nullable', 'string', 'max:40'],
             'property_id' => ['nullable', 'string', 'max:40'],
@@ -45,9 +46,12 @@ class MeasurementSetupTool extends Tool
             'containers' => ['nullable', 'boolean'],
             'dry_run' => ['nullable', 'boolean'],
             'events.*' => ['string', 'in:phone_click,whatsapp_click,generate_lead'],
+            'names' => ['nullable', 'array', 'max:20'],
+            'names.*' => ['string', 'max:200'],
+            'primary' => ['nullable', 'boolean'],
         ]);
         $action = (string) $validated['action'];
-        if (in_array($action, ['apply', 'verify', 'fix_conversion_ids'], true) && EmergencyStop::active()) {
+        if (in_array($action, ['apply', 'verify', 'fix_conversion_ids', 'primary_for_goal'], true) && EmergencyStop::active()) {
             return Response::error(EmergencyStop::REASON);
         }
         try {
@@ -68,9 +72,10 @@ class MeasurementSetupTool extends Tool
                 'status' => $this->setup->status($brand),
                 'apply' => $this->setup->apply($brand, array_filter($validated, fn ($v): bool => $v !== null)),
                 'verify' => $this->setup->verify($brand),
+                'primary_for_goal' => $this->setup->primaryForGoal($brand, array_filter($validated, fn ($v): bool => $v !== null)),
             };
             if ($action !== 'status') {
-                Log::info('Ölçüm kurulumu', ['brand_id' => $brand->id, 'action' => $action, 'created' => $result['created'] ?? null, 'verified' => $result['verified'] ?? null]);
+                Log::info('Ölçüm kurulumu', ['brand_id' => $brand->id, 'action' => $action, 'changed' => $result['changed'] ?? null, 'created' => $result['created'] ?? null, 'verified' => $result['verified'] ?? null]);
             }
 
             return Response::json($result);
@@ -83,14 +88,16 @@ class MeasurementSetupTool extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'action' => $schema->string()->enum(['status', 'accounts', 'apply', 'verify', 'fix_conversion_ids'])->description('status | accounts | apply | verify | fix_conversion_ids')->required(),
+            'action' => $schema->string()->enum(['status', 'accounts', 'apply', 'verify', 'fix_conversion_ids', 'primary_for_goal'])->description('status | accounts | apply | verify | fix_conversion_ids | primary_for_goal')->required(),
             'brand_id' => $schema->integer()->description('Brand id from list-brands (status, apply, verify).'),
             'ga4_account' => $schema->string()->description('apply: GA4 account "accounts/N" for a new property.'),
             'property_id' => $schema->string()->description('apply: an existing GA4 property to use.'),
             'gtm_account' => $schema->string()->description('apply: GTM account id for a new container (also limits the container search to it). accounts: only this account\'s containers.'),
             'containers' => $schema->boolean()->description('accounts: false = GTM accounts without their containers (default true).'),
             'container_id' => $schema->string()->description('apply: an existing GTM container id to use. fix_conversion_ids: the container to repair.'),
-            'dry_run' => $schema->boolean()->description('fix_conversion_ids: only list the broken tags.'),
+            'dry_run' => $schema->boolean()->description('fix_conversion_ids: only list the broken tags. primary_for_goal: only report what would change.'),
+            'names' => $schema->array()->items($schema->string())->description('primary_for_goal: exact names of the conversion actions (from status → ads_conversions).'),
+            'primary' => $schema->boolean()->description('primary_for_goal: true = count as primary (bidding uses it), false = secondary (only reported).'),
             'skip_ads' => $schema->boolean()->description('apply: leave Google Ads out.'),
             'allow_existing' => $schema->boolean()->description('apply: add the standard although the property / container already measures conversions.'),
             'publish' => $schema->boolean()->description('apply: publish the GTM version (default true).'),

@@ -264,6 +264,31 @@ final class MeasurementSetupTest extends TestCase
         app(GoogleApiClient::class)->createAdsConversionActions(CoreIntegration::query()->first(), '1112223333', [['name' => 'x', 'type' => 'UPLOAD_CLICKS']]);
     }
 
+    public function test_primary_or_secondary_changes_only_that_setting_and_never_leaves_the_account_without_a_primary(): void
+    {
+        $setup = app(\App\Services\Measurement\MeasurementSetup::class);
+        $same = $setup->primaryForGoal($this->brand, ['names' => ['Eski WhatsApp (GA4)', 'Olmayan eylem'], 'primary' => true]);
+        $this->assertSame([[], ['Eski WhatsApp (GA4)'], ['Olmayan eylem']], [$same['changed'], $same['unchanged'], $same['not_found']]);
+        $this->assertFalse(collect($this->writes)->contains(fn ($w): bool => str_contains($w[1], 'conversionActions')), 'nothing to change, nothing written');
+
+        $client = app(GoogleApiClient::class);
+        $client->setAdsConversionPrimary(CoreIntegration::query()->first(), '111-222-3333', ['customers/1112223333/conversionActions/77'], false, '9998887777');
+        $write = collect($this->writes)->last();
+        $this->assertStringContainsString('customers/1112223333/conversionActions:mutate', $write[1]);
+        $this->assertSame([['update' => ['resourceName' => 'customers/1112223333/conversionActions/77', 'primaryForGoal' => false], 'updateMask' => 'primary_for_goal']], $write[2]['operations']);
+
+        try {
+            $client->setAdsConversionPrimary(CoreIntegration::query()->first(), '1112223333', ['customers/999/conversionActions/77'], false);
+            $this->fail('another customer\'s action must be refused');
+        } catch (RuntimeException $e) {
+            $this->assertStringContainsString('izinli değil', $e->getMessage());
+        }
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('birincil dönüşüm bırakmıyor');
+        $setup->primaryForGoal($this->brand, ['names' => ['Eski WhatsApp (GA4)'], 'primary' => false]);
+    }
+
     public function test_the_connect_link_asks_for_the_measurement_permissions(): void
     {
         $admin = User::factory()->create(['is_active' => true]);

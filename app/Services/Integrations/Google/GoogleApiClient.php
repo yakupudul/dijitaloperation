@@ -218,6 +218,27 @@ class GoogleApiClient
         return $this->adsRequest($integration, 'post', 'customers/'.$customerId.'/conversionActions:mutate', ['operations' => $operations], $loginCustomerId ?? $customerId);
     }
 
+    /**
+     * Sets primary_for_goal of existing conversion actions, and only that field (ölçüm kurulumu, yakup 2026-11-13 / 17:
+     * conversion setup is the one Google Ads write allowed). Resource names must be conversion actions of this customer.
+     *
+     * @param  list<string>  $resourceNames
+     */
+    public function setAdsConversionPrimary(CoreIntegration $integration, string $customerId, array $resourceNames, bool $primary, ?string $loginCustomerId = null): Response
+    {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        $valid = $customerId !== '' && $resourceNames !== [] && count($resourceNames) <= 20;
+        foreach ($resourceNames as $name) {
+            $valid = $valid && is_string($name) && preg_match('~^customers/'.$customerId.'/conversionActions/\d+$~', $name) === 1;
+        }
+        if (! $valid) {
+            throw new RuntimeException('Google Ads dönüşüm ayarı isteği izinli değil.');
+        }
+        $operations = array_map(fn (string $name): array => ['update' => ['resourceName' => $name, 'primaryForGoal' => $primary], 'updateMask' => 'primary_for_goal'], array_values($resourceNames));
+
+        return $this->adsRequest($integration, 'post', 'customers/'.$customerId.'/conversionActions:mutate', ['operations' => $operations], $loginCustomerId ?? $customerId);
+    }
+
     /** ADR-081: the only fields a setting change may update, per service. */
     public const array ADS_SETTING_FIELDS = [
         'campaigns' => ['network_settings.target_search_network', 'network_settings.target_content_network', 'geo_target_type_setting.positive_geo_target_type'],

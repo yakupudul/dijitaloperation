@@ -482,6 +482,58 @@ final class MeasurementSetup
         ], $rows);
     }
 
+    /**
+     * Birincil / ikincil (yakup's approvals 2026-11-17, karne belgesi): sets primary_for_goal of the named conversion
+     * actions of the brand's Google Ads account, nothing else. Names must match exactly; an action already in the asked
+     * state is left alone. Refused when it would leave the account without any enabled primary action (bidding would
+     * have nothing to optimise for). dry_run only reports.
+     *
+     * @param  array<string, mixed>  $options  names: list<string>, primary: bool, dry_run: bool
+     * @return array<string, mixed>
+     */
+    public function primaryForGoal(Brand $brand, array $options): array
+    {
+        $ads = $this->bindings($brand)['google_ads'];
+        if ($ads === null) {
+            throw new RuntimeException('Bu markaya bağlı Google Ads hesabı yok.');
+        }
+        $names = array_values(array_unique(array_filter(array_map(fn ($n): string => trim((string) $n), (array) ($options['names'] ?? [])))));
+        if ($names === [] || ! array_key_exists('primary', $options)) {
+            throw new RuntimeException('names (dönüşüm eylemi adları) ve primary (true / false) gerekli.');
+        }
+        $primary = (bool) $options['primary'];
+        $rows = $this->adsSearch($ads['customer_id'], $ads['login_customer_id'], "SELECT conversion_action.resource_name, conversion_action.name, conversion_action.status, conversion_action.primary_for_goal FROM conversion_action WHERE conversion_action.status != 'REMOVED'");
+        $actions = collect($rows)->map(fn (array $r): array => [
+            'resource' => (string) data_get($r, 'conversionAction.resourceName'),
+            'name' => (string) data_get($r, 'conversionAction.name'),
+            'status' => (string) data_get($r, 'conversionAction.status'),
+            'primary' => (bool) data_get($r, 'conversionAction.primaryForGoal'),
+        ]);
+        $found = $actions->whereIn('name', $names);
+        $change = $found->where('primary', ! $primary)->values();
+        $result = [
+            'customer_id' => $ads['customer_id'],
+            'primary' => $primary,
+            'changed' => $change->pluck('name')->all(),
+            'unchanged' => $found->where('primary', $primary)->pluck('name')->values()->all(),
+            'not_found' => array_values(array_diff($names, $found->pluck('name')->all())),
+            'dry_run' => (bool) ($options['dry_run'] ?? false),
+        ];
+        if (! $primary) {
+            $left = $actions->where('status', 'ENABLED')->where('primary', true)->whereNotIn('name', $change->pluck('name')->all())->count();
+            if ($left === 0 && $change->isNotEmpty()) {
+                throw new RuntimeException('Bu değişiklik hesapta açık birincil dönüşüm bırakmıyor; teklif neye göre çalışacağını bilemez. Önce birincil kalacak eylemi belirle.');
+            }
+            $result['primary_left'] = $left;
+        }
+        if ($change->isEmpty() || $result['dry_run']) {
+            return $result;
+        }
+        $this->ok($this->google->setAdsConversionPrimary($this->integration(), $ads['customer_id'], $change->pluck('resource')->all(), $primary, $ads['login_customer_id']), 'Google Ads dönüşüm ayarı');
+
+        return $result;
+    }
+
     /** @return list<array<string, mixed>> */
     private function adsSearch(string $customerId, string $login, string $query): array
     {
@@ -669,7 +721,12 @@ HTML;
             ->join('core_external_resources as r', 'r.id', '=', 'b.external_resource_id')
             ->where('a.brand_id', $brand->id)->where('b.status', 'active')
             ->whereIn('b.capability', ['ga4', 'search_console', 'google_ads'])
-            ->orderBy('b.id')->get(['b.capability', 'r.external_id', 'r.metadata']);
+            ->orderBy('b.id')->get(['b.capability', 'r.external_id', 'r.metadata', 'a.id as asset_id']);
+        // An old Google Ads account (marked by the operator, or the silent copy of a working one) is used only when the
+        // brand has no other: OPC's and Burcu Kısa's setup looked at the dead account and reported a permission error.
+        $old = fn (object $row): bool => $row->capability === 'google_ads'
+            && (\App\Support\AssetIntent::quiet((int) $row->asset_id) || \App\Services\Ads\SupersededAdAccounts::isSuperseded((int) $row->asset_id));
+        $rows = $rows->reject($old)->concat($rows->filter($old))->values();
         $out = ['ga4' => null, 'search_console' => null, 'google_ads' => null];
         foreach ($rows as $row) {
             if ($out[$row->capability] !== null) {
