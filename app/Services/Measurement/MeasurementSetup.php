@@ -5,8 +5,10 @@ namespace App\Services\Measurement;
 use App\Models\Brand;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Services\Ads\SupersededAdAccounts;
 use App\Services\Integrations\Google\GoogleApiClient;
 use App\Services\Integrations\Google\GoogleMeasurement;
+use App\Support\AssetIntent;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -502,15 +504,32 @@ final class MeasurementSetup
             throw new RuntimeException('names (dönüşüm eylemi adları) ve primary (true / false) gerekli.');
         }
         $primary = (bool) $options['primary'];
-        $rows = $this->adsSearch($ads['customer_id'], $ads['login_customer_id'], "SELECT conversion_action.resource_name, conversion_action.name, conversion_action.status, conversion_action.primary_for_goal FROM conversion_action WHERE conversion_action.status != 'REMOVED'");
+        $rows = $this->adsSearch($ads['customer_id'], $ads['login_customer_id'], "SELECT conversion_action.resource_name, conversion_action.name, conversion_action.status, conversion_action.primary_for_goal, conversion_action.type, conversion_action.category, conversion_action.origin FROM conversion_action WHERE conversion_action.status != 'REMOVED'");
         $actions = collect($rows)->map(fn (array $r): array => [
             'resource' => (string) data_get($r, 'conversionAction.resourceName'),
             'name' => (string) data_get($r, 'conversionAction.name'),
             'status' => (string) data_get($r, 'conversionAction.status'),
             'primary' => (bool) data_get($r, 'conversionAction.primaryForGoal'),
+            'goal' => (string) data_get($r, 'conversionAction.category').'~'.(string) data_get($r, 'conversionAction.origin'),
+            // Google's own actions: their primary_for_goal cannot be written, only their goal's bidding use.
+            'hosted' => (string) data_get($r, 'conversionAction.type') === 'GOOGLE_HOSTED' || str_starts_with((string) data_get($r, 'conversionAction.type'), 'SMART_CAMPAIGN_'),
         ]);
         $found = $actions->whereIn('name', $names);
+        $hosted = $found->where('hosted', true);
+        if ($hosted->isNotEmpty()) {
+            $biddable = collect($this->adsSearch($ads['customer_id'], $ads['login_customer_id'], 'SELECT customer_conversion_goal.category, customer_conversion_goal.origin, customer_conversion_goal.biddable FROM customer_conversion_goal'))
+                ->mapWithKeys(fn (array $r): array => [(string) data_get($r, 'customerConversionGoal.category').'~'.(string) data_get($r, 'customerConversionGoal.origin') => (bool) data_get($r, 'customerConversionGoal.biddable')]);
+            $actions = $actions->map(fn (array $a): array => $a['hosted'] ? ['primary' => (bool) ($biddable[$a['goal']] ?? $a['primary'])] + $a : $a);
+            $found = $actions->whereIn('name', $names);
+        }
         $change = $found->where('primary', ! $primary)->values();
+        $goals = $change->where('hosted', true)->pluck('goal')->unique()->values();
+        foreach ($goals as $goal) {
+            $others = $actions->where('goal', $goal)->where('status', 'ENABLED')->whereNotIn('name', $names)->pluck('name')->all();
+            if ($others !== []) {
+                throw new RuntimeException('Bu eylem Google\'ın kendi eylemi; ayarı hedef düzeyinde değişir ve aynı hedefteki şu eylemleri de etkiler: '.implode(', ', $others).'. Onları da listeye ekle ya da bu eylemi çıkar.');
+            }
+        }
         $result = [
             'customer_id' => $ads['customer_id'],
             'primary' => $primary,
@@ -519,6 +538,9 @@ final class MeasurementSetup
             'not_found' => array_values(array_diff($names, $found->pluck('name')->all())),
             'dry_run' => (bool) ($options['dry_run'] ?? false),
         ];
+        if ($goals->isNotEmpty()) {
+            $result['via_goal'] = $goals->all();
+        }
         if (! $primary) {
             $left = $actions->where('status', 'ENABLED')->where('primary', true)->whereNotIn('name', $change->pluck('name')->all())->count();
             if ($left === 0 && $change->isNotEmpty()) {
@@ -529,7 +551,14 @@ final class MeasurementSetup
         if ($change->isEmpty() || $result['dry_run']) {
             return $result;
         }
-        $this->ok($this->google->setAdsConversionPrimary($this->integration(), $ads['customer_id'], $change->pluck('resource')->all(), $primary, $ads['login_customer_id']), 'Google Ads dönüşüm ayarı');
+        $direct = $change->where('hosted', false)->pluck('resource')->values()->all();
+        if ($direct !== []) {
+            $this->ok($this->google->setAdsConversionPrimary($this->integration(), $ads['customer_id'], $direct, $primary, $ads['login_customer_id']), 'Google Ads dönüşüm ayarı');
+        }
+        if ($goals->isNotEmpty()) {
+            $pairs = $goals->map(fn (string $goal): array => ['category' => explode('~', $goal)[0], 'origin' => explode('~', $goal)[1]])->all();
+            $this->ok($this->google->setAdsGoalBiddable($this->integration(), $ads['customer_id'], $pairs, $primary, $ads['login_customer_id']), 'Google Ads dönüşüm hedefi');
+        }
 
         return $result;
     }
@@ -725,7 +754,7 @@ HTML;
         // An old Google Ads account (marked by the operator, or the silent copy of a working one) is used only when the
         // brand has no other: OPC's and Burcu Kısa's setup looked at the dead account and reported a permission error.
         $old = fn (object $row): bool => $row->capability === 'google_ads'
-            && (\App\Support\AssetIntent::quiet((int) $row->asset_id) || \App\Services\Ads\SupersededAdAccounts::isSuperseded((int) $row->asset_id));
+            && (AssetIntent::quiet((int) $row->asset_id) || SupersededAdAccounts::isSuperseded((int) $row->asset_id));
         $rows = $rows->reject($old)->concat($rows->filter($old))->values();
         $out = ['ga4' => null, 'search_console' => null, 'google_ads' => null];
         foreach ($rows as $row) {

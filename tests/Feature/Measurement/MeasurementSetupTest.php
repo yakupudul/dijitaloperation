@@ -39,6 +39,9 @@ final class MeasurementSetupTest extends TestCase
     /** @var list<array{0: string, 1: string, 2: array<string, mixed>}> */
     private array $writes = [];
 
+    /** @var list<array<string, mixed>>|null the account's conversion actions, when a test needs its own */
+    private ?array $adsActions = null;
+
     /** @var list<string> */
     private array $keyEvents = [];
 
@@ -82,7 +85,10 @@ final class MeasurementSetupTest extends TestCase
             }
             if (str_contains($url, 'googleAds:search')) {
                 $query = (string) ($request->data()['query'] ?? '');
-                $existing = [['conversionAction' => ['name' => 'Eski WhatsApp (GA4)', 'category' => 'CONTACT', 'status' => 'ENABLED', 'primaryForGoal' => true, 'type' => 'GOOGLE_ANALYTICS_4_CUSTOM']]];
+                if (str_contains($query, 'customer_conversion_goal')) {
+                    return Http::response(['results' => [['customerConversionGoal' => ['category' => 'GET_DIRECTIONS', 'origin' => 'GOOGLE_HOSTED', 'biddable' => true]]]]);
+                }
+                $existing = $this->adsActions ?? [['conversionAction' => ['name' => 'Eski WhatsApp (GA4)', 'category' => 'CONTACT', 'status' => 'ENABLED', 'primaryForGoal' => true, 'type' => 'GOOGLE_ANALYTICS_4_CUSTOM']]];
                 if (str_contains($query, 'tag_snippets')) {
                     return Http::response(['results' => array_map(fn (string $label, string $code): array => ['conversionAction' => ['name' => 'MoxDOP · '.$label, 'primaryForGoal' => true,
                         'tagSnippets' => [['eventSnippet' => "gtag('event', 'conversion', {'send_to': 'AW-555/".$code."'});"]]]], ['Telefon tıklaması', 'WhatsApp tıklaması', 'Form gönderimi'], ['tel1', 'wa1', 'form1'])]);
@@ -266,7 +272,7 @@ final class MeasurementSetupTest extends TestCase
 
     public function test_primary_or_secondary_changes_only_that_setting_and_never_leaves_the_account_without_a_primary(): void
     {
-        $setup = app(\App\Services\Measurement\MeasurementSetup::class);
+        $setup = app(MeasurementSetup::class);
         $same = $setup->primaryForGoal($this->brand, ['names' => ['Eski WhatsApp (GA4)', 'Olmayan eylem'], 'primary' => true]);
         $this->assertSame([[], ['Eski WhatsApp (GA4)'], ['Olmayan eylem']], [$same['changed'], $same['unchanged'], $same['not_found']]);
         $this->assertFalse(collect($this->writes)->contains(fn ($w): bool => str_contains($w[1], 'conversionActions')), 'nothing to change, nothing written');
@@ -287,6 +293,26 @@ final class MeasurementSetupTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('birincil dönüşüm bırakmıyor');
         $setup->primaryForGoal($this->brand, ['names' => ['Eski WhatsApp (GA4)'], 'primary' => false]);
+    }
+
+    public function test_googles_own_action_leaves_bidding_through_its_goal_and_only_when_the_goal_holds_nothing_else(): void
+    {
+        $hosted = fn (string $name): array => ['conversionAction' => ['resourceName' => 'customers/1112223333/conversionActions/'.crc32($name), 'name' => $name, 'category' => 'GET_DIRECTIONS', 'origin' => 'GOOGLE_HOSTED', 'status' => 'ENABLED', 'primaryForGoal' => true, 'type' => 'GOOGLE_HOSTED']];
+        $keep = ['conversionAction' => ['resourceName' => 'customers/1112223333/conversionActions/5', 'name' => 'WhatsApp', 'category' => 'CONTACT', 'origin' => 'WEBSITE', 'status' => 'ENABLED', 'primaryForGoal' => true, 'type' => 'WEBPAGE']];
+        $setup = app(MeasurementSetup::class);
+
+        $this->adsActions = [$hosted('Yerel işlemler - Yol tarifi'), $keep];
+        $result = $setup->primaryForGoal($this->brand, ['names' => ['Yerel işlemler - Yol tarifi'], 'primary' => false]);
+        $this->assertSame([['Yerel işlemler - Yol tarifi'], ['GET_DIRECTIONS~GOOGLE_HOSTED'], 1], [$result['changed'], $result['via_goal'], $result['primary_left']]);
+        $write = collect($this->writes)->last();
+        $this->assertStringContainsString('customers/1112223333/customerConversionGoals:mutate', $write[1]);
+        $this->assertSame([['update' => ['resourceName' => 'customers/1112223333/customerConversionGoals/GET_DIRECTIONS~GOOGLE_HOSTED', 'biddable' => false], 'updateMask' => 'biddable']], $write[2]['operations']);
+        $this->assertFalse(collect($this->writes)->contains(fn ($w): bool => str_contains($w[1], 'conversionActions:mutate')), 'the action itself is never written');
+
+        $this->adsActions = [$hosted('Yerel işlemler - Yol tarifi'), $hosted('Başka yol tarifi'), $keep];
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Başka yol tarifi');
+        $setup->primaryForGoal($this->brand, ['names' => ['Yerel işlemler - Yol tarifi'], 'primary' => false]);
     }
 
     public function test_the_connect_link_asks_for_the_measurement_permissions(): void

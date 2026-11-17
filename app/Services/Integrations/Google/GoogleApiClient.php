@@ -239,6 +239,28 @@ class GoogleApiClient
         return $this->adsRequest($integration, 'post', 'customers/'.$customerId.'/conversionActions:mutate', ['operations' => $operations], $loginCustomerId ?? $customerId);
     }
 
+    /**
+     * Whether a conversion goal (category + origin) of the account is used for bidding. The only way to take Google's
+     * own actions (Yerel işlemler, Akıllı kampanya) out of bidding: their primary_for_goal cannot be written. Only the
+     * `biddable` field, only this customer's goals.
+     *
+     * @param  list<array{category: string, origin: string}>  $goals
+     */
+    public function setAdsGoalBiddable(CoreIntegration $integration, string $customerId, array $goals, bool $biddable, ?string $loginCustomerId = null): Response
+    {
+        $customerId = preg_replace('/\D+/', '', $customerId) ?? '';
+        $valid = $customerId !== '' && $goals !== [] && count($goals) <= 10;
+        foreach ($goals as $goal) {
+            $valid = $valid && preg_match('/^[A-Z_]{2,40}$/', (string) ($goal['category'] ?? '')) === 1 && preg_match('/^[A-Z_]{2,40}$/', (string) ($goal['origin'] ?? '')) === 1;
+        }
+        if (! $valid) {
+            throw new RuntimeException('Google Ads dönüşüm hedefi isteği izinli değil.');
+        }
+        $operations = array_map(fn (array $goal): array => ['update' => ['resourceName' => 'customers/'.$customerId.'/customerConversionGoals/'.$goal['category'].'~'.$goal['origin'], 'biddable' => $biddable], 'updateMask' => 'biddable'], array_values($goals));
+
+        return $this->adsRequest($integration, 'post', 'customers/'.$customerId.'/customerConversionGoals:mutate', ['operations' => $operations], $loginCustomerId ?? $customerId);
+    }
+
     /** ADR-081: the only fields a setting change may update, per service. */
     public const array ADS_SETTING_FIELDS = [
         'campaigns' => ['network_settings.target_search_network', 'network_settings.target_content_network', 'geo_target_type_setting.positive_geo_target_type'],
