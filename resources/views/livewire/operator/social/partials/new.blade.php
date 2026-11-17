@@ -20,7 +20,7 @@
         <input type="text" wire:model="newTitle" maxlength="190" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
     </label>
     @if ($newKind === 'text')
-        <p class="tone-info rounded-lg px-3.5 py-2.5 text-[13px]">Yalnız metin gönderisi Threads ve LinkedIn’e gider, Instagram ve Facebook’a gitmez. Seçtiğiniz saatte çıkar; sıraya girmez.</p>
+        <p class="tone-info rounded-lg px-3.5 py-2.5 text-[13px]">Yalnız metin gönderisi Threads ve LinkedIn’e gider, Instagram ve Facebook’a gitmez. Onaylanınca metin sırasına girer ve Ayarlar’daki metin saatlerinde çıkar; tarihi sabitlerseniz seçtiğiniz saatte çıkar.</p>
     @else
     <label class="block text-sm">Görsel ya da video (jpg, png, mp4; kaydırmalıda sırayla; Reels’te videodan sonra eklenen görsel kapak olur)
         <input type="file" wire:model="newFiles" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" class="mt-1 block w-full text-sm">

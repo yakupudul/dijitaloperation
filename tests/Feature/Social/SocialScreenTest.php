@@ -11,6 +11,7 @@ use App\Models\SocialPostTarget;
 use App\Models\SocialThread;
 use App\Models\User;
 use App\Services\Social\SocialPlanner;
+use App\Services\Social\SocialSchedule;
 use App\Services\Social\SocialScreen;
 use App\Services\Social\SocialThumbs;
 use App\Support\Roles;
@@ -215,17 +216,27 @@ final class SocialScreenTest extends TestCase
             ->assertSee('Kurulum adımları ve yeniden bağlama (tamamlandı)')->assertSeeHtml('data-youtube');
     }
 
-    public function test_text_post_goes_only_to_threads_and_linkedin_and_keeps_its_time(): void
+    public function test_text_post_goes_only_to_threads_and_linkedin_and_waits_in_its_own_line(): void
     {
         $post = app(SocialPlanner::class)->create(['kind' => 'text', 'title' => 'Sabah gözlemi', 'threads_text' => 'Hasta aramayı çoğu zaman gece yapıyor.', 'publish_at' => '2026-11-11 09:15'], []);
         $this->assertSame(['threads'], $post->targets->map(fn ($t) => $t->account->platform)->all());
-        $this->assertTrue($post->pinned);
+        $this->assertFalse($post->pinned);
         $this->assertSame([], $post->mediaItems());
 
-        app(SocialPlanner::class)->approve($post, $this->admin->id);
-        app(SocialPlanner::class)->pin($post->fresh(), false);
-        $this->assertTrue($post->fresh()->pinned);
-        $this->assertSame('2026-11-11 09:15', $post->fresh()->publish_at->timezone('Europe/Istanbul')->format('Y-m-d H:i'));
+        // Approved text posts take the text hours (09:15 and 13:30 every day) in order and leave the picture line alone.
+        $second = app(SocialPlanner::class)->create(['kind' => 'text', 'title' => 'Öğle gözlemi', 'threads_text' => 'İkinci metin.', 'publish_at' => '2026-11-30 08:00'], []);
+        $image = $this->make('image', '2026-11-30 08:00');
+        foreach ([$post, $second, $image] as $p) {
+            app(SocialPlanner::class)->approve($p->fresh(), $this->admin->id);
+        }
+        $at = fn (SocialPost $p): string => $p->fresh()->publish_at->timezone('Europe/Istanbul')->format('H:i');
+        $this->assertSame(['09:15', '13:30'], collect([$at($post), $at($second)])->sort()->values()->all());
+        $this->assertSame('12:30', $at($image));
+        $this->assertSame([$post->id, $second->id], app(SocialSchedule::class)->line('text')->modelKeys());
+        $this->assertNotContains($post->id, app(SocialSchedule::class)->line()->modelKeys());
+        // A fixed date still holds for a text post.
+        app(SocialPlanner::class)->pin($second->fresh(), true);
+        $this->assertSame([$post->id], app(SocialSchedule::class)->line('text')->modelKeys());
 
         $this->expectExceptionMessage('Threads ya da LinkedIn metni gerekir');
         try {

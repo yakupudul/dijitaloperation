@@ -38,7 +38,7 @@ class SocialPlanner
             throw new InvalidArgumentException('Geçersiz gönderi türü.');
         }
         if ($kind === 'text') {
-            // A text post lives on Threads and LinkedIn only; it has no place in the Instagram line and keeps its own time.
+            // A text post lives on Threads and LinkedIn only; it waits in its own line (the text hours of Paylaşım düzeni), not in the Instagram line.
             if (trim((string) ($data['threads_text'] ?? '')) === '' && trim((string) ($data['linkedin_text'] ?? '')) === '') {
                 throw new InvalidArgumentException('Metin gönderisi için Threads ya da LinkedIn metni gerekir.');
             }
@@ -66,7 +66,6 @@ class SocialPlanner
                 'publish_at' => $publishAt->utc(),
                 'media' => [],
                 'status' => SocialPost::DRAFT,
-                'pinned' => $kind === 'text',
                 'created_by' => $data['created_by'] ?? 'operator',
             ]);
             $media = [];
@@ -160,7 +159,7 @@ class SocialPlanner
     /** Tarihi sabitle / sıraya al: a fixed post keeps its own day and hour; a freed one joins the end of the line. */
     public function pin(SocialPost $post, bool $pinned): void
     {
-        if (! $post->isEditable() || ($post->kind === 'text' && ! $pinned)) {
+        if (! $post->isEditable()) {
             return;
         }
         $post->update(['pinned' => $pinned]);

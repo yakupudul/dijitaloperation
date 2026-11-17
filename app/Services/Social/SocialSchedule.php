@@ -26,6 +26,9 @@ class SocialSchedule
     /** @var list<string> */
     public const array DEFAULT_STORY_TIMES = ['09:00', '18:00'];
 
+    /** Hours of the text line (posts that are only words, for Threads and LinkedIn): two a day, away from the picture hours. */
+    public const array DEFAULT_TEXT_TIMES = ['09:15', '13:30'];
+
     private const string TIME = '/^([01]\d|2[0-3]):[0-5]\d$/';
 
     /** @return list<string> the hours a story goes out, every day, earliest first */
@@ -47,6 +50,15 @@ class SocialSchedule
         $stored = is_string($stored) ? json_decode($stored, true) : $stored;
 
         return is_array($stored) && is_array($stored['reels'] ?? null) ? $this->cleanTimes($stored['reels']) : [];
+    }
+
+    /** @return list<string> the hours a text-only post goes out, every day; empty = text posts keep the date they were given */
+    public function textTimes(): array
+    {
+        $stored = AgencySetting::query()->value('social_schedule');
+        $stored = is_string($stored) ? json_decode($stored, true) : $stored;
+
+        return is_array($stored) && is_array($stored['text'] ?? null) ? $this->cleanTimes($stored['text']) : self::DEFAULT_TEXT_TIMES;
     }
 
     /**
@@ -78,6 +90,7 @@ class SocialSchedule
     {
         return match (true) {
             $post->kind === 'story' => 'story',
+            $post->kind === 'text' => 'text',
             $post->kind === 'reels' && $this->reelTimes() !== [] => 'reels',
             default => 'post',
         };
@@ -119,8 +132,9 @@ class SocialSchedule
      * @param  array<array-key, mixed>|null  $storyTimes  story hours of every day; null keeps the stored ones
      * @param  array<array-key, mixed>|null  $reelTimes  video hours of every day; null keeps the stored ones
      * @param  bool|null  $trial  last video of the day as a trial reel; null keeps the stored choice
+     * @param  array<array-key, mixed>|null  $textTimes  text post hours of every day; null keeps the stored ones
      */
-    public function save(array $days, ?array $storyTimes = null, ?array $reelTimes = null, ?bool $trial = null): int
+    public function save(array $days, ?array $storyTimes = null, ?array $reelTimes = null, ?bool $trial = null, ?array $textTimes = null): int
     {
         $clean = [];
         foreach ($days as $day => $time) {
@@ -135,13 +149,14 @@ class SocialSchedule
         $setting = AgencySetting::query()->first() ?? new AgencySetting;
         $stories = $storyTimes === null ? $this->storyTimes() : $this->cleanTimes($storyTimes);
         $reels = $reelTimes === null ? $this->reelTimes() : $this->cleanTimes($reelTimes);
-        $setting->forceFill(['social_schedule' => ['days' => $clean, 'stories' => $stories, 'reels' => $reels, 'trial' => $trial ?? $this->trialReels()]])->save();
+        $setting->forceFill(['social_schedule' => ['days' => $clean, 'stories' => $stories, 'reels' => $reels, 'trial' => $trial ?? $this->trialReels(),
+            'text' => $textTimes === null ? $this->textTimes() : $this->cleanTimes($textTimes)]])->save();
 
         return $this->reflow();
     }
 
     /**
-     * @param  bool|string  $lane  false / 'post', true / 'story', 'reels'
+     * @param  bool|string  $lane  false / 'post', true / 'story', 'reels', 'text'
      * @return Collection<int, SocialPost> approved posts of one line still waiting for their day, in line order
      */
     public function line(bool|string $lane = false): Collection
@@ -166,8 +181,9 @@ class SocialSchedule
         return match (true) {
             $lane === 'story' => $query->where('kind', 'story'),
             $lane === 'reels' => $query->where('kind', 'reels'),
-            $this->reelTimes() !== [] => $query->whereNotIn('kind', ['story', 'reels']),
-            default => $query->where('kind', '!=', 'story'),
+            $lane === 'text' => $query->where('kind', 'text'),
+            $this->reelTimes() !== [] => $query->whereNotIn('kind', ['story', 'reels', 'text']),
+            default => $query->whereNotIn('kind', ['story', 'text']),
         };
     }
 
@@ -211,6 +227,11 @@ class SocialSchedule
         $reels = $this->reelTimes();
         if ($reels !== []) {
             $posts += $this->place($this->line('reels'), fn (Carbon $day): array => $reels, 'reels');
+        }
+
+        $text = $this->textTimes();
+        if ($text !== []) {
+            $posts += $this->place($this->line('text'), fn (Carbon $day): array => $text, 'text');
         }
 
         return $posts + $this->place($this->line(true), fn (Carbon $day): array => $this->storyTimes(), 'story');
