@@ -28,7 +28,8 @@ class SocialPost extends Model
     /** Its time passed more than a day ago without approval. */
     public const string EXPIRED = 'expired';
 
-    public const array KINDS = ['image', 'carousel', 'reels', 'story'];
+    /** `text`: no media, only a LinkedIn and / or Threads text; never goes to Instagram or Facebook and keeps its own time. */
+    public const array KINDS = ['image', 'carousel', 'reels', 'story', 'text'];
 
     public const array PILLARS = ['rehber', 'vaka', 'gundem', 'anlatim', 'guven'];
 
@@ -61,6 +62,7 @@ class SocialPost extends Model
             'carousel' => 'Kaydırmalı gönderi',
             'reels' => 'Reels',
             'story' => 'Story',
+            'text' => 'Metin',
             default => (string) $this->kind,
         };
     }

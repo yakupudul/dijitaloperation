@@ -37,7 +37,13 @@ class SocialPlanner
         if (! in_array($kind, SocialPost::KINDS, true)) {
             throw new InvalidArgumentException('Geçersiz gönderi türü.');
         }
-        if ($files === []) {
+        if ($kind === 'text') {
+            // A text post lives on Threads and LinkedIn only; it has no place in the Instagram line and keeps its own time.
+            if (trim((string) ($data['threads_text'] ?? '')) === '' && trim((string) ($data['linkedin_text'] ?? '')) === '') {
+                throw new InvalidArgumentException('Metin gönderisi için Threads ya da LinkedIn metni gerekir.');
+            }
+            $files = [];
+        } elseif ($files === []) {
             throw new InvalidArgumentException('En az bir görsel ya da video gerekir.');
         }
         if ($kind === 'carousel' && (count($files) < 2 || count($files) > 10)) {
@@ -60,6 +66,7 @@ class SocialPlanner
                 'publish_at' => $publishAt->utc(),
                 'media' => [],
                 'status' => SocialPost::DRAFT,
+                'pinned' => $kind === 'text',
                 'created_by' => $data['created_by'] ?? 'operator',
             ]);
             $media = [];
@@ -95,6 +102,9 @@ class SocialPlanner
     {
         $accounts = SocialAccount::query()->where('enabled', true)->get()->filter(function (SocialAccount $a) use ($post, $platforms): bool {
             if ($platforms !== null && ! in_array($a->platform, $platforms, true)) {
+                return false;
+            }
+            if ($post->kind === 'text' && ! in_array($a->platform, [SocialAccount::LINKEDIN, SocialAccount::THREADS], true)) {
                 return false;
             }
             if ($a->platform === SocialAccount::LINKEDIN) {
@@ -150,7 +160,7 @@ class SocialPlanner
     /** Tarihi sabitle / sıraya al: a fixed post keeps its own day and hour; a freed one joins the end of the line. */
     public function pin(SocialPost $post, bool $pinned): void
     {
-        if (! $post->isEditable()) {
+        if (! $post->isEditable() || ($post->kind === 'text' && ! $pinned)) {
             return;
         }
         $post->update(['pinned' => $pinned]);

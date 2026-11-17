@@ -23,6 +23,7 @@ use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -544,7 +545,7 @@ final class SocialPage extends Component
         $this->authorizeAdmin();
         $this->validate([
             'newKind' => ['required', 'in:'.implode(',', SocialPost::KINDS)],
-            'newFiles' => ['required', 'array', 'min:1', 'max:10'],
+            'newFiles' => [Rule::requiredIf($this->newKind !== 'text'), 'array', 'max:10'],
             'newFiles.*' => ['file', 'mimes:jpg,jpeg,png,webp,mp4,mov', 'max:102400'],
             'newTime' => ['required', 'date'],
             'newCaption' => ['nullable', 'string', 'max:2200'],

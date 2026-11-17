@@ -92,7 +92,7 @@
                         <button type="button" wire:click="move({{ $opened->id }}, 1)" class="btn h-9" @disabled($lineAt === count($lineOf) - 1) aria-label="Sırada arkaya al">↓ Arkaya al</button>
                     @endif
                     @if ($opened->isEditable())
-                        @if ($opened->pinned)<button type="button" wire:click="pin({{ $opened->id }}, false)" class="btn h-9">Sıraya al</button>@else<button type="button" wire:click="pin({{ $opened->id }}, true)" class="btn h-9">Tarihi sabitle</button>@endif
+                        @if ($opened->kind === 'text')@elseif ($opened->pinned)<button type="button" wire:click="pin({{ $opened->id }}, false)" class="btn h-9">Sıraya al</button>@else<button type="button" wire:click="pin({{ $opened->id }}, true)" class="btn h-9">Tarihi sabitle</button>@endif
                     @endif
                     @if ($opened->status === 'approved')<button type="button" wire:click="unapprove({{ $opened->id }})" class="btn-quiet h-9">Onayı geri al</button>@endif
                     @if ($opened->isEditable() || in_array($opened->status, ['failed', 'partial'], true))<button type="button" wire:click="skip({{ $opened->id }})" class="btn-quiet h-9">Atla</button>@endif

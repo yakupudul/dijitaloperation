@@ -33,7 +33,7 @@ final class SocialScreen
         '' => 'Tümü', 'onay' => 'Onay bekleyen', 'sirada' => 'Sırada', 'yayinda' => 'Yayında', 'sorunlu' => 'Sorunlu', 'atlanan' => 'Atlanan',
     ];
 
-    public const array KIND_FILTERS = ['' => 'Her tür', 'image' => 'Gönderi', 'carousel' => 'Kaydırmalı', 'reels' => 'Video', 'story' => 'Hikâye'];
+    public const array KIND_FILTERS = ['' => 'Her tür', 'image' => 'Gönderi', 'carousel' => 'Kaydırmalı', 'reels' => 'Video', 'story' => 'Hikâye', 'text' => 'Metin'];
 
     private const array STATUS_MAP = [
         'onay' => [SocialPost::DRAFT],
@@ -237,11 +237,11 @@ final class SocialScreen
      */
     public function profile(array $feed, int $readyCount, int $gridCount): array
     {
-        $readyQuery = fn (): Builder => $this->posts()
+        $readyQuery = fn (): Builder => $this->posts()->where('kind', '!=', 'text')
             ->whereIn('status', [SocialPost::DRAFT, SocialPost::APPROVED, SocialPost::FAILED, SocialPost::PARTIAL])
             ->whereDoesntHave('targets', fn ($q) => $q->where('status', SocialPostTarget::PUBLISHED));
         $ready = $readyQuery()->with(['targets.account'])->orderBy('publish_at')->limit($readyCount)->get();
-        $published = $this->posts()
+        $published = $this->posts()->where('kind', '!=', 'text')
             ->whereHas('targets', fn ($q) => $q->whereIn('status', [SocialPostTarget::PUBLISHED, SocialPostTarget::DONE]))
             ->with(['targets.account'])->orderByDesc('publish_at')->limit(max(90, $gridCount))->get();
         $instagram = fn (SocialPost $p): ?SocialPostTarget => $p->targets->first(fn ($t) => $t->account?->platform === SocialAccount::INSTAGRAM && $t->external_id);

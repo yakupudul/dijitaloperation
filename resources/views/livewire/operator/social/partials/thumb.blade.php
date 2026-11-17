@@ -8,6 +8,6 @@
     @if ($src)
         <img src="{{ $src }}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="h-full w-full object-cover">
     @else
-        <span class="flex h-full w-full items-center justify-center text-xs text-gray-400" aria-hidden="true">{{ $post->kind === 'story' ? '○' : '▶' }}</span>
+        <span class="flex h-full w-full items-center justify-center text-xs text-gray-400" aria-hidden="true">{{ $post->kind === 'story' ? '○' : ($post->kind === 'text' ? '≡' : '▶') }}</span>
     @endif
 </span>

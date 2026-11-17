@@ -3,8 +3,8 @@
     <h2 class="section-title">Yeni gönderi</h2>
     <div class="grid gap-4 sm:grid-cols-3">
         <label class="block text-sm">Tür
-            <select wire:model="newKind" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
-                <option value="image">Gönderi (tek görsel)</option><option value="carousel">Kaydırmalı (2-10)</option><option value="reels">Reels (video)</option><option value="story">Story</option>
+            <select wire:model.live="newKind" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
+                <option value="image">Gönderi (tek görsel)</option><option value="carousel">Kaydırmalı (2-10)</option><option value="reels">Reels (video)</option><option value="story">Story</option><option value="text">Yalnız metin (Threads, LinkedIn)</option>
             </select>
         </label>
         <label class="block text-sm">Başlık
@@ -19,6 +19,9 @@
     <label class="block text-sm">Kısa ad (yalnız burada görünür)
         <input type="text" wire:model="newTitle" maxlength="190" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
     </label>
+    @if ($newKind === 'text')
+        <p class="tone-info rounded-lg px-3.5 py-2.5 text-[13px]">Yalnız metin gönderisi Threads ve LinkedIn’e gider, Instagram ve Facebook’a gitmez. Seçtiğiniz saatte çıkar; sıraya girmez.</p>
+    @else
     <label class="block text-sm">Görsel ya da video (jpg, png, mp4; kaydırmalıda sırayla; Reels’te videodan sonra eklenen görsel kapak olur)
         <input type="file" wire:model="newFiles" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" class="mt-1 block w-full text-sm">
     </label>
@@ -27,6 +30,7 @@
     <label class="block text-sm">Instagram ve Facebook metni
         <textarea wire:model="newCaption" rows="6" maxlength="2200" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"></textarea>
     </label>
+    @endif
     <label class="block text-sm">LinkedIn metni (boş bırakılırsa LinkedIn’e gitmez)
         <textarea wire:model="newLinkedin" rows="6" maxlength="3000" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"></textarea>
     </label>

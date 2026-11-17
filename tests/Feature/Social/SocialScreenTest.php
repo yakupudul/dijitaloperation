@@ -214,4 +214,29 @@ final class SocialScreenTest extends TestCase
             ->set('section', 'hesaplar')->assertSeeHtml('data-accounts')->assertSeeHtml('data-setup-steps')
             ->assertSee('Kurulum adımları ve yeniden bağlama (tamamlandı)')->assertSeeHtml('data-youtube');
     }
+
+    public function test_text_post_goes_only_to_threads_and_linkedin_and_keeps_its_time(): void
+    {
+        $post = app(SocialPlanner::class)->create(['kind' => 'text', 'title' => 'Sabah gözlemi', 'threads_text' => 'Hasta aramayı çoğu zaman gece yapıyor.', 'publish_at' => '2026-11-11 09:15'], []);
+        $this->assertSame(['threads'], $post->targets->map(fn ($t) => $t->account->platform)->all());
+        $this->assertTrue($post->pinned);
+        $this->assertSame([], $post->mediaItems());
+
+        app(SocialPlanner::class)->approve($post, $this->admin->id);
+        app(SocialPlanner::class)->pin($post->fresh(), false);
+        $this->assertTrue($post->fresh()->pinned);
+        $this->assertSame('2026-11-11 09:15', $post->fresh()->publish_at->timezone('Europe/Istanbul')->format('Y-m-d H:i'));
+
+        $this->expectExceptionMessage('Threads ya da LinkedIn metni gerekir');
+        try {
+            Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'instagram'])->test(SocialPage::class)->assertDontSeeHtml('data-social-tile="'.$post->id.'"');
+            Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'gonderiler'])->test(SocialPage::class)
+                ->assertSee('Sabah gözlemi')->set('kind', 'text')->assertSee('1–1 / 1 gönderi')
+                ->call('openPost', $post->id)->assertSee('Yalnız metin')->assertSee('Hasta aramayı çoğu zaman gece yapıyor.');
+            MoxdopServer::actingAs($this->admin)->tool(SocialPosts::class, ['action' => 'draft', 'kind' => 'text', 'threads_text' => 'Claude’un metni', 'publish_at' => '2026-11-12 13:30'])->assertOk();
+            $this->assertSame(2, SocialPost::query()->where('kind', 'text')->count());
+        } finally {
+            app(SocialPlanner::class)->create(['kind' => 'text', 'publish_at' => '2026-11-11 09:15'], []);
+        }
+    }
 }

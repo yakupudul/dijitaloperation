@@ -15,7 +15,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Throwable;
 
-#[Description('Moximu\'s own social media plan (Instagram, Facebook, LinkedIn; ADR-083). action=list: accounts, upcoming and recent posts with channel results. action=draft: adds a post as a DRAFT (never published before the operator approves it on /sosyal): kind image | carousel (2-10 files, in order) | reels (mp4) | story; media = files as https URLs or base64; caption = Instagram+Facebook text; threads_text (optional; Threads gets the post only when given, as a text post of at most 500 characters written for Threads, not the caption); linkedin_text (optional; LinkedIn gets it only when given; once the LinkedIn page is connected on /sosyal it is published there automatically with the post\'s media, otherwise it waits as copy-and-open; write it as a separate corporate LinkedIn text, not the Instagram caption); publish_at in Istanbul time "Y-m-d H:i". action=update: change caption / linkedin_text / threads_text / publish_at of a draft or approved post (a changed publish_at fixes the date; otherwise an approved post takes the next free day of the operator\'s posting plan, one a day, in line order, so the draft\'s publish_at is only a proposal). action=delete: remove a draft. action=trends: the watched Instagram accounts and their posts of the last three weeks that got at least twice that account\'s usual likes+comments (a fresh reading through the official API; give watch = user names to replace the watch list first). Rules: corporate plain Turkish, no MoxDOP name, no guarantees, numbers only from recorded results, no AI images.')]
+#[Description('Moximu\'s own social media plan (Instagram, Facebook, LinkedIn; ADR-083). action=list: accounts, upcoming and recent posts with channel results. action=draft: adds a post as a DRAFT (never published before the operator approves it on /sosyal): kind image | carousel (2-10 files, in order) | reels (mp4) | story | text (no media: only threads_text and / or linkedin_text, goes to Threads / LinkedIn at exactly its publish_at, never to Instagram or Facebook); media = files as https URLs or base64; caption = Instagram+Facebook text; threads_text (optional; Threads gets the post only when given, as a text post of at most 500 characters written for Threads, not the caption); linkedin_text (optional; LinkedIn gets it only when given; once the LinkedIn page is connected on /sosyal it is published there automatically with the post\'s media, otherwise it waits as copy-and-open; write it as a separate corporate LinkedIn text, not the Instagram caption); publish_at in Istanbul time "Y-m-d H:i". action=update: change caption / linkedin_text / threads_text / publish_at of a draft or approved post (a changed publish_at fixes the date; otherwise an approved post takes the next free day of the operator\'s posting plan, one a day, in line order, so the draft\'s publish_at is only a proposal). action=delete: remove a draft. action=trends: the watched Instagram accounts and their posts of the last three weeks that got at least twice that account\'s usual likes+comments (a fresh reading through the official API; give watch = user names to replace the watch list first). Rules: corporate plain Turkish, no MoxDOP name, no guarantees, numbers only from recorded results, no AI images.')]
 class SocialPosts extends Tool
 {
     public function handle(Request $request): Response
@@ -58,11 +58,11 @@ class SocialPosts extends Tool
     /** @param  array<string, mixed>  $v */
     private function draft(SocialPlanner $planner, array $v): Response
     {
-        if (($v['kind'] ?? null) === null || ($v['publish_at'] ?? null) === null || ($v['media'] ?? []) === []) {
-            return Response::error('draft için kind, publish_at ve media gerekir.');
+        if (($v['kind'] ?? null) === null || ($v['publish_at'] ?? null) === null || (($v['media'] ?? []) === [] && $v['kind'] !== 'text')) {
+            return Response::error('draft için kind, publish_at ve media gerekir (kind=text medya istemez).');
         }
         $files = [];
-        foreach ($v['media'] as $i => $item) {
+        foreach ($v['media'] ?? [] as $i => $item) {
             if (is_string($item['base64'] ?? null) && $item['base64'] !== '') {
                 $bytes = base64_decode(preg_replace('#^data:[^,]+,#', '', $item['base64']) ?? '', true);
                 if ($bytes === false) {
@@ -146,7 +146,7 @@ class SocialPosts extends Tool
         return [
             'action' => $schema->string()->enum(['list', 'draft', 'update', 'delete', 'trends'])->required(),
             'id' => $schema->integer()->description('Post id for update / delete.'),
-            'kind' => $schema->string()->enum(SocialPost::KINDS)->description('draft: image | carousel | reels | story'),
+            'kind' => $schema->string()->enum(SocialPost::KINDS)->description('draft: image | carousel | reels | story | text'),
             'pillar' => $schema->string()->enum(SocialPost::PILLARS)->description('rehber | vaka | gundem | anlatim | guven'),
             'title' => $schema->string()->description('Short internal label shown on the approval card.'),
             'caption' => $schema->string()->description('Instagram + Facebook text (with hashtags).'),

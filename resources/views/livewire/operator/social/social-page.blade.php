@@ -13,9 +13,9 @@
         default => [(string) $post->status, 'tone-info'],
     };
     $kindName = fn ($post): string => match ($post->kind) {
-        'image' => 'Görsel', 'carousel' => 'Kaydırmalı', 'reels' => 'Video', 'story' => 'Hikâye', default => (string) $post->kind,
+        'image' => 'Görsel', 'carousel' => 'Kaydırmalı', 'reels' => 'Video', 'story' => 'Hikâye', 'text' => 'Metin', default => (string) $post->kind,
     };
-    $kindMark = fn ($post): string => match ($post->kind) { 'reels' => '▶', 'story' => '○', 'carousel' => '❐', default => '□' };
+    $kindMark = fn ($post): string => match ($post->kind) { 'reels' => '▶', 'story' => '○', 'carousel' => '❐', 'text' => '≡', default => '□' };
     $place = function ($post) use ($line, $storyLine, $reelLine): ?string {
         $inReels = $post->kind === 'reels' && $reelLine !== null;
         $at = array_search($post->id, $post->kind === 'story' ? $storyLine : ($inReels ? $reelLine : $line), true);
