@@ -7,6 +7,7 @@
 > İstisna (yakup 2026-11-09): Moxi köşe asistanı (`app/Services/Moxi`, `App\Livewire\Operator\Moxi`); zamanlanmış iş eklemez.
 > İstisna (yakup 2026-11-12, "Yap şimdi yeniliklerinle birlikte"): Finans alanı (`app/Services/Finance`, `App\Livewire\Operator\Finance`, `/finans`); bir zamanlanmış iş ekler (`finance-tick`).
 > İstisna (yakup 2026-11-12, "Onaylıyorum yap"): Günlük blog (`App\Services\Site\DailyBlog`, `brands.auto_blog`): yalnız moximu.com (ajansın kendi markası) günde 2 yazıyı (09:00 / 15:00) operatör onayı olmadan, kalite kapısı + AI kontrolüyle WordPress'e zamanlanmış yayın olarak gönderir; kapak `BrandCover` ile çizilir, fiyat/para birimi yazılmaz. Site haftalık döngüden ve günlük tıktan çıkar (tek hat). Zamanlanmış iş eklemez (`content-autopilot` turunda çalışır). Diğer markalarda onay akışı aynen kalır.
+> İstisna (yakup 2026-11-17, "Evet, şimdi kurmaya başla"): Sosyal ekranının yeniden tasarımı ve dört kanal yol haritası (`App\Livewire\Operator\Social`, `app/Services/Social`): beş sekme (Bugün, Takvim, Gönderiler, Konuşmalar, Sonuçlar), kanal süzgeci, kapak resimleri, yan panel; ardından Threads / LinkedIn metinleri, kanal başına paylaşım düzeni ve YouTube bağlantısı. İlk adım (ekran) zamanlanmış iş eklemez.
 
 ## Cursor Cloud specific instructions
 

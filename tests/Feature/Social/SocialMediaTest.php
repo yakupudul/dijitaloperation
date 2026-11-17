@@ -249,7 +249,7 @@ final class SocialMediaTest extends TestCase
         $this->assertSame('Bu izin verilmedi.', $ig->error);
         $this->assertSame('partial', $post->status);
 
-        Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'plan'])->test(SocialPage::class)
+        Livewire::actingAs($this->admin)->test(SocialPage::class)->assertSet('tab', 'bugun')
             ->assertSee('LinkedIn’de paylaşmanız bekleniyor')
             ->call('markDone', $post->targets->firstWhere('social_account_id', $linkedin->id)->id)
             ->call('retry', $post->id);
@@ -439,7 +439,11 @@ final class SocialMediaTest extends TestCase
     public function test_unknown_tab_falls_back_to_plan_and_integrations_hub_links_own_channels(): void
     {
         $this->actingAs($this->admin);
-        Livewire::withQueryParams(['sekme' => 'x'])->test(SocialPage::class)->assertSet('tab', 'instagram');
+        Livewire::withQueryParams(['sekme' => 'x'])->test(SocialPage::class)->assertSet('tab', 'bugun');
+        // Addresses of the old tabs keep working after the 2026-11-17 redesign.
+        Livewire::withQueryParams(['sekme' => 'plan'])->test(SocialPage::class)->assertSet('tab', 'takvim');
+        Livewire::withQueryParams(['sekme' => 'gecmis'])->test(SocialPage::class)->assertSet('tab', 'gonderiler')->assertSet('status', 'yayinda');
+        Livewire::withQueryParams(['sekme' => 'hesaplar'])->test(SocialPage::class)->assertSet('tab', 'ayarlar')->assertSet('section', 'hesaplar');
 
         $this->get(route('operator.integrations'))->assertOk()
             ->assertSee('Moximu hesapları')
@@ -487,7 +491,7 @@ final class SocialMediaTest extends TestCase
         $out->targets()->update(['status' => SocialPostTarget::PUBLISHED, 'external_id' => '1789', 'permalink' => 'https://www.instagram.com/p/abc/']);
         $fbTarget = $out->targets()->whereHas('account', fn ($q) => $q->where('platform', 'facebook'))->first();
 
-        $page = Livewire::actingAs($this->admin)->test(SocialPage::class)->assertSet('tab', 'instagram')
+        $page = Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'instagram'])->test(SocialPage::class)->assertSet('tab', 'gonderiler')->assertSet('mode', 'izgara')
             ->assertSeeHtml('data-social-tile="'.$ready->id.'"')->assertSeeHtml('data-social-tile="'.$out->id.'"')->assertSee('Onay bekliyor')
             ->call('openPost', $ready->id)->assertSeeHtml('data-social-publish-now')
             ->call('publishNow', $ready->id);
@@ -501,6 +505,6 @@ final class SocialMediaTest extends TestCase
         if ($fbTarget !== null) {
             Http::assertSent(fn (Request $r): bool => $r->method() === 'DELETE' && str_contains($r->url(), '/1789'));
         }
-        Livewire::actingAs($this->admin)->test(SocialPage::class)->assertDontSeeHtml('data-social-tile="'.$out->id.'"');
+        Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'instagram'])->test(SocialPage::class)->assertDontSeeHtml('data-social-tile="'.$out->id.'"');
     }
 }

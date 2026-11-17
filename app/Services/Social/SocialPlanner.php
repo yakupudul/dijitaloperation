@@ -229,7 +229,7 @@ class SocialPlanner
         }
     }
 
-    /** @param  array{caption?: ?string, linkedin_text?: ?string, publish_at?: ?string, title?: ?string}  $data */
+    /** @param  array{caption?: ?string, linkedin_text?: ?string, threads_text?: ?string, publish_at?: ?string, title?: ?string}  $data */
     public function edit(SocialPost $post, array $data): void
     {
         if (! $post->isEditable()) {
@@ -241,6 +241,9 @@ class SocialPlanner
         }
         if (array_key_exists('linkedin_text', $data)) {
             $update['linkedin_text'] = $this->clean($data['linkedin_text'], 3000);
+        }
+        if (array_key_exists('threads_text', $data)) {
+            $update['threads_text'] = $this->clean($data['threads_text'], 1000);
         }
         if (array_key_exists('title', $data)) {
             $update['title'] = $data['title'] !== null ? Str::limit(trim($data['title']), 190, '') : null;

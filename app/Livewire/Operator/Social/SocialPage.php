@@ -15,6 +15,8 @@ use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
 use App\Services\Social\SocialSchedule;
+use App\Services\Social\SocialScreen;
+use App\Services\Social\SocialThumbs;
 use App\Services\Social\SocialTrendWatch;
 use App\Services\Social\ThreadsApi;
 use App\Support\Demo\DemoState;
@@ -30,11 +32,13 @@ use Livewire\WithFileUploads;
 use Throwable;
 
 /**
- * Sosyal medya (`/sosyal`, ADR-083): the agency's own Instagram, Facebook and LinkedIn. "Plan" shows the coming weeks
- * as cards with the visual, text, channels and time; the Admin approves a whole week with one click, or edits / skips
- * one post. Approved posts go out at their time; LinkedIn too once "LinkedIn'i bağla" is done, before that as "copy and open".
- * "Hesaplar" connects Meta and adds the LinkedIn page; "Yeni gönderi" uploads a post by hand. Instagram / Facebook
- * messages and comments are answered in the Gelen kutusu (Aşama 2, 2026-11-07).
+ * Sosyal medya (`/sosyal`, ADR-083; screen redesign yakup 2026-11-17): the agency's own Instagram, Facebook, LinkedIn and
+ * Threads on one screen. Five tabs, each bounded so the page never grows with the number of posts: "Bugün" (today's
+ * posts, what waits for the operator, how many days of ready content each channel has), "Takvim" (one week, or a month
+ * of counts), "Gönderiler" (a list of 25 per page with filters, or the Instagram profile grid), "Konuşmalar" (public
+ * comments that wait) and "Sonuçlar" (numbers and trends). The channel is a filter, not a tab. A post opens in a side
+ * panel with its texts per channel and every action; lists show a small cover picture, the video loads only there.
+ * "Ayarlar" holds the posting plan and the account connections, "Yeni gönderi" uploads a post by hand.
  */
 #[Layout('operator.layouts.app')]
 #[Title('Sosyal medya')]
@@ -42,12 +46,63 @@ final class SocialPage extends Component
 {
     use WithFileUploads;
 
-    /** Instagram görünümü (yakup 2026-11-08) opens first: the profile grid, ready posts on top. */
-    #[Url(as: 'sekme')]
-    public string $tab = 'instagram';
+    public const array TABS = ['bugun' => 'Bugün', 'takvim' => 'Takvim', 'gonderiler' => 'Gönderiler', 'konusmalar' => 'Konuşmalar', 'sonuclar' => 'Sonuçlar'];
 
-    /** The post opened over the grid (0 = none). */
-    public int $openPost = 0;
+    /** Addresses of the old tabs (links in mails, bookmarks, the OAuth callbacks) keep working. */
+    private const array OLD_TABS = ['instagram' => 'gonderiler', 'plan' => 'takvim', 'gecmis' => 'gonderiler', 'trendler' => 'sonuclar', 'hesaplar' => 'ayarlar'];
+
+    #[Url(as: 'sekme', except: 'bugun')]
+    public string $tab = 'bugun';
+
+    /** The channel filter of every tab (instagram | facebook | linkedin | threads); empty = all channels. */
+    #[Url(as: 'kanal', except: '')]
+    public string $channel = '';
+
+    /** Takvim: the Monday of the shown week (Y-m-d); empty = this week. */
+    #[Url(as: 'hafta', except: '')]
+    public string $week = '';
+
+    /** Takvim on a phone: the day whose posts are listed. */
+    #[Url(as: 'gun', except: '')]
+    public string $day = '';
+
+    /** Takvim: hafta | ay. */
+    #[Url(as: 'takvim', except: 'hafta')]
+    public string $calendar = 'hafta';
+
+    public bool $stories = true;
+
+    /** Gönderiler: liste | izgara (the Instagram profile). */
+    #[Url(as: 'gorunum', except: 'liste')]
+    public string $mode = 'liste';
+
+    /** Gönderiler opens on what is in line; empty = every state. */
+    #[Url(as: 'durum', except: 'sirada')]
+    public string $status = 'sirada';
+
+    #[Url(as: 'tur', except: '')]
+    public string $kind = '';
+
+    #[Url(as: 'ara', except: '')]
+    public string $search = '';
+
+    #[Url(as: 'sayfa', except: 1)]
+    public int $pageNo = 1;
+
+    public int $readyCount = 12;
+
+    public int $gridCount = SocialScreen::GRID_STEP;
+
+    /** Sonuçlar: 7 | 28 days. */
+    #[Url(as: 'donem', except: 7)]
+    public int $period = 7;
+
+    /** Ayarlar: duzen | hesaplar. */
+    #[Url(as: 'bolum', except: 'duzen')]
+    public string $section = 'duzen';
+
+    /** The post opened in the side panel (0 = none). */
+    public int $openedId = 0;
 
     /** A live Instagram post shared outside MoxDOP, opened over the grid (its media id). */
     public string $openIg = '';
@@ -63,6 +118,8 @@ final class SocialPage extends Component
 
     public string $editLinkedin = '';
 
+    public string $editThreads = '';
+
     public string $editTime = '';
 
     // Yeni gönderi
@@ -75,6 +132,8 @@ final class SocialPage extends Component
     public string $newCaption = '';
 
     public string $newLinkedin = '';
+
+    public string $newThreads = '';
 
     public string $newTime = '';
 
@@ -130,9 +189,7 @@ final class SocialPage extends Component
 
             return;
         }
-        if (! in_array($this->tab, ['instagram', 'plan', 'trendler', 'gecmis', 'yeni', 'hesaplar'], true)) {
-            $this->tab = 'instagram';
-        }
+        $this->go($this->tab);
         // The Meta login comes back here with its result as a flash; without this it was never shown (2026-11-08).
         $flash = DemoState::pullFlash();
         if (is_array($flash) && ($flash['message'] ?? '') !== '') {
@@ -157,10 +214,129 @@ final class SocialPage extends Component
 
     public function setTab(string $tab): void
     {
-        $this->tab = in_array($tab, ['instagram', 'plan', 'trendler', 'gecmis', 'yeni', 'hesaplar'], true) ? $tab : 'instagram';
-        $this->openPost = 0;
+        $this->go($tab);
+        $this->openedId = 0;
+        $this->openIg = '';
         $this->message = '';
         $this->messageTone = 'info';
+    }
+
+    /** "Sizi bekleyen" and the day cells lead into a tab with its filter already set. */
+    public function jump(string $tab, string $status = '', int $open = 0, string $section = ''): void
+    {
+        $this->setTab($tab);
+        if ($this->tab === 'gonderiler') {
+            $this->mode = 'liste';
+            $this->status = isset(SocialScreen::STATUS_FILTERS[$status]) ? $status : '';
+            $this->kind = '';
+            $this->search = '';
+            $this->pageNo = 1;
+        }
+        if ($this->tab === 'ayarlar' && $section !== '') {
+            $this->section = $section === 'hesaplar' ? 'hesaplar' : 'duzen';
+        }
+        if ($open > 0) {
+            $this->openPost($open);
+        }
+    }
+
+    public function setChannel(string $channel): void
+    {
+        $this->channel = isset(SocialScreen::CHANNELS[$channel]) ? $channel : '';
+        $this->pageNo = 1;
+    }
+
+    /** Takvim: a week (or month) back or forward; 0 = this week. */
+    public function shift(int $direction): void
+    {
+        if ($direction === 0) {
+            $this->week = '';
+            $this->day = '';
+
+            return;
+        }
+        $start = $this->weekStart();
+        $start = $this->calendar === 'ay'
+            ? $start->copy()->addDays(3)->startOfMonth()->addMonthsNoOverflow($direction <=> 0)->startOfWeek()->addWeek()
+            : $start->copy()->addWeeks($direction <=> 0);
+        $this->week = $start->format('Y-m-d');
+        $this->day = '';
+    }
+
+    /** Takvim: a day picked on the phone strip or in the month; the month opens that day's week. */
+    public function pickDay(string $day): void
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $day) !== 1) {
+            return;
+        }
+        $this->day = $day;
+        $this->week = Carbon::createFromFormat('Y-m-d', $day, SocialPlanner::TIMEZONE)->startOfWeek()->format('Y-m-d');
+        $this->calendar = 'hafta';
+    }
+
+    public function more(string $what): void
+    {
+        if ($what === 'ready') {
+            $this->readyCount += SocialScreen::GRID_STEP;
+        } else {
+            $this->gridCount += SocialScreen::GRID_STEP;
+        }
+    }
+
+    public function updated(string $name): void
+    {
+        if (in_array($name, ['status', 'kind', 'search', 'mode'], true)) {
+            $this->pageNo = 1;
+        }
+    }
+
+    public function turn(int $page): void
+    {
+        $this->pageNo = max(1, $page);
+    }
+
+    private function go(string $tab): void
+    {
+        if ($tab === 'instagram') {
+            $this->mode = 'izgara';
+            $this->channel = '';
+        } elseif ($tab === 'gecmis') {
+            $this->mode = 'liste';
+            $this->status = 'yayinda';
+        } elseif ($tab === 'hesaplar') {
+            $this->section = 'hesaplar';
+        }
+        $tab = self::OLD_TABS[$tab] ?? $tab;
+        $this->tab = isset(self::TABS[$tab]) || in_array($tab, ['ayarlar', 'yeni'], true) ? $tab : 'bugun';
+        if (! in_array($this->mode, ['liste', 'izgara'], true)) {
+            $this->mode = 'liste';
+        }
+        if (! in_array($this->calendar, ['hafta', 'ay'], true)) {
+            $this->calendar = 'hafta';
+        }
+        if (! in_array($this->period, [7, 28], true)) {
+            $this->period = 7;
+        }
+        if (! in_array($this->section, ['duzen', 'hesaplar'], true)) {
+            $this->section = 'duzen';
+        }
+        if (! isset(SocialScreen::CHANNELS[$this->channel])) {
+            $this->channel = '';
+        }
+    }
+
+    private function weekStart(): Carbon
+    {
+        $tz = SocialPlanner::TIMEZONE;
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $this->week) === 1) {
+            try {
+                return Carbon::createFromFormat('Y-m-d', $this->week, $tz)->startOfWeek();
+            } catch (Throwable) {
+                // falls through to this week
+            }
+        }
+
+        return now($tz)->startOfWeek();
     }
 
     public function approveWeek(string $weekStart): void
@@ -183,18 +359,20 @@ final class SocialPage extends Component
     public function openPost(int $id): void
     {
         $this->openIg = '';
-        $this->openPost = SocialPost::query()->whereKey($id)->exists() ? $id : 0;
+        $this->openedId = SocialPost::query()->whereKey($id)->exists() ? $id : 0;
+        $this->editing = null;
     }
 
     public function closePost(): void
     {
-        $this->openPost = 0;
+        $this->openedId = 0;
         $this->openIg = '';
+        $this->editing = null;
     }
 
     public function openIgPost(string $id): void
     {
-        $this->openPost = 0;
+        $this->openedId = 0;
         $this->openIg = preg_match('/^\d{1,30}$/', $id) === 1 ? $id : '';
     }
 
@@ -238,7 +416,7 @@ final class SocialPage extends Component
     {
         $this->authorizeAdmin();
         $left = app(SocialPlanner::class)->takeDown($this->post($id));
-        $this->openPost = 0;
+        $this->openedId = 0;
         $this->message = $left === [] ? 'Gönderi silindi.' : 'Gönderi listeden kalktı. '.implode(', ', $left).' tarafında uygulamadan silmen gerekiyor (Meta API buna izin vermiyor).';
         $this->messageTone = $left === [] ? 'success' : 'info';
     }
@@ -335,6 +513,7 @@ final class SocialPage extends Component
         $this->editing = $post->id;
         $this->editCaption = (string) $post->caption;
         $this->editLinkedin = (string) $post->linkedin_text;
+        $this->editThreads = (string) $post->threads_text;
         $this->editTime = $post->publish_at->timezone(SocialPlanner::TIMEZONE)->format('Y-m-d\TH:i');
     }
 
@@ -351,7 +530,7 @@ final class SocialPage extends Component
         }
         try {
             app(SocialPlanner::class)->edit($this->post($this->editing), [
-                'caption' => $this->editCaption, 'linkedin_text' => $this->editLinkedin, 'publish_at' => $this->editTime,
+                'caption' => $this->editCaption, 'linkedin_text' => $this->editLinkedin, 'threads_text' => $this->editThreads, 'publish_at' => $this->editTime,
             ]);
             $this->editing = null;
             $this->message = 'Kaydedildi.';
@@ -370,15 +549,16 @@ final class SocialPage extends Component
             'newTime' => ['required', 'date'],
             'newCaption' => ['nullable', 'string', 'max:2200'],
             'newLinkedin' => ['nullable', 'string', 'max:3000'],
+            'newThreads' => ['nullable', 'string', 'max:500'],
         ], [], ['newFiles' => 'dosyalar', 'newTime' => 'yayın zamanı']);
         try {
             $files = array_map(fn (TemporaryUploadedFile $f): array => ['bytes' => (string) $f->get(), 'name' => 'dosya.'.strtolower($f->getClientOriginalExtension() ?: $f->extension())], $this->newFiles);
             app(SocialPlanner::class)->create([
                 'kind' => $this->newKind, 'pillar' => $this->newPillar ?: null, 'title' => $this->newTitle ?: null,
-                'caption' => $this->newCaption, 'linkedin_text' => $this->newLinkedin, 'publish_at' => $this->newTime,
+                'caption' => $this->newCaption, 'linkedin_text' => $this->newLinkedin, 'threads_text' => $this->newThreads, 'publish_at' => $this->newTime,
             ], $files);
-            $this->reset(['newFiles', 'newCaption', 'newLinkedin', 'newTitle', 'newPillar']);
-            $this->tab = 'plan';
+            $this->reset(['newFiles', 'newCaption', 'newLinkedin', 'newThreads', 'newTitle', 'newPillar']);
+            $this->jump('gonderiler', 'onay');
             $this->message = 'Gönderi plana eklendi; onayınızı bekliyor.';
         } catch (Throwable $e) {
             $this->message = $e->getMessage();
@@ -490,79 +670,75 @@ final class SocialPage extends Component
     public function render(): View
     {
         $tz = SocialPlanner::TIMEZONE;
-        $upcoming = SocialPost::query()
-            ->whereIn('status', [SocialPost::DRAFT, SocialPost::APPROVED, SocialPost::PARTIAL, SocialPost::FAILED])
-            ->with(['targets.account'])->orderBy('publish_at')->limit(120)->get();
-        $weeks = $upcoming->groupBy(fn (SocialPost $p): string => $p->publish_at->timezone($tz)->startOfWeek()->format('Y-m-d'));
-        $manual = SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->with(['post', 'account'])->get();
-        $history = $this->tab === 'gecmis'
-            ? SocialPost::query()->whereIn('status', [SocialPost::PUBLISHED, SocialPost::SKIPPED, SocialPost::EXPIRED])
-                ->with(['targets.account'])->orderByDesc('publish_at')->limit(60)->get()
-            : collect();
+        $screen = app(SocialScreen::class);
+        $schedule = app(SocialSchedule::class);
+        $accounts = SocialAccount::query()->orderBy('platform')->get();
+        $waiting = $screen->waiting($accounts);
+        $manual = SocialPostTarget::query()->where('status', SocialPostTarget::MANUAL)->with(['post', 'account'])->limit(10)->get();
+        $data = [
+            'tabs' => self::TABS, 'tz' => $tz, 'canWrite' => $this->isAdmin(), 'accounts' => $accounts, 'thumbs' => app(SocialThumbs::class),
+            'channels' => $screen->channels($accounts), 'channelNames' => SocialScreen::CHANNELS,
+            'waiting' => $waiting, 'manual' => $manual, 'waitingTotal' => count($waiting) + $manual->count(),
+            'talkCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
+            'dayNames' => [1 => 'Pazartesi', 2 => 'Salı', 3 => 'Çarşamba', 4 => 'Perşembe', 5 => 'Cuma', 6 => 'Cumartesi', 7 => 'Pazar'],
+            'line' => [], 'storyLine' => [], 'reelLine' => null, 'opened' => null, 'openedIg' => null,
+        ];
+        // The place in line is shown on list rows and in the side panel only.
+        if ($this->openedId > 0 || ($this->tab === 'gonderiler' && $this->mode === 'liste') || $this->tab === 'ayarlar') {
+            $data['line'] = $schedule->line()->modelKeys();
+            $data['storyLine'] = $schedule->line(true)->modelKeys();
+            $data['reelLine'] = $schedule->reelTimes() === [] ? null : $schedule->line('reels')->modelKeys();
+        }
+        if ($this->openedId > 0) {
+            $data['opened'] = SocialPost::query()->with(['targets.account'])->find($this->openedId);
+        }
 
-        $profile = null;
-        $opened = null;
-        if ($this->tab === 'instagram') {
-            $ready = SocialPost::query()->whereNull('removed_at')
-                ->whereIn('status', [SocialPost::DRAFT, SocialPost::APPROVED, SocialPost::FAILED, SocialPost::PARTIAL])
-                ->whereDoesntHave('targets', fn ($q) => $q->where('status', SocialPostTarget::PUBLISHED))
-                ->with(['targets.account'])->orderBy('publish_at')->limit(60)->get();
-            $published = SocialPost::query()->whereNull('removed_at')
-                ->whereHas('targets', fn ($q) => $q->whereIn('status', [SocialPostTarget::PUBLISHED, SocialPostTarget::DONE]))
-                ->with(['targets.account'])->orderByDesc('publish_at')->limit(90)->get();
-            $account = SocialAccount::query()->where('platform', SocialAccount::INSTAGRAM)->where('enabled', true)->orderBy('id')->first();
+        if ($this->tab === 'bugun') {
+            $today = now($tz);
+            $data += ['today' => $screen->day($today, $this->channel), 'now' => $today, 'stock' => $screen->stock(), 'quick' => $screen->results(7)];
+        } elseif ($this->tab === 'takvim') {
+            $start = $this->weekStart();
+            $today = now($tz)->format('Y-m-d');
+            $picked = $this->day !== '' && $this->day >= $start->format('Y-m-d') && $this->day <= $start->copy()->addDays(6)->format('Y-m-d')
+                ? $this->day
+                : ($today >= $start->format('Y-m-d') && $today <= $start->copy()->addDays(6)->format('Y-m-d') ? $today : $start->format('Y-m-d'));
+            $data += ['weekStart' => $start, 'todayKey' => $today, 'pickedDay' => $picked];
+            $data += $this->calendar === 'ay'
+                ? ['month' => $screen->month($start->copy()->addDays(3), $this->channel), 'monthOf' => $start->copy()->addDays(3)->startOfMonth()]
+                : ['days' => $screen->week($start, $this->channel, $this->stories)];
+        } elseif ($this->tab === 'gonderiler' && $this->mode === 'izgara') {
+            $account = $accounts->where('platform', SocialAccount::INSTAGRAM)->where('enabled', true)->first();
             // The grid is what is live on Instagram (shared from here or from the phone), newest first; a post sent
             // from here shows its own record (approve, take down), anything else opens on Instagram.
             $feed = $account !== null ? app(InstagramFeed::class)->posts($account) : [];
-            $byExternal = $published->filter(fn (SocialPost $p): bool => $p->targets->contains(fn ($t) => $t->account?->platform === SocialAccount::INSTAGRAM && $t->external_id))
-                ->keyBy(fn (SocialPost $p): string => (string) $p->targets->first(fn ($t) => $t->account?->platform === SocialAccount::INSTAGRAM && $t->external_id)->external_id);
-            $grid = collect($feed)->map(fn (array $m): array => ['post' => $byExternal->get($m['id']), 'ig' => $m, 'at' => $m['at']]);
-            $seen = $grid->pluck('ig.id')->flip();
-            foreach ($published as $post) {
-                $ext = (string) ($post->targets->first(fn ($t) => $t->account?->platform === SocialAccount::INSTAGRAM)?->external_id ?? '');
-                if ($ext === '' || ! isset($seen[$ext])) {
-                    $grid->push(['post' => $post, 'ig' => null, 'at' => $post->publish_at->toIso8601String()]);
-                }
-            }
-            $profile = [
-                'account' => $account, 'ready' => $ready, 'grid' => $grid->sortByDesc('at')->values(),
-                'waiting' => $ready->where('status', SocialPost::DRAFT)->count(),
+            $data += ['profile' => ['account' => $account] + $screen->profile($feed, $this->readyCount, $this->gridCount)];
+            $data['openedIg'] = $this->openIg !== '' ? collect($feed)->firstWhere('id', $this->openIg) : null;
+        } elseif ($this->tab === 'gonderiler') {
+            $list = $screen->page($this->status, $this->kind, $this->channel, $this->search, $this->pageNo);
+            $this->pageNo = $list['page'];
+            $data += ['list' => $list, 'statusFilters' => SocialScreen::STATUS_FILTERS, 'kindFilters' => SocialScreen::KIND_FILTERS];
+        } elseif ($this->tab === 'konusmalar') {
+            $data += ['talks' => $screen->talks($this->channel)];
+        } elseif ($this->tab === 'sonuclar') {
+            $data += ['results' => $screen->results($this->period), 'trends' => app(SocialTrendWatch::class)->reading()];
+        } elseif ($this->tab === 'ayarlar') {
+            $data += [
+                'scopes' => SocialMetaConnector::SCOPES,
+                'callbackUrl' => route('integrations.meta.callback'),
+                'metaAppId' => app(SocialGraph::class)->appId(),
+                'ownSocialApp' => SocialGraph::ownApp() !== null,
+                'lastAttempt' => SocialMetaConnector::lastAttempt(),
+                'linkedinApp' => LinkedInApi::app() !== null,
+                'linkedinCallback' => LinkedInConnector::redirectUri(),
+                'linkedinScopes' => LinkedInConnector::SCOPES,
+                'linkedinAttempt' => LinkedInConnector::lastAttempt(),
+                'threadsApp' => ThreadsApi::app() !== null,
+                'threadsCallback' => ThreadsApi::redirectUri(),
+                'threadsAttempt' => ThreadsApi::lastAttempt(),
             ];
-            $opened = $this->openPost > 0 ? SocialPost::query()->with(['targets.account'])->find($this->openPost) : null;
-            $openedIg = $this->openIg !== '' ? collect($feed)->firstWhere('id', $this->openIg) : null;
         }
 
-        return view('livewire.operator.social.social-page', [
-            'profile' => $profile,
-            'opened' => $opened,
-            'openedIg' => $openedIg ?? null,
-            'waitingCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
-            'weeks' => $weeks,
-            'line' => app(SocialSchedule::class)->line()->modelKeys(),
-            'storyLine' => app(SocialSchedule::class)->line(true)->modelKeys(),
-            'reelLine' => app(SocialSchedule::class)->reelTimes() === [] ? null : app(SocialSchedule::class)->line('reels')->modelKeys(),
-            'trends' => $this->tab === 'trendler' ? app(SocialTrendWatch::class)->reading() : null,
-            'dayNames' => [1 => 'Pazartesi', 2 => 'Salı', 3 => 'Çarşamba', 4 => 'Perşembe', 5 => 'Cuma', 6 => 'Cumartesi', 7 => 'Pazar'],
-            'manual' => $manual,
-            'history' => $history,
-            'accounts' => SocialAccount::query()->orderBy('platform')->get(),
-            'drafts' => $upcoming->where('status', SocialPost::DRAFT)->count(),
-            'failed' => $upcoming->whereIn('status', [SocialPost::FAILED, SocialPost::PARTIAL])->count(),
-            'canWrite' => $this->isAdmin(),
-            'tz' => $tz,
-            'scopes' => SocialMetaConnector::SCOPES,
-            'callbackUrl' => route('integrations.meta.callback'),
-            'metaAppId' => app(SocialGraph::class)->appId(),
-            'ownSocialApp' => SocialGraph::ownApp() !== null,
-            'lastAttempt' => SocialMetaConnector::lastAttempt(),
-            'linkedinApp' => LinkedInApi::app() !== null,
-            'linkedinCallback' => LinkedInConnector::redirectUri(),
-            'linkedinScopes' => LinkedInConnector::SCOPES,
-            'linkedinAttempt' => LinkedInConnector::lastAttempt(),
-            'threadsApp' => ThreadsApi::app() !== null,
-            'threadsCallback' => ThreadsApi::redirectUri(),
-            'threadsAttempt' => ThreadsApi::lastAttempt(),
-        ]);
+        return view('livewire.operator.social.social-page', $data);
     }
 
     private function post(int $id): SocialPost

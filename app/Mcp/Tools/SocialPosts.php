@@ -15,7 +15,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Throwable;
 
-#[Description('Moximu\'s own social media plan (Instagram, Facebook, LinkedIn; ADR-083). action=list: accounts, upcoming and recent posts with channel results. action=draft: adds a post as a DRAFT (never published before the operator approves it on /sosyal): kind image | carousel (2-10 files, in order) | reels (mp4) | story; media = files as https URLs or base64; caption = Instagram+Facebook text; linkedin_text (optional; LinkedIn gets it only when given; once the LinkedIn page is connected on /sosyal it is published there automatically with the post\'s media, otherwise it waits as copy-and-open; write it as a separate corporate LinkedIn text, not the Instagram caption); publish_at in Istanbul time "Y-m-d H:i". action=update: change caption / linkedin_text / publish_at of a draft or approved post (a changed publish_at fixes the date; otherwise an approved post takes the next free day of the operator\'s posting plan, one a day, in line order, so the draft\'s publish_at is only a proposal). action=delete: remove a draft. action=trends: the watched Instagram accounts and their posts of the last three weeks that got at least twice that account\'s usual likes+comments (a fresh reading through the official API; give watch = user names to replace the watch list first). Rules: corporate plain Turkish, no MoxDOP name, no guarantees, numbers only from recorded results, no AI images.')]
+#[Description('Moximu\'s own social media plan (Instagram, Facebook, LinkedIn; ADR-083). action=list: accounts, upcoming and recent posts with channel results. action=draft: adds a post as a DRAFT (never published before the operator approves it on /sosyal): kind image | carousel (2-10 files, in order) | reels (mp4) | story; media = files as https URLs or base64; caption = Instagram+Facebook text; threads_text (optional; Threads gets the post only when given, as a text post of at most 500 characters written for Threads, not the caption); linkedin_text (optional; LinkedIn gets it only when given; once the LinkedIn page is connected on /sosyal it is published there automatically with the post\'s media, otherwise it waits as copy-and-open; write it as a separate corporate LinkedIn text, not the Instagram caption); publish_at in Istanbul time "Y-m-d H:i". action=update: change caption / linkedin_text / threads_text / publish_at of a draft or approved post (a changed publish_at fixes the date; otherwise an approved post takes the next free day of the operator\'s posting plan, one a day, in line order, so the draft\'s publish_at is only a proposal). action=delete: remove a draft. action=trends: the watched Instagram accounts and their posts of the last three weeks that got at least twice that account\'s usual likes+comments (a fresh reading through the official API; give watch = user names to replace the watch list first). Rules: corporate plain Turkish, no MoxDOP name, no guarantees, numbers only from recorded results, no AI images.')]
 class SocialPosts extends Tool
 {
     public function handle(Request $request): Response
@@ -28,6 +28,7 @@ class SocialPosts extends Tool
             'title' => ['nullable', 'string', 'max:190'],
             'caption' => ['nullable', 'string', 'max:2200'],
             'linkedin_text' => ['nullable', 'string', 'max:3000'],
+            'threads_text' => ['nullable', 'string', 'max:500'],
             'publish_at' => ['nullable', 'date'],
             'source_url' => ['nullable', 'string', 'max:1000'],
             'platforms' => ['nullable', 'array'],
@@ -74,7 +75,7 @@ class SocialPosts extends Tool
         }
         $post = $planner->create([
             'kind' => $v['kind'], 'pillar' => $v['pillar'] ?? null, 'title' => $v['title'] ?? null, 'caption' => $v['caption'] ?? null,
-            'linkedin_text' => $v['linkedin_text'] ?? null, 'publish_at' => $v['publish_at'], 'source_url' => $v['source_url'] ?? null,
+            'linkedin_text' => $v['linkedin_text'] ?? null, 'threads_text' => $v['threads_text'] ?? null, 'publish_at' => $v['publish_at'], 'source_url' => $v['source_url'] ?? null,
             'created_by' => 'claude', 'platforms' => $v['platforms'] ?? null,
         ], $files);
 
@@ -88,7 +89,7 @@ class SocialPosts extends Tool
         if (! $post instanceof SocialPost) {
             return Response::error('Gönderi bulunamadı.');
         }
-        $planner->edit($post, array_intersect_key($v, array_flip(['caption', 'linkedin_text', 'publish_at', 'title'])));
+        $planner->edit($post, array_intersect_key($v, array_flip(['caption', 'linkedin_text', 'threads_text', 'publish_at', 'title'])));
 
         return Response::text('Gönderi #'.$post->id.' güncellendi.');
     }
@@ -122,7 +123,7 @@ class SocialPosts extends Tool
         $tz = SocialPlanner::TIMEZONE;
         $row = fn (SocialPost $p): array => [
             'id' => $p->id, 'kind' => $p->kind, 'pillar' => $p->pillar, 'title' => $p->title, 'status' => $p->status, 'fixed_date' => (bool) $p->pinned,
-            'publish_at' => $p->publish_at->timezone($tz)->format('Y-m-d H:i'), 'caption' => $p->caption, 'linkedin_text' => $p->linkedin_text,
+            'publish_at' => $p->publish_at->timezone($tz)->format('Y-m-d H:i'), 'caption' => $p->caption, 'linkedin_text' => $p->linkedin_text, 'threads_text' => $p->threads_text,
             'media' => array_map(fn (array $m): string => $m['url'], $p->mediaItems()), 'created_by' => $p->created_by,
             'channels' => $p->targets->map(fn (SocialPostTarget $t): array => [
                 'platform' => $t->account?->platform, 'status' => $t->status, 'permalink' => $t->permalink, 'error' => $t->error, 'insights' => $t->insights, 'insights_at' => $t->insights_at?->toIso8601String(),
@@ -150,6 +151,7 @@ class SocialPosts extends Tool
             'title' => $schema->string()->description('Short internal label shown on the approval card.'),
             'caption' => $schema->string()->description('Instagram + Facebook text (with hashtags).'),
             'linkedin_text' => $schema->string()->description('LinkedIn text; omit to skip LinkedIn.'),
+            'threads_text' => $schema->string()->description('Threads text (its own short conversational text, at most 500 characters; published as a text post); omit to skip Threads.'),
             'publish_at' => $schema->string()->description('Istanbul time, "Y-m-d H:i".'),
             'source_url' => $schema->string()->description('The site page the post is based on.'),
             'platforms' => $schema->array()->items($schema->string()->enum(SocialAccount::PLATFORMS))->description('Only these channels (default: every enabled account that fits).'),

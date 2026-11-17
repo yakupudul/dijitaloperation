@@ -76,7 +76,7 @@ final class SocialScheduleTest extends TestCase
             app(SocialPlanner::class)->approve($post, $this->admin->id);
         }
 
-        Livewire::actingAs($this->admin)->test(SocialPage::class)->call('setTab', 'plan')
+        Livewire::actingAs($this->admin)->test(SocialPage::class)->call('setTab', 'ayarlar')
             ->assertSeeHtml('data-social-schedule')->assertSee('Çarşamba')
             ->set('planDays', [1 => false, 2 => true, 3 => false, 4 => true, 5 => false, 6 => false, 7 => false])
             ->set('planTimes.2', '09:15')->set('planTimes.4', '18:00')
@@ -98,7 +98,7 @@ final class SocialScheduleTest extends TestCase
         $this->assertSame('2026-11-10 20:00', $this->at($fixed));
         $this->assertSame(['2026-11-09 12:30', '2026-11-11 12:30', '2026-11-12 12:30'], [$this->at($a), $this->at($b), $this->at($c)], 'the 10th belongs to the fixed post');
 
-        $page = Livewire::actingAs($this->admin)->test(SocialPage::class)->call('setTab', 'plan')->assertSee('Sırada 1.')->assertSee('Sabit tarih');
+        $page = Livewire::actingAs($this->admin)->test(SocialPage::class)->call('setTab', 'gonderiler')->assertSee('Sırada 1.')->assertSee('Sabit tarih');
         $page->call('move', $c->id, -1);
         $this->assertSame(['2026-11-09 12:30', '2026-11-12 12:30', '2026-11-11 12:30'], [$this->at($a), $this->at($b), $this->at($c)]);
 
@@ -169,7 +169,7 @@ final class SocialScheduleTest extends TestCase
         $this->assertSame([$image->id], $schedule->line()->modelKeys());
         $this->assertSame([$reel->id, $second->id], $schedule->line('reels')->modelKeys());
 
-        Livewire::actingAs($this->admin)->test(SocialPage::class)->call('setTab', 'plan')
+        Livewire::actingAs($this->admin)->test(SocialPage::class)->call('setTab', 'gonderiler')
             ->assertSet('reelTimes', ['19:00', ''])->assertSee('Video sırasında 1.');
     }
 
