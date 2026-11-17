@@ -163,8 +163,9 @@ final class TodayCockpitTest extends SiteTestCase
             ->where('active', true)->pluck('path')->values()->all();
 
         $this->assertSame([route('operator.brands', absolute: false)], $active('/assets/website/5', 'operator.website'), 'Web siteleri is a tab of Markalar since 2026-11-09');
-        $this->assertSame([route('operator.google-ads-desk', absolute: false)], $active('/assets/google-ads/5', 'operator.google-ads.overview'));
-        $this->assertSame([route('operator.meta-desk', absolute: false)], $active('/assets/meta/5', 'operator.meta.overview'));
+        // Arayüz kararı 2026-11-17: the channel desks are tabs of Markalar, so a channel screen lights Markalar.
+        $this->assertSame([route('operator.brands', absolute: false)], $active('/assets/google-ads/5', 'operator.google-ads.overview'));
+        $this->assertSame([route('operator.brands', absolute: false)], $active('/assets/meta/5', 'operator.meta.overview'));
         $this->assertSame(['/'], $active('/', 'operator.dashboard'));
 
         $this->get(route('operator.website', ['assetId' => $this->site->id]))->assertOk()

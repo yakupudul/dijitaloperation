@@ -59,7 +59,8 @@ final class BrandToday
                 'tone' => $gaps['bad'] !== [] || $late > 0 ? 'bad' : ($gapCount > 0 || $own->isNotEmpty() ? 'warn' : 'ok'),
                 'score' => 100 * $late + 40 * count($gaps['bad']) + 12 * count($gaps['look']) + 10 * count($gaps['missing']) + 8 * $own->count(),
                 'next' => $own->first()?->title,
-                'doors' => $this->safely(fn (): array => $this->shortcuts->doors($brand)) ?? [],
+                // The doors change only when an account is bound: kept ten minutes so the list costs no query per brand.
+                'doors' => $this->safely(fn (): array => Cache::remember('brand-today.doors.'.$brand->id, 600, fn (): array => $this->shortcuts->doors($brand))) ?? [],
             ];
         }
         usort($rows, fn (array $a, array $b): int => [$b['score'], $a['name']] <=> [$a['score'], $b['name']]);
