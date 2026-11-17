@@ -17,6 +17,7 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
+use App\Models\Reminder;
 use App\Models\OperatorFile;
 use App\Models\ResourceAutomation;
 use App\Models\Suggestion;
@@ -33,7 +34,9 @@ use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\ResourceAutomationService;
 use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\BrandWorkspaceReadService;
-use App\Services\Operator\ExternalLinks;
+use App\Services\Operator\BrandOutcome;
+use App\Services\Operator\BrandShortcuts;
+use App\Services\Operator\BrandWorkplace;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
 use App\Support\Demo\DemoState;
@@ -44,6 +47,7 @@ use App\Support\Roles;
 use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -511,6 +515,36 @@ class BrandShow extends Component
     }
 
     /** The brand page's numbers read Search Console, GA4, Ads and profiles by SiteRange, so "geçen yıl aynı dönem" works here. */
+    /**
+     * What the operator knows about an asset and no data can tell (arayüz kararı 2026-11-17): stopped on purpose, or an
+     * old account nobody uses. With an intent the asset stops producing alarms and "bağlı değil" lines. '' clears it.
+     */
+    public function setAssetIntent(int $assetId, string $intent, string $note = ''): void
+    {
+        abort_unless((bool) auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $asset = DigitalAsset::query()->where('brand_id', $this->brandModel()->id)->findOrFail($assetId);
+        $intent = array_key_exists($intent, DigitalAsset::INTENTS) ? $intent : null;
+        $asset->forceFill([
+            'intent' => $intent,
+            'intent_note' => $intent !== null ? (Str::limit(trim($note), 250, '') ?: null) : null,
+            'intent_at' => $intent !== null ? now() : null,
+        ])->save();
+        BrandOutcome::forget((int) $asset->brand_id);
+        \App\Support\AssetIntent::forget();
+        \App\Services\Ads\SupersededAdAccounts::forget();
+        DemoState::flash($intent !== null ? $asset->name.': '.DigitalAsset::INTENTS[$intent].'. Artık uyarı üretmez.' : $asset->name.': not kaldırıldı, yeniden izleniyor.');
+    }
+
+    /** Sana kalan: tick one of the operator's own to-dos of this brand without leaving the page. */
+    public function finishTodo(int $reminderId): void
+    {
+        $reminder = Reminder::query()->where('brand_id', $this->brandModel()->id)->where('kind', 'task')->whereNull('done_at')->find($reminderId);
+        if ($reminder === null || $reminder->waitsForApproval()) {
+            return;
+        }
+        $reminder->forceFill(['done_at' => now()])->save();
+    }
+
     public function supportsYearOverYearComparison(): bool
     {
         return true;
@@ -544,7 +578,7 @@ class BrandShow extends Component
             'channelComponent' => isset(self::CHANNEL_TABS[$this->tab]) ? self::CHANNEL_TABS[$this->tab][1] : null,
             'checklist' => $checklist,
             'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
-            'quickAccess' => app(ExternalLinks::class)->forBrand($brand),
+            'shortcuts' => app(BrandShortcuts::class)->for($brand),
             'flash' => DemoState::pullFlash(),
             ...$data,
         ]);
@@ -560,7 +594,16 @@ class BrandShow extends Component
     {
         // Aşama 6 (2026-10-22): the numbers, findings and assets are the channel cards of BrandPagePanel (loaded after
         // the page); Özet itself keeps the period, the Yolculuk strip and the services.
+        $outcome = rescue(fn (): array => app(BrandOutcome::class)->for($brand), null);
+        $workplace = app(BrandWorkplace::class);
+        $workAssets = $workplace->assets($brand);
+
         return [
+            'outcome' => $outcome,
+            'workAssets' => $workAssets,
+            'missingLinks' => $workplace->missing($brand, $workAssets, $outcome),
+            'claudeDone' => $workplace->done($brand),
+            'yours' => $workplace->yours($brand),
             'days' => $this->overviewDays(),
             'range' => $this->pickerRange(),
             'lastDay' => $this->periodPickerMaxDate(),

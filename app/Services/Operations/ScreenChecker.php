@@ -55,7 +55,7 @@ final class ScreenChecker
     private string $lastHtml = '';
 
     private const array STATIC_ROUTES = [
-        'operator.dashboard' => 'Komuta', 'operator.today' => 'Bugün özeti', 'operator.portfolio' => 'Portföy', 'operator.repair' => 'Onarım masası', 'operator.flow' => 'Akış', 'operator.content' => 'İçerik',
+        'operator.dashboard' => 'Bugün', 'operator.komuta' => 'Onay kutusu', 'operator.today' => 'Bugün özeti', 'operator.portfolio' => 'Portföy', 'operator.repair' => 'Onarım masası', 'operator.flow' => 'Akış', 'operator.content' => 'İçerik',
         'operator.google-ads-desk' => 'Google Ads', 'operator.meta-desk' => 'Meta', 'operator.gbp-desk' => 'İşletme profilleri', 'operator.gbp-posts' => 'İşletme profilleri › Gönderiler',
         'operator.gbp-branch-pages' => 'İşletme profilleri › Şube sayfaları', 'operator.gbp-profile-fields' => 'İşletme profilleri › Açıklama ve saatler',
         'operator.gbp-photos' => 'İşletme profilleri › Fotoğraflar', 'operator.gbp-reviews' => 'İşletme profilleri › Yorumlar', 'operator.brands' => 'Markalar',

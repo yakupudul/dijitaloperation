@@ -30,7 +30,9 @@ final class SupersededAdAccounts
     /** @return array<int, int> old account asset id => working asset id (read once per request, cached 10 minutes) */
     public static function map(): array
     {
-        return once(fn (): array => app()->runningUnitTests() ? self::read() : Cache::remember(self::CACHE_KEY, 600, fn (): array => self::read()));
+        // An account the operator marked himself (bilerek durduruldu / eski hesap, AssetIntent) is quiet the same way.
+        return once(fn (): array => (app()->runningUnitTests() ? self::read() : Cache::remember(self::CACHE_KEY, 600, fn (): array => self::read()))
+            + array_map(fn (): int => 0, \App\Support\AssetIntent::map()));
     }
 
     public static function isSuperseded(int $assetId): bool

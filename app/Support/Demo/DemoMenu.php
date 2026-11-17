@@ -42,60 +42,46 @@ final class DemoMenu
         // pinned. Portföy and Web siteleri are tabs of Markalar (three lists of the same brands were three entries);
         // Akış left the menu: the top bar's "N çalışıyor" pill opens it. The flattened order is locked by
         // PanelDesignFreezeTest.
+        $admin = (bool) auth()->user()?->hasRole(Roles::ADMIN);
+        $moximu = $own['name'] ?? 'Moximu';
+
+        // Arayüz kararı (yakup 2026-11-17): the menu is four entries. Bugün (which brand needs me), Markalar (the brand
+        // page is the one workplace; the work-type and channel desks are its tabs and open from a brand's assets),
+        // the agency's own business, Sistem. No screen was deleted: every former entry is a tab of one of the four.
         return [
-            $group($tr ? 'Günüm' : 'My day', [
-                // Aşama 5 (2026-10-22): Komuta replaced Bugün as the home screen; Bugün özeti stays lit under it.
-                $item($tr ? 'Komuta' : 'Command', 'operator.dashboard', 'dashboard', [], ['operator.today']),
-                // Takvim (yakup 2026-11-05): the center of the day; own tasks, meetings, sales steps and brands' work.
-                $item($tr ? 'Takvim' : 'Calendar', 'operator.calendar', 'agenda'),
-            ]),
-            // Moximu (yakup 2026-11-06: "bizim Moximu markamızla alakalı bölümleri aynı menü altında topla"): the agency's
-            // own work. The brand and site entries are shortcuts to the same screens, opened on the agency's brand.
-            $group($own['name'] ?? 'Moximu', [
-                // Satış (2026-11-04): prospects, today's messages, customers' requests, results.
-                $item($tr ? 'Satış' : 'Sales', 'operator.sales', 'prospects', [], ['operator.sales.lead']),
-                // Finans (2026-11-12): payment tracking of every paid job, invoices and expenses. Admin only.
-                ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Finans' : 'Finance', 'operator.finance', 'finance', [], ['operator.finance.document'])] : []),
-                // Gelen kutusu (Aşama 2, 2026-11-07): the day's one queue; the WhatsApp screen (chats, Beyin, connection) and WhatsApp
-                // konuşmaları (search in every chat, 2026-11-13; opened from the inbox header, the menu is frozen) light it too.
-                ...(auth()->user()?->hasRole(Roles::ADMIN) ? [$item($tr ? 'Gelen kutusu' : 'Inbox', 'operator.inbox', 'chat', [], ['operator.whatsapp', 'operator.whatsapp.conversations'])] : []),
-                // Pazarlama (Aşama 4, 2026-11-07): the funnel by source; Sosyal medya (ADR-083) lives inside it as a tab and
-                // keeps its own screen for the post plan, lit under this entry.
-                $item($tr ? 'Pazarlama' : 'Marketing', 'operator.marketing', 'social', [], ['operator.social']),
-                ...($own !== null && $own['website'] !== null
-                    ? [['label' => $tr ? 'Web sitemiz' : 'Our website', 'route' => 'operator.website', 'params' => ['assetId' => $own['website']], 'icon' => 'website', 'children' => [], 'active' => []]]
-                    : []),
-                ...($own !== null
-                    ? [['label' => $tr ? 'Marka kartımız' : 'Our brand', 'route' => 'operator.brand', 'params' => ['brand' => $own['id']], 'icon' => 'brands', 'children' => [], 'active' => []]]
-                    : []),
-            ]),
-            $group($tr ? 'Müşteri işleri' : 'Client work', [
-                // Markalar (Müşteriler merged in 2026-10-19) carries Portföy (goal, channels, trend) and Web siteleri as tabs.
+            $group('', [
+                $item($tr ? 'Bugün' : 'Today', 'operator.dashboard', 'dashboard', [
+                    $child($tr ? 'Onay kutusu' : 'Approvals', 'operator.komuta'),
+                    $child($tr ? 'Takvim' : 'Calendar', 'operator.calendar'),
+                ], ['operator.today']),
                 $item(__('operator.nav.brands'), 'operator.brands', 'brands', [
-                    $child($tr ? 'Portföy' : 'Portfolio', 'operator.portfolio'),
-                    $child($tr ? 'Web siteleri' : 'Websites', 'operator.websites'),
-                ], ['operator.customers', 'operator.customer', 'operator.customer.create', 'operator.customer.edit', 'operator.website']),
-                // One work list (2026-10-10): Genel işler is the desk's "Diğer işler" section.
-                $item($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', 'work', [], ['operator.work']),
-                // The weekly content cycle (yakup 2026-10-20): written articles go to the sites with one click from here.
-                $item($tr ? 'İçerik' : 'Content', 'operator.content', 'content'),
-                // Bağlantılar (Backlink hizmeti, 2026-11-06): link targets, the desk of ready applications, the shared pool.
-                $item($tr ? 'Bağlantılar' : 'Links', 'operator.links', 'link'),
-            ]),
-            $group($tr ? 'Kanallar' : 'Channels', [
-                $item($tr ? 'İşletme profilleri' : 'Business profiles', 'operator.gbp-desk', 'calendar', [], ['operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos', 'operator.gbp-reviews']),
-                $item('Google Ads', 'operator.google-ads-desk', 'seo', [], ['operator.google-ads-terms', 'operator.google-ads-changes', 'operator.google-ads-ads', 'operator.google-ads-measurement', 'operator.google-ads-services', 'operator.google-ads.overview']),
-                $item($tr ? 'Meta reklamları' : 'Meta ads', 'operator.meta-desk', 'ads-advisor', [], ['operator.meta.overview', 'operator.meta.campaign', 'operator.meta.assign', 'operator.meta-strategy', 'operator.libraries']),
+                    $child($tr ? 'Portföy' : 'Portfolio', 'operator.portfolio', $tr ? 'Markalar' : 'Brands'),
+                    $child($tr ? 'Web siteleri' : 'Websites', 'operator.websites', $tr ? 'Markalar' : 'Brands'),
+                    $child($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', $tr ? 'İşler' : 'Work'),
+                    $child($tr ? 'İçerik' : 'Content', 'operator.content', $tr ? 'İşler' : 'Work'),
+                    $child($tr ? 'Bağlantılar' : 'Links', 'operator.links', $tr ? 'İşler' : 'Work'),
+                    $child($tr ? 'İşletme profilleri' : 'Business profiles', 'operator.gbp-desk', $tr ? 'Kanallar' : 'Channels'),
+                    $child('Google Ads', 'operator.google-ads-desk', $tr ? 'Kanallar' : 'Channels'),
+                    $child($tr ? 'Meta reklamları' : 'Meta ads', 'operator.meta-desk', $tr ? 'Kanallar' : 'Channels'),
+                ], ['operator.brand', 'operator.customers', 'operator.customer', 'operator.customer.create', 'operator.customer.edit', 'operator.website', 'operator.work',
+                    'operator.gbp-posts', 'operator.gbp-branch-pages', 'operator.gbp-profile-fields', 'operator.gbp-photos', 'operator.gbp-reviews', 'operator.gbp',
+                    'operator.google-ads-terms', 'operator.google-ads-changes', 'operator.google-ads-ads', 'operator.google-ads-measurement', 'operator.google-ads-services', 'operator.google-ads.overview',
+                    'operator.meta.overview', 'operator.meta.campaign', 'operator.meta.assign', 'operator.meta-strategy', 'operator.meta.campaign-ad']) + ['head' => $tr ? 'Tüm markalar' : 'All brands'],
+                $item($moximu, 'operator.sales', 'prospects', [
+                    ...($admin ? [$child($tr ? 'Finans' : 'Finance', 'operator.finance')] : []),
+                    ...($admin ? [$child($tr ? 'Gelen kutusu' : 'Inbox', 'operator.inbox')] : []),
+                    $child($tr ? 'Pazarlama' : 'Marketing', 'operator.marketing'),
+                    $child($tr ? 'Sosyal medya' : 'Social', 'operator.social'),
+                    ...($own !== null && $own['website'] !== null ? [$child($tr ? 'Web sitemiz' : 'Our website', 'operator.website') + ['params' => ['assetId' => $own['website']]]] : []),
+                    ...($own !== null ? [$child($tr ? 'Marka kartımız' : 'Our brand', 'operator.brand') + ['params' => ['brand' => $own['id']]]] : []),
+                ], ['operator.sales.lead', 'operator.finance.document', 'operator.whatsapp', 'operator.whatsapp.conversations']) + ['head' => $tr ? 'Satış' : 'Sales'],
             ]),
             $group($tr ? 'Sistem' : 'System', [
-                $item(__('operator.nav.integrations'), 'operator.integrations', 'integrations', [
-                    $child($tr ? 'Hesaplar' : 'Accounts', 'operator.integrations.accounts'),
-                    $child($tr ? 'Bağlantı sağlığı' : 'Connection health', 'operator.integrations.connection-health'),
-                    $child($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets'),
-                ]),
-                // Bağlantı Düzeni 2.3 (2026-11-11): three groups instead of a row of tabs. Ajans = who we are, Kurallar = how the
-                // work is done, Makine = what keeps the system running (it only asks for attention when something is wrong).
-                $item(__('operator.nav.settings'), 'operator.settings', 'settings', [
+                $item($tr ? 'Sistem' : 'System', 'operator.integrations', 'settings', [
+                    $child($tr ? 'Hesaplar' : 'Accounts', 'operator.integrations.accounts', $tr ? 'Bağlantılar' : 'Connections'),
+                    $child($tr ? 'Bağlantı sağlığı' : 'Connection health', 'operator.integrations.connection-health', $tr ? 'Bağlantılar' : 'Connections'),
+                    $child($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets', $tr ? 'Bağlantılar' : 'Connections'),
+                    $child($tr ? 'Genel ayarlar' : 'General settings', 'operator.settings', $tr ? 'Ajans' : 'Agency'),
                     $child($tr ? 'Kullanıcılar' : 'Users', 'operator.settings.users', $tr ? 'Ajans' : 'Agency'),
                     $child($tr ? 'Standartlar' : 'Standards', 'operator.library.website-standards', $tr ? 'Kurallar' : 'Rules'),
                     $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services', $tr ? 'Kurallar' : 'Rules'),
@@ -110,7 +96,7 @@ final class DemoMenu
                     $child($tr ? 'Değişiklik kaydı' : 'Change log', 'operator.settings.changes', $tr ? 'Makine' : 'Machine'),
                     $child($tr ? 'Geliştirme havuzu' : 'Improvements', 'operator.settings.improvements', $tr ? 'Makine' : 'Machine'),
                     $child($tr ? 'Sürümler' : 'Releases', 'operator.settings.releases', $tr ? 'Makine' : 'Machine'),
-                ]),
+                ]) + ['head' => __('operator.nav.integrations')],
             ], true),
         ];
     }

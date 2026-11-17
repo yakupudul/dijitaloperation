@@ -81,7 +81,9 @@ class BrandCommandCenterUxTest extends TestCase
             ->assertSee('Otomatik kur')
             ->assertSeeHtml('operator.portfolio.brand-page-panel')
             ->assertSee('Düzenle')
-            ->assertDontSee(route('operator.customer', ['customerId' => $this->workCustomer->id], absolute: false))
+            // Arayüz kararı 2026-11-17: the customer card is one of the brand's Kısayollar.
+            ->assertSee(route('operator.customer', ['customerId' => $this->workCustomer->id], absolute: false))
+            ->assertSee('Bu ay müşteri teması')
             ->assertDontSee('Brand Health')
             ->assertDontSee('Media spend')
             ->assertDontSee('Meta CPL deteriorated');

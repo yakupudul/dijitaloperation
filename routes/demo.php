@@ -115,7 +115,9 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
     ->group(function (): void {
         // Aşama 5 (2026-10-22): Komuta is the home screen — one decision box for every brand. The old Bugün cockpit
         // stays one click away as the day's summary.
-        Route::livewire('/', KomutaPage::class)->name('operator.dashboard');
+        // Arayüz kararı (2026-11-17): the home screen is Bugün (brands by urgency); the decision box moved to /onay.
+        Route::livewire('/', \App\Livewire\Operator\Today\TodayPage::class)->name('operator.dashboard');
+        Route::livewire('/onay', KomutaPage::class)->name('operator.komuta');
         Route::livewire('/bugun', Dashboard::class)->name('operator.today');
         Route::livewire('/portfoy', PortfolioPage::class)->name('operator.portfolio');
 

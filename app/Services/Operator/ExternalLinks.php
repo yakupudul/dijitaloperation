@@ -278,7 +278,8 @@ final class ExternalLinks
      *
      * @param  Collection<int, DigitalAsset>  $assets
      */
-    private function preload(Collection $assets): void
+    /** Reads what the links of these assets need (WordPress connectors, place ids) once, so forAsset() adds no query per asset. */
+    public function preload(Collection $assets): void
     {
         $resources = $assets->flatMap(fn (DigitalAsset $asset) => $asset->assetBindings)->where('capability', 'google_business_profile')->pluck('external_resource_id')->filter()->unique()->values()->all();
         $this->placeIds += array_fill_keys($resources, null);

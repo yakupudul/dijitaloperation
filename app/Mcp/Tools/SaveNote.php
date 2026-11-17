@@ -11,7 +11,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Saves one of your own working notes so a later run (or another Claude account) continues from it. kind: observation (what the data shows, with refs), hypothesis (a guess to check), proposal (something to suggest to the operator), followup (check again later). Append-only: to change a view, write a new note with supersedes_id; status=done closes a note. Notes never change facts, operator decisions or prompts. Write in Turkish, one point per note.')]
+#[Description('Saves one of your own working notes so a later run (or another Claude account) continues from it. kind: observation (what the data shows, with refs), hypothesis (a guess to check), proposal (something to suggest to the operator), followup (check again later), audit (Denetçi: a remark for the operator about a brand, about your own work or about the system, at most three plain sentences with the evidence in refs; it shows on Bugün where he answers Haklısın or Katılmıyorum; at most three open at a time, read list-notes kind=audit status=rejected first and never repeat those). Append-only: to change a view, write a new note with supersedes_id; status=done closes a note. Notes never change facts, operator decisions or prompts. Write in Turkish, one point per note.')]
 class SaveNote extends Tool
 {
     public function handle(Request $request): Response
@@ -54,7 +54,7 @@ class SaveNote extends Tool
     {
         return [
             'brand_id' => $schema->integer()->description('The brand; omit for a system-wide note.'),
-            'kind' => $schema->string()->enum(ClaudeNote::KINDS)->description('observation | hypothesis | proposal | followup')->required(),
+            'kind' => $schema->string()->enum(ClaudeNote::KINDS)->description('observation | hypothesis | proposal | followup | audit')->required(),
             'text' => $schema->string()->description('The note in Turkish, one point.')->required(),
             'refs' => $schema->array()->items($schema->string())->description('Where it comes from: URLs, cluster names, file sections, task ids.'),
             'supersedes_id' => $schema->integer()->description('An earlier note this one replaces.'),

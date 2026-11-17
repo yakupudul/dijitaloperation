@@ -245,7 +245,9 @@ final class KomutaTest extends SiteTestCase
 
     public function test_komuta_is_home_and_bugun_stays_one_click_away(): void
     {
-        $this->get('/')->assertOk()->assertSee('Komuta')->assertSee(route('operator.today', absolute: false));
+        // Arayüz kararı 2026-11-17: Bugün (brands by urgency) is home; Komuta is the Onay kutusu one click away.
+        $this->get('/')->assertOk()->assertSee(route('operator.komuta', absolute: false));
+        $this->get(route('operator.komuta'))->assertOk()->assertSee('Komuta')->assertSee(route('operator.today', absolute: false));
         $this->get(route('operator.today'))->assertOk();
         $this->get(route('operator.portfolio'))->assertOk()->assertSee('Portföy');
     }

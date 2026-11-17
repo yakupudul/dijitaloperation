@@ -12,9 +12,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ClaudeNote extends Model
 {
-    public const array KINDS = ['observation', 'hypothesis', 'proposal', 'followup'];
+    public const array KINDS = ['observation', 'hypothesis', 'proposal', 'followup', self::AUDIT];
 
-    public const array KIND_LABELS = ['observation' => 'Gözlem', 'hypothesis' => 'Varsayım', 'proposal' => 'Öneri', 'followup' => 'Takip'];
+    public const array KIND_LABELS = ['observation' => 'Gözlem', 'hypothesis' => 'Varsayım', 'proposal' => 'Öneri', 'followup' => 'Takip', self::AUDIT => 'Denetçi'];
+
+    /**
+     * Denetçi (arayüz kararı 2026-11-17): a remark for the operator after looking at a brand, at Claude's own work or at
+     * the system itself. At most three sentences; shown on Bugün with "Haklısın" / "Katılmıyorum". agreed = Claude does
+     * it (brand work) or it goes to the development pool; rejected = learned, never raised again.
+     */
+    public const string AUDIT = 'audit';
+
+    public const string AGREED = 'agreed';
+
+    public const string REJECTED = 'rejected';
 
     public const string OPEN = 'open';
 

@@ -11,7 +11,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
-#[Description('Lists your own notes (newest first): open ones by default. brand_id limits to a brand; system=true lists the system-wide ones; status=all includes done and superseded notes.')]
+#[Description('Lists your own notes (newest first): open ones by default. brand_id limits to a brand; system=true lists the system-wide ones; status=all includes done and superseded notes. kind=audit are Denetçi remarks: status=agreed are the ones the operator said "Haklısın" to (do the work, then close with save-note close_id), status=rejected the ones he disagreed with (never raise them again).')]
 #[IsReadOnly]
 class ListNotes extends Tool
 {
@@ -21,7 +21,7 @@ class ListNotes extends Tool
             'brand_id' => ['nullable', 'integer'],
             'system' => ['nullable', 'boolean'],
             'kind' => ['nullable', Rule::in(ClaudeNote::KINDS)],
-            'status' => ['nullable', Rule::in([ClaudeNote::OPEN, ClaudeNote::DONE, ClaudeNote::SUPERSEDED, 'all'])],
+            'status' => ['nullable', Rule::in([ClaudeNote::OPEN, ClaudeNote::DONE, ClaudeNote::SUPERSEDED, ClaudeNote::AGREED, ClaudeNote::REJECTED, 'all'])],
         ]);
         $status = $validated['status'] ?? ClaudeNote::OPEN;
         $notes = ClaudeNote::query()->with('brand:id,name')
@@ -41,7 +41,7 @@ class ListNotes extends Tool
             'brand_id' => $schema->integer()->description('Only this brand.'),
             'system' => $schema->boolean()->description('Only system-wide notes (no brand).'),
             'kind' => $schema->string()->enum(ClaudeNote::KINDS),
-            'status' => $schema->string()->enum([ClaudeNote::OPEN, ClaudeNote::DONE, ClaudeNote::SUPERSEDED, 'all'])->description('Default open.'),
+            'status' => $schema->string()->enum([ClaudeNote::OPEN, ClaudeNote::DONE, ClaudeNote::SUPERSEDED, ClaudeNote::AGREED, ClaudeNote::REJECTED, 'all'])->description('Default open.'),
         ];
     }
 }

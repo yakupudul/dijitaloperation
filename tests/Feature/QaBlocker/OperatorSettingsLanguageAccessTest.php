@@ -90,7 +90,7 @@ class OperatorSettingsLanguageAccessTest extends TestCase
             ->assertOk()
             ->assertSee('Bugün')
             ->assertSee('Markalar') // Müşteriler merged into Markalar 2026-10-19 (no own sidebar entry)
-            ->assertSee('Ayarlar')
+            ->assertSee('Sistem') // Ayarlar is a tab of Sistem since the 2026-11-17 menu
             ->assertDontSee('Needs Attention');
 
         $this->get('/customers')
@@ -127,9 +127,9 @@ class OperatorSettingsLanguageAccessTest extends TestCase
 
         $this->get('/')
             ->assertOk()
-            ->assertSee('Command')
+            ->assertSee('Today')
             ->assertSee('Brands') // Müşteriler merged into Markalar 2026-10-19 (no own sidebar entry)
-            ->assertSee('Settings');
+            ->assertSee('System');
 
         $this->get('/customers')->assertOk(); // Müşteriler merged into Markalar 2026-10-19: "Customers" was the sidebar entry
         $this->get('/brands')->assertOk()->assertSee('Brands');

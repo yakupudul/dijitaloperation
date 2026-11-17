@@ -80,7 +80,7 @@ final class AssetAlertScanner
     public function scan(DigitalAsset $asset, array $runtime = [], ?array $accounts = null): array
     {
         $accounts ??= $this->boundAccounts(collect([$asset]))[(int) $asset->id] ?? [];
-        if ((string) $asset->type === 'google_ads' && SupersededAdAccounts::isSuperseded((int) $asset->id)) {
+        if (((string) $asset->type === 'google_ads' && SupersededAdAccounts::isSuperseded((int) $asset->id)) || \App\Support\AssetIntent::quiet((int) $asset->id)) {
             // The old copy of a same-named working account: no alarm (its open ones resolve).
             return $this->persist($asset, []);
         }

@@ -109,7 +109,7 @@ final class ExternalLinksTest extends TestCase
         $admin = User::factory()->create(['is_active' => true]);
         $admin->assignRole(Roles::ADMIN);
         $this->actingAs($admin);
-        Livewire::test(BrandShow::class, ['brand' => $this->brand->id])->assertSee('Hızlı giriş')->assertSee('https://ads.google.com/aw/overview?__e=1234567890', false);
+        Livewire::test(BrandShow::class, ['brand' => $this->brand->id])->assertSee('Kısayollar')->assertSee('https://ads.google.com/aw/overview?__e=1234567890', false);
     }
 
     /** @param  array<string, mixed>  $metadata */

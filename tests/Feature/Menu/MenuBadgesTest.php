@@ -55,7 +55,9 @@ class MenuBadgesTest extends TestCase
         $this->assertStringContainsString('data-menu-pinned', $html);
         $this->assertStringNotContainsString('data-ai-live-card', $html);
         $this->assertStringContainsString('data-flow-light="ok"', $html);
-        $this->assertSame(['Günüm', 'Moximu', 'Müşteri işleri', 'Kanallar', 'Sistem'], array_column(OperatorMenu::groups(), 'title'));
+        // Arayüz kararı 2026-11-17: four entries; Markalar carries the red badge of its Google Ads tab.
+        $this->assertSame(['', 'Sistem'], array_column(OperatorMenu::groups(), 'title'));
+        $this->assertSame(['Bugün', 'Markalar', 'Moximu', 'Sistem'], collect(OperatorMenu::groups())->flatMap(fn (array $g): array => array_column($g['items'], 'name'))->all());
         $this->assertTrue(collect(OperatorMenu::groups())->last()['pinned']);
     }
 }

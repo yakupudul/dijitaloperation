@@ -56,31 +56,15 @@ class PanelDesignFreezeTest extends TestCase
             ->values()
             ->all();
 
-        $this->assertSame([
-            // Menü düzeni 2026-11-09 (yakup): Günüm · Moximu · Müşteri işleri · Kanallar · Sistem. Akış left the menu (the top
-            // bar pill opens it); Portföy and Web siteleri became tabs of Markalar.
-            'operator.dashboard',
-            // Takvim added 2026-11-05 (yakup: the calendar is the center).
-            'operator.calendar',
-            // Moximu group 2026-11-06 (yakup: the agency's own work together): Satış, Gelen kutusu, Pazarlama, and with an
-            // agency brand also Web sitemiz and Marka kartımız (none in this fixture).
-            'operator.sales',
-            // Finans added 2026-11-12 (yakup: payment tracking of his work; admin only).
-            'operator.finance',
-            'operator.inbox',
-            // Pazarlama replaced the Sosyal medya entry 2026-11-07 (Aşama 4); the social screen lights it.
-            'operator.marketing',
-            'operator.brands',
-            'operator.repair',
-            'operator.content',
-            // Bağlantılar added 2026-11-06 (yakup: backlink service for the brands).
-            'operator.links',
-            'operator.gbp-desk',
-            'operator.google-ads-desk',
-            'operator.meta-desk',
-            'operator.integrations',
-            'operator.settings',
-        ], $routes, 'WhatsApp shows for admins only (2026-12-01); İşletme gönderileri added with ADR-078, grown into İşletme profilleri with ADR-079; Meta reklamları (Meta masası) and Kazananlar added with the Meta plan; Google Ads menu added 2026-10-19; Stratejiler added 2026-10-12; Onarım masası added with the repair plan 2026-10-08 and, since 2026-10-10, the one work list for everyone (Genel işler is its Diğer işler section); Müşteriler merged into Markalar 2026-10-19; Sorgular under Büyüme and WhatsApp under Portföy with the menu prototype 2026-10-20; İçerik added and Dijital varlıklar moved under Entegrasyonlar 2026-10-20 (yönetici turu); Akış added 2026-10-22 (Aşama 4); Portföy added and Bugün became Komuta 2026-10-22 (Aşama 5); Kazananlar, Stratejiler and Sorgular left the menu 2026-10-22 (Aşama 11)');
+        // Arayüz kararı (yakup 2026-11-17): the menu is four entries, Bugün · Markalar · Moximu · Sistem. Every former entry
+        // (Takvim, Finans, Gelen kutusu, Pazarlama, Onarım masası, İçerik, Bağlantılar, the three channel desks, Ayarlar) is
+        // a tab of one of the four; no screen was deleted.
+        $this->assertSame(['operator.dashboard', 'operator.brands', 'operator.sales', 'operator.integrations'], $routes);
+        $children = collect(DemoMenu::groups())->flatMap(fn (array $group): array => $group['items'])->flatMap(fn (array $item): array => array_column($item['children'], 'route'))->all();
+        foreach (['operator.komuta', 'operator.calendar', 'operator.finance', 'operator.inbox', 'operator.marketing', 'operator.social', 'operator.repair', 'operator.content', 'operator.links',
+            'operator.gbp-desk', 'operator.google-ads-desk', 'operator.meta-desk', 'operator.settings', 'operator.settings.jobs'] as $route) {
+            $this->assertContains($route, $children, $route.' stays reachable as a tab');
+        }
 
         $labels = collect(DemoMenu::groups())
             ->flatMap(fn (array $group): array => $group['items'])
@@ -103,33 +87,33 @@ class PanelDesignFreezeTest extends TestCase
         Cache::forget('demo-menu.agency-brand');
         $site = DigitalAsset::query()->where('type', 'website')->where('brand_id', $this->portfolioBrand->id)->value('id');
 
-        $group = collect(OperatorMenu::groups('/'))->firstWhere('title', 'Moximu');
-        $this->assertNotNull($group);
-        // Gelen kutusu replaced the WhatsApp entry 2026-11-07 (Aşama 2): one queue for WhatsApp, social and today's steps.
-        $this->assertSame(['Satış', 'Finans', 'Gelen kutusu', 'Pazarlama', 'Web sitemiz', 'Marka kartımız'], array_column($group['items'], 'name'));
-        $this->assertSame('/assets/website/'.$site, $group['items'][4]['path']);
-        $this->assertSame('/brands/'.$this->portfolioBrand->id, $group['items'][5]['path']);
+        // Arayüz kararı 2026-11-17: Moximu is one entry; Satış, Finans, Gelen kutusu, Pazarlama, Sosyal medya and the
+        // agency's own site and brand card are its tabs.
+        $tabs = OperatorMenu::sectionTabs('operator.sales');
+        $this->assertSame(['Satış', 'Finans', 'Gelen kutusu', 'Pazarlama', 'Sosyal medya', 'Web sitemiz', 'Marka kartımız'], array_column($tabs, 'label'));
+        $this->assertSame('/assets/website/'.$site, $tabs[5]['url']);
+        $this->assertSame('/brands/'.$this->portfolioBrand->id, $tabs[6]['url']);
 
-        // Our own site lights "Web sitemiz"; any other site keeps Markalar (whose tab is Web siteleri) lit.
-        $active = fn (string $path): ?string => collect(OperatorMenu::groups($path, 'operator.website'))->flatMap(fn (array $g): array => $g['items'])->firstWhere('active', true)['name'] ?? null;
-        $this->assertSame('Web sitemiz', $active('/assets/website/'.$site));
-        $this->assertSame('Markalar', $active('/assets/website/999'));
-        $this->get('/')->assertOk()->assertSee('/brands/'.$this->portfolioBrand->id, false);
+        $active = fn (string $path, string $route): ?string => collect(OperatorMenu::groups($path, $route))->flatMap(fn (array $g): array => $g['items'])->firstWhere('active', true)['name'] ?? null;
+        $this->assertSame('Moximu', $active('/finans', 'operator.finance'));
+        $this->assertSame('Markalar', $active('/assets/website/999', 'operator.website'));
+        $this->assertSame('Bugün', $active('/onay', 'operator.komuta'));
+        $this->get(route('operator.sales'))->assertOk()->assertSee('/brands/'.$this->portfolioBrand->id, false);
     }
 
     public function test_hidden_screens_are_tabs_of_their_sidebar_entry(): void
     {
         $tabs = OperatorMenu::sectionTabs('operator.integrations.accounts');
-        $this->assertSame(['/integrations', '/integrations/accounts', '/integrations/connection-health', '/assets'], array_column($tabs, 'url'), 'Bağlantı sağlığı added with the repair plan 2026-10-08; Dijital varlıklar moved here from the sidebar 2026-10-20; Veri merkezi left 2026-10-22 (Aşama 11); Hesaplar added 2026-10-22 (Aşama 6); Keşfedilen varlıklar and WordPress siteleri folded into Hesaplar and Web siteleri 2026-11-01');
-        $this->assertSame([false, true, false, false], array_column($tabs, 'active'));
+        $this->assertSame(['/integrations', '/integrations/accounts', '/integrations/connection-health', '/assets'], array_slice(array_column($tabs, 'url'), 0, 4), 'Bağlantı sağlığı added with the repair plan 2026-10-08; Dijital varlıklar moved here from the sidebar 2026-10-20; Veri merkezi left 2026-10-22 (Aşama 11); Hesaplar added 2026-10-22 (Aşama 6); Keşfedilen varlıklar and WordPress siteleri folded into Hesaplar and Web siteleri 2026-11-01');
+        $this->assertSame([false, true, false, false], array_slice(array_column($tabs, 'active'), 0, 4));
         $settingsTabs = collect(OperatorMenu::sectionTabs('operator.settings.users'));
         $this->assertSame([
             ['/settings', '/settings/users'],
             ['/library/website-standards', '/library/services', '/settings/query-rules', '/settings/books'],
             ['/settings/ai', '/settings/ai-operations', '/settings/mcp', '/settings/security', '/settings/system-health', '/settings/jobs', '/settings/changes', '/settings/improvements', '/settings/releases'],
-        ], $settingsTabs->groupBy('group')->map(fn ($tabs): array => $tabs->pluck('url')->all())->values()->all(), 'Bağlantı Düzeni 2.3 (2026-11-11): Ayarlar in three groups, Ajans / Kurallar / Makine');
+        ], $settingsTabs->groupBy('group')->map(fn ($tabs): array => $tabs->pluck('url')->all())->values()->slice(1)->values()->all(), 'Bağlantı Düzeni 2.3 (2026-11-11): Ayarlar in three groups, Ajans / Kurallar / Makine');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
-        $this->assertSame(['/brands', '/portfoy', '/websites'], array_column(OperatorMenu::sectionTabs('operator.portfolio'), 'url'), 'Portföy and Web siteleri are tabs of Markalar since 2026-11-09');
+        $this->assertSame(['/brands', '/portfoy', '/websites'], array_slice(array_column(OperatorMenu::sectionTabs('operator.portfolio'), 'url'), 0, 3), 'Portföy and Web siteleri are tabs of Markalar since 2026-11-09');
 
         $this->get(route('operator.integrations.accounts'))->assertOk()->assertSee('aria-current="page"', false)->assertDontSee('/data-center"', false);
         $this->get(route('operator.settings.users'))->assertOk();

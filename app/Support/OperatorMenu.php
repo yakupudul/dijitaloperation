@@ -37,12 +37,22 @@ final class OperatorMenu
         foreach (DemoMenu::groups() as $group) {
             $items = [];
             foreach ($group['items'] as $item) {
+                // Arayüz kararı 2026-11-17: the desks are tabs of an entry now, so the entry carries the badge of its most
+                // urgent tab (red = money or data being lost first), else its own.
+                if (! isset($counts[$item['route']]) && ! isset($badges[$item['route']])) {
+                    $childBadges = array_values(array_filter(array_map(fn (array $c): ?array => isset($c['params']) ? null : ($badges[$c['route']] ?? null), $item['children'] ?? [])));
+                    usort($childBadges, fn (array $a, array $b): int => ($b['tone'] === 'red') <=> ($a['tone'] === 'red'));
+                    if ($childBadges !== []) {
+                        $badges[$item['route']] = $childBadges[0];
+                    }
+                }
                 $items[] = [
                     'name' => $item['label'],
                     'path' => route($item['route'], $item['params'] ?? [], absolute: false),
                     'icon' => $item['icon'],
                     // A shortcut with parameters (Moximu's own brand / site) lights only on its own page.
-                    'routes' => isset($item['params']) ? [] : [$item['route'], ...array_column($item['children'] ?? [], 'route'), ...($item['active'] ?? [])],
+                    // A child with parameters (Moximu's own brand / site) is a shortcut: it never lights the entry by its route name.
+                    'routes' => isset($item['params']) ? [] : [$item['route'], ...array_column(array_filter($item['children'] ?? [], fn (array $c): bool => ! isset($c['params'])), 'route'), ...($item['active'] ?? [])],
                     'count' => $item['route'] === 'operator.flow' ? self::flowRunning() : ($counts[$item['route']] ?? $badges[$item['route']]['count'] ?? null),
                     'tone' => $item['route'] === 'operator.flow' ? 'live' : (isset($counts[$item['route']]) ? 'accent' : ($badges[$item['route']]['tone'] ?? null)),
                 ];
@@ -276,19 +286,19 @@ final class OperatorMenu
         foreach (DemoMenu::groups() as $group) {
             foreach ($group['items'] as $item) {
                 $children = $item['children'] ?? [];
-                $routes = [$item['route'], ...array_column($children, 'route')];
+                $routes = [$item['route'], ...array_column(array_filter($children, fn (array $c): bool => ! isset($c['params'])), 'route')];
                 if ($children === [] || ! in_array($routeName, $routes, true)) {
                     continue;
                 }
 
-                // Grouped children (Ayarlar): the entry itself belongs to the first group and is called "Genel" there.
+                // Grouped children (Markalar, Sistem): the entry itself belongs to the first group; `head` names its tab.
                 $firstGroup = collect($children)->pluck('group')->filter()->first();
-                $head = ['label' => $firstGroup !== null ? (app()->getLocale() === 'tr' ? 'Genel' : 'General') : $item['label'], 'route' => $item['route']] + ($firstGroup !== null ? ['group' => $firstGroup] : []);
+                $head = ['label' => $item['head'] ?? ($firstGroup !== null ? (app()->getLocale() === 'tr' ? 'Genel' : 'General') : $item['label']), 'route' => $item['route']] + ($firstGroup !== null ? ['group' => $firstGroup] : []);
 
                 return array_map(fn (array $entry): array => [
                     'label' => $entry['label'],
-                    'url' => route($entry['route'], absolute: false),
-                    'active' => $entry['route'] === $routeName,
+                    'url' => route($entry['route'], $entry['params'] ?? [], absolute: false),
+                    'active' => $entry['route'] === $routeName && ! isset($entry['params']),
                 ] + (isset($entry['group']) ? ['group' => $entry['group']] : []), [$head, ...$children]);
             }
         }

@@ -43,7 +43,7 @@ class GlobalAgencyOperatingLayerTest extends TestCase
             ->flatMap(fn (array $group): array => array_column($group['items'], 'name'))
             ->all();
 
-        $this->assertContains('Command', $labels, 'Aşama 5 (2026-10-22): Komuta replaced Bugün');
+        $this->assertContains('Today', $labels, 'Arayüz kararı (2026-11-17): Bugün is home, the menu is four entries');
         $this->assertNotContains('Customers', $labels, 'Müşteriler merged into Markalar 2026-10-19');
         $this->assertContains('Brands', $labels);
         $this->assertNotContains('Queries', $labels, 'Aşama 11 (2026-10-22): Sorgular, Kazananlar, Stratejiler left the menu');
@@ -54,14 +54,13 @@ class GlobalAgencyOperatingLayerTest extends TestCase
         $this->assertNotContains('Opportunities', $labels);
         $this->assertNotContains('Activity', $labels, 'W7: Activity is a tab of Settings');
         $this->assertNotContains('Tasks', $labels);
-        $this->assertContains('Integrations', $labels);
-        $this->assertContains('Settings', $labels);
+        $this->assertContains('System', $labels, 'Entegrasyonlar and Ayarlar are tabs of Sistem since 2026-11-17');
         $this->assertNotContains('Modules', $labels);
         $this->assertNotContains('Agents', $labels);
         $this->assertNotContains('Run Registry', $labels);
 
         $groupTitles = array_column(OperatorMenu::groups(), 'title');
-        $this->assertSame(['My day', 'Moximu', 'Client work', 'Channels', 'System'], $groupTitles, 'Menü düzeni 2026-11-09 (yakup): Günüm, Moximu, Müşteri işleri, Kanallar; pinned System');
+        $this->assertSame(['', 'System'], $groupTitles, 'Arayüz kararı 2026-11-17: Bugün, Markalar, Moximu without a heading; pinned System');
         $this->assertNotContains('Data', $groupTitles);
     }
 

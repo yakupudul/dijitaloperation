@@ -110,7 +110,8 @@ final class PortfolioReader
             $assetById = $assets->keyBy('id');
             foreach ($alerts as $alert) {
                 $asset = $assetById[$alert->digital_asset_id] ?? null;
-                if ($asset === null) {
+                // Bilinen niyet (AssetIntent): an asset the operator marked as paused / old never turns its brand red.
+                if ($asset === null || \App\Support\AssetIntent::quiet((int) $asset->id)) {
                     continue;
                 }
                 $channel = $channelOf[$asset->type];

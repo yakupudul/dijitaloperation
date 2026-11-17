@@ -38,10 +38,20 @@ use Illuminate\Validation\ValidationException;
     'seo_market_language_name',
     'site_type',
     'hosting_context',
+    'intent',
+    'intent_note',
+    'intent_at',
     'sector_id',
 ])]
 class DigitalAsset extends Model
 {
+    /** Operator's own knowledge about the asset (arayüz kararı 2026-11-17): stopped on purpose / an old account no longer used. */
+    public const string INTENT_PAUSED = 'paused';
+
+    public const string INTENT_RETIRED = 'retired';
+
+    public const array INTENTS = [self::INTENT_PAUSED => 'Bilerek durduruldu', self::INTENT_RETIRED => 'Eski hesap, kullanılmıyor'];
+
     /** @use HasFactory<DigitalAssetFactory> */
     use HasFactory, SoftDeletes;
 
@@ -165,6 +175,7 @@ class DigitalAsset extends Model
     {
         return [
             'status' => DigitalAssetStatus::class,
+            'intent_at' => 'datetime',
             'languages' => 'array',
             'target_countries' => 'array',
             'seo_market_location_code' => 'integer',

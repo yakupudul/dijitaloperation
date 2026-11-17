@@ -48,7 +48,9 @@ class DemoProductRoutesTest extends TestCase
 
     public function test_dashboard_and_portfolio_routes_smoke(): void
     {
-        $this->get('/')->assertOk()->assertSee('Komuta')->assertDontSee('Agency Health');
+        // Arayüz kararı 2026-11-17: the root is Bugün; Komuta is the Onay kutusu at /onay.
+        $this->get('/')->assertOk()->assertSee('data-today', false)->assertDontSee('Agency Health');
+        $this->get(route('operator.komuta'))->assertOk()->assertSee('Komuta');
         $this->get(route('operator.today'))
             ->assertOk()
             ->assertSee(__('operator.dashboard_exec.today'))

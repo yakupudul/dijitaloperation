@@ -182,10 +182,9 @@ final class MarketingFunnelTest extends TestCase
         $this->get('/pazarlama?kanal=meta&ay=2026-11&tur=saglik')->assertOk()->assertSee('Seo kampanyası');
         $this->get('/pazarlama?sekme=huni')->assertOk()->assertSee('Genel bakış');
         $this->get('/sosyal')->assertOk()->assertSee('Pazarlama');
-        $menu = collect(OperatorMenu::groups('/pazarlama'))->flatMap(fn (array $g): array => $g['items']);
-        $this->assertNotNull($menu->firstWhere('name', 'Pazarlama'));
-        $this->assertNull($menu->firstWhere('name', 'Sosyal medya'), 'the social screen lives under Pazarlama now');
-        $this->assertSame('Pazarlama', collect(OperatorMenu::groups('/sosyal', 'operator.social'))->flatMap(fn (array $g): array => $g['items'])->firstWhere('active', true)['name'] ?? null);
+        // Arayüz kararı 2026-11-17: Pazarlama and Sosyal medya are tabs of the Moximu entry, which lights for both.
+        $this->assertContains('Pazarlama', array_column(OperatorMenu::sectionTabs('operator.marketing'), 'label'));
+        $this->assertSame('Moximu', collect(OperatorMenu::groups('/sosyal', 'operator.social'))->flatMap(fn (array $g): array => $g['items'])->firstWhere('active', true)['name'] ?? null);
         $this->assertSame(1, OperatorMenu::computeBadges()['operator.marketing']['count'] ?? null, 'the draft waiting for approval');
 
         $this->assertTrue(collect(Schedule::events())->contains(fn ($event): bool => ($event->description ?? null) === 'marketing-month-summary'), 'the 1st-of-month summary is scheduled');

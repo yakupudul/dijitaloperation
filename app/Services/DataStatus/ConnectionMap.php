@@ -122,6 +122,15 @@ final class ConnectionMap
     private function channelCell(Brand $brand, string $capability, array $found): array
     {
         $name = self::CHANNELS[$capability];
+        // Bilinen niyet: an asset the operator marked (paused on purpose / old account) is not a broken connection.
+        $known = array_values(array_filter($found, fn (array $pair): bool => \App\Support\AssetIntent::quiet((int) $pair[0]->id)));
+        $found = array_values(array_filter($found, fn (array $pair): bool => ! \App\Support\AssetIntent::quiet((int) $pair[0]->id)));
+        if ($found === [] && $known !== []) {
+            $asset = $known[0][0];
+
+            return $this->cell('muted', DigitalAsset::INTENTS[(string) $asset->intent] ?? 'Bilerek durduruldu', trim($name.': '.(DigitalAsset::INTENTS[(string) $asset->intent] ?? '').($asset->intent_note ? ', '.$asset->intent_note : '')), null,
+                route('operator.brand', ['brand' => $brand->id]));
+        }
         $bound = array_values(array_filter($found, fn (array $pair): bool => $pair[1]->isBound()));
         if ($bound === []) {
             $onSite = in_array($capability, ['search_console', 'ga4'], true);

@@ -21,6 +21,9 @@
         <p class="card px-4 py-3 text-sm text-gray-600 dark:text-gray-300" data-brand-not-served>{{ \App\Support\ServiceScope::NOT_SERVED }}</p>
     @endunless
 
+    {{-- Arayüz kararı (2026-11-17): the page opens with the result, the assets, the gaps, what was done and what is left. --}}
+    @include('livewire.operator.portfolio.partials.brand-workplace')
+
     {{-- Bulgular (Marka Düzeni 2.1 / 2.2): what Claude saw on this brand, "Çöz", the operator's jobs, what was done. Empty until the first look. --}}
     <livewire:operator.portfolio.brand-findings-card :brand-id="(int) $brandModel->id" :key="'brand-findings-'.$brandModel->id" />
 
