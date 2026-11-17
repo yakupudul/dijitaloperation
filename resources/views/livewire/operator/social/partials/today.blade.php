@@ -50,6 +50,11 @@
                     <button type="button" class="btn" wire:click="jump('{{ $item['tab'] }}', '{{ $item['params']['status'] ?? '' }}', {{ (int) ($item['params']['open'] ?? 0) }}, '{{ $item['params']['section'] ?? '' }}')">{{ $item['cta'] }}</button>
                 </div>
             @endforeach
+            @if ($manual->count() > 1)
+                {{-- Several posts wait for a hand: one line, opened on demand, so the box stays short. --}}
+                <details class="border-t border-gray-200 dark:border-gray-800" data-manual-fold>
+                    <summary class="cursor-pointer px-4 py-3.5 text-sm font-medium text-gray-900 dark:text-white">LinkedIn’de elle paylaşmanız beklenen {{ $manual->count() }} gönderi <span class="font-normal text-gray-500">· metni kopyalayıp paylaşın ya da “Paylaştım” deyin</span></summary>
+            @endif
             @foreach ($manual as $target)
                 {{-- A LinkedIn page without an API connection: the text is copied and posted by hand. --}}
                 <div class="card-row flex-col items-stretch gap-2" x-data="{ copied: false }" data-manual>
@@ -68,6 +73,9 @@
                     </div>
                 </div>
             @endforeach
+            @if ($manual->count() > 1)
+                </details>
+            @endif
             @if ($waitingTotal === 0)
                 <p class="border-t border-gray-200 px-4 py-6 text-sm text-gray-500 dark:border-gray-800">Sizden beklenen bir şey yok. Onaylı gönderiler saatinde kendiliğinden çıkar{{ $next ? '; sıradaki '.$next->publish_at->timezone($tz)->format('H:i').'’de' : '' }}.</p>
             @endif
