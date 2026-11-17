@@ -7,7 +7,7 @@
     $fbTarget = $byPlatform->get('facebook');
     $isReady = in_array($opened->status, ['draft', 'approved', 'failed', 'partial', 'expired'], true) && ! $opened->targets->contains(fn ($t) => $t->status === 'published');
     $linePlace = $place($opened);
-    $lineOf = $opened->kind === 'story' ? $storyLine : ($opened->kind === 'reels' && $reelLine !== null ? $reelLine : $line);
+    $lineOf = $opened->kind === 'text' ? $textLine : ($opened->kind === 'story' ? $storyLine : ($opened->kind === 'reels' && $reelLine !== null ? $reelLine : $line));
     $lineAt = array_search($opened->id, $lineOf, true);
     $texts = ['instagram' => $opened->caption, 'facebook' => $opened->caption, 'linkedin' => $opened->linkedin_text, 'threads' => $opened->threads_text];
     $openWord = ['instagram' => "Instagram'da aç", 'facebook' => "Facebook'ta aç", 'linkedin' => "LinkedIn'de aç", 'threads' => "Threads'te aç"];

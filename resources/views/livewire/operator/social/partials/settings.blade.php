@@ -8,7 +8,7 @@
 <section class="card space-y-4 p-5" data-social-schedule>
     <div>
         <h2 class="section-title">Paylaşım düzeni</h2>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Onayladığınız gönderiler sıraya girer ve seçtiğiniz günlerde, günde bir tane olarak Instagram ve Facebook’ta yayınlanır. Sırada {{ count($line) }} gönderi{{ $reelLine !== null ? ', '.count($reelLine).' video' : '' }} ve {{ count($storyLine) }} story var.</p>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Onayladığınız gönderiler sıraya girer ve seçtiğiniz günlerde, günde bir tane olarak Instagram ve Facebook’ta yayınlanır. Sırada {{ count($line) }} gönderi{{ $reelLine !== null ? ', '.count($reelLine).' video' : '' }} {{ count($storyLine) }} story ve {{ count($textLine) }} metin gönderisi var.</p>
     </div>
     <div class="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-7">
         @foreach ($dayNames as $day => $name)
@@ -44,6 +44,15 @@
                 <span class="block text-xs text-gray-500">İki video saati varken geçerlidir. Instagram videoyu önce takip etmeyenlere gösterir; iyi giderse profile kendisi ekler.</span>
             </span>
         </label>
+    </div>
+    <div data-text-times>
+        <p class="text-sm font-medium">Metin gönderisi saatleri (Threads ve LinkedIn)</p>
+        <p class="mt-1 text-xs text-gray-500">Onayladığınız yalnız metin gönderileri kendi sırasına girer ve her gün bu saatlerde Threads ile LinkedIn’de yayınlanır; Instagram sırasını etkilemez. İkisini de boş bırakırsanız metin gönderileri yazıldıkları tarihte çıkar.</p>
+        <div class="mt-2 flex flex-wrap gap-2">
+            @foreach ([0, 1] as $i)
+                <input type="time" wire:model="textTimes.{{ $i }}" aria-label="{{ $i + 1 }}. metin gönderisi saati" class="w-32 rounded-lg border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900" @disabled(! $canWrite)>
+            @endforeach
+        </div>
     </div>
     @if ($canWrite)
         <div class="flex flex-wrap items-center gap-3">

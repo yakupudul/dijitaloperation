@@ -154,6 +154,9 @@ final class SocialPage extends Component
     /** @var array<int, string> video hours of every day; empty = videos wait in the post line */
     public array $reelTimes = ['', ''];
 
+    /** @var array<int, string> the text post hours of every day (Threads, LinkedIn) */
+    public array $textTimes = ['', ''];
+
     /** Günün son videosu deneme Reels'i olarak çıkar (önce takip etmeyenlere gösterilir). */
     public bool $trialReels = true;
 
@@ -204,6 +207,7 @@ final class SocialPage extends Component
         }
         $this->storyTimes = array_pad(app(SocialSchedule::class)->storyTimes(), 3, '');
         $this->reelTimes = array_pad(app(SocialSchedule::class)->reelTimes(), 2, '');
+        $this->textTimes = array_pad(app(SocialSchedule::class)->textTimes(), 2, '');
         $this->trialReels = app(SocialSchedule::class)->trialReels();
         $this->watchlist = implode("\n", app(SocialTrendWatch::class)->accounts());
         $this->configId = (string) (SocialMetaConnector::configId() ?? '');
@@ -441,9 +445,10 @@ final class SocialPage extends Component
             }
         }
         try {
-            $changed = app(SocialSchedule::class)->save($days, $this->storyTimes, $this->reelTimes, $this->trialReels);
+            $changed = app(SocialSchedule::class)->save($days, $this->storyTimes, $this->reelTimes, $this->trialReels, $this->textTimes);
             $this->storyTimes = array_pad(app(SocialSchedule::class)->storyTimes(), 3, '');
             $this->reelTimes = array_pad(app(SocialSchedule::class)->reelTimes(), 2, '');
+            $this->textTimes = array_pad(app(SocialSchedule::class)->textTimes(), 2, '');
             $this->message = 'Paylaşım düzeni kaydedildi'.($changed > 0 ? '; sıradaki '.$changed.' gönderinin günü yeniden belirlendi.' : '.');
             $this->messageTone = 'success';
         } catch (Throwable $e) {
@@ -682,13 +687,14 @@ final class SocialPage extends Component
             'waiting' => $waiting, 'manual' => $manual, 'waitingTotal' => count($waiting) + $manual->count(),
             'talkCount' => SocialThread::query()->onEnabledAccount()->where('status', SocialThread::OPEN)->where('last_direction', 'in')->count(),
             'dayNames' => [1 => 'Pazartesi', 2 => 'Salı', 3 => 'Çarşamba', 4 => 'Perşembe', 5 => 'Cuma', 6 => 'Cumartesi', 7 => 'Pazar'],
-            'line' => [], 'storyLine' => [], 'reelLine' => null, 'opened' => null, 'openedIg' => null,
+            'line' => [], 'storyLine' => [], 'reelLine' => null, 'textLine' => [], 'opened' => null, 'openedIg' => null,
         ];
         // The place in line is shown on list rows and in the side panel only.
         if ($this->openedId > 0 || ($this->tab === 'gonderiler' && $this->mode === 'liste') || $this->tab === 'ayarlar') {
             $data['line'] = $schedule->line()->modelKeys();
             $data['storyLine'] = $schedule->line(true)->modelKeys();
             $data['reelLine'] = $schedule->reelTimes() === [] ? null : $schedule->line('reels')->modelKeys();
+            $data['textLine'] = $schedule->line('text')->modelKeys();
         }
         if ($this->openedId > 0) {
             $data['opened'] = SocialPost::query()->with(['targets.account'])->find($this->openedId);

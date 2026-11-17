@@ -16,11 +16,11 @@
         'image' => 'Görsel', 'carousel' => 'Kaydırmalı', 'reels' => 'Video', 'story' => 'Hikâye', 'text' => 'Metin', default => (string) $post->kind,
     };
     $kindMark = fn ($post): string => match ($post->kind) { 'reels' => '▶', 'story' => '○', 'carousel' => '❐', 'text' => '≡', default => '□' };
-    $place = function ($post) use ($line, $storyLine, $reelLine): ?string {
+    $place = function ($post) use ($line, $storyLine, $reelLine, $textLine): ?string {
         $inReels = $post->kind === 'reels' && $reelLine !== null;
-        $at = array_search($post->id, $post->kind === 'story' ? $storyLine : ($inReels ? $reelLine : $line), true);
+        $at = array_search($post->id, match (true) { $post->kind === 'story' => $storyLine, $post->kind === 'text' => $textLine, $inReels => $reelLine, default => $line }, true);
 
-        return $at === false ? null : ($post->kind === 'story' ? 'Story sırasında ' : ($inReels ? 'Video sırasında ' : 'Sırada ')).($at + 1).'.';
+        return $at === false ? null : match (true) { $post->kind === 'story' => 'Story sırasında ', $post->kind === 'text' => 'Metin sırasında ', $inReels => 'Video sırasında ', default => 'Sırada ' }.($at + 1).'.';
     };
     $meta = $accounts->whereIn('platform', ['instagram', 'facebook']);
     $dot = ['on' => 'bg-success-500', 'manual' => 'bg-warning-500', 'off' => 'bg-gray-300 dark:bg-gray-600'];
