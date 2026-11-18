@@ -28,6 +28,7 @@ use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Meta\MetaDesk;
 use App\Services\Outcomes\OutcomeTracker;
 use App\Services\Queries\QueryNormalizer;
+use App\Services\SeoTasks\QuestionMarks;
 use App\Services\SeoTasks\SeoText;
 use App\Services\SeoTasks\SiteUrlPattern;
 use App\Services\Site\Analysis\SiteAnalysisReader;
@@ -1638,6 +1639,8 @@ final class ContentPlanner
             // A new article is always a post (operator decision 2026-10-03); only rewriting an existing non-blog page stays a page.
             'post_type' => ($action['kind'] ?? null) === 'update' && ($action['page_type'] ?? 'blog') !== 'blog' ? 'page' : 'post', 'reference' => $reference,
         ];
+        // Soru işareti (yakup 2026-11-18): a question title or heading the writer left without "?" gets it back by rule.
+        $article = QuestionMarks::article($article, $language);
         $violations = ContentComplianceGate::blocking(app(ContentComplianceGate::class)->violations($brand, ArticleDraft::fromArray($article)));
         if ($violations !== []) {
             return ['status' => 'blocked', 'message' => ContentComplianceGate::summary($violations), 'article' => $article, 'violations' => $violations];
@@ -1662,10 +1665,23 @@ final class ContentPlanner
         if (! is_array($action['article'] ?? null) || $site === null) {
             throw ValidationException::withMessages(['write' => 'Önce "Taslak hazırla".']);
         }
+        // Written before the punctuation rule (2026-11-18): the question marks are put back before anything goes out.
+        $action['article'] = QuestionMarks::article($action['article'], isset($action['article']['language']) ? (string) $action['article']['language'] : self::articleLanguage($suggestion, $site));
+        foreach ((array) ($action['translations'] ?? []) as $lang => $translation) {
+            if (is_array($translation)) {
+                $action['translations'][$lang] = QuestionMarks::article($translation, (string) $lang);
+            }
+        }
         if (($action['kind'] ?? null) === 'update') {
             return $this->sendPageUpdate($suggestion, $user, $site, $action);
         }
         $sent = array_values((array) ($action['sent_languages'] ?? []));
+        // moximu.com/rehber (yakup 2026-11-18): every new post lands on its topic shelf, not WordPress's "Genel", whichever
+        // way it is sent (the daily click sent post 750 "Estetik klinik reklam kuralları" into Genel).
+        if (empty($action['article']['categories']) && BrandCover::styleOf(Brand::query()->find($site->brand_id)) === BrandCover::MOXIMU_REHBER
+            && ($shelf = DailyBlog::shelf((string) ($action['article']['title'] ?? $suggestion->title))) !== null) {
+            $action['article']['categories'] = [['name' => $shelf]];
+        }
         // The featured image: the one the operator picked (or "görselsiz"), else the best of the site's own media.
         // A brand with its own cover style (Moximu) gets that cover drawn and uploaded instead (yakup 2026-11-09).
         if (! array_key_exists('image', $action)) {

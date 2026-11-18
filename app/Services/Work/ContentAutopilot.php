@@ -15,6 +15,7 @@ use App\Services\Brand\BrandFacts;
 use App\Services\Compliance\ForbiddenTerms;
 use App\Services\Epicrisis\Epicrisis;
 use App\Services\Epicrisis\EpicrisisClaims;
+use App\Services\SeoTasks\QuestionMarks;
 use App\Services\Site\ContentFormat;
 use App\Services\Site\ContentMap;
 use App\Services\Site\ContentPlanner;
@@ -665,6 +666,15 @@ final class ContentAutopilot
             return ['verdict' => 'wrong', 'reason' => mb_substr((string) $action['article_warnings'], 0, 200), 'at' => $at];
         }
         $article = (array) $action['article'];
+        // Soru işareti (yakup 2026-11-18): an article written before the rule gets its question marks back here, by rule.
+        $marked = QuestionMarks::article($article, isset($article['language']) ? (string) $article['language'] : ContentPlanner::articleLanguage($suggestion, $site));
+        if ($marked !== $article) {
+            $suggestion->forceFill(['action' => array_merge((array) $suggestion->fresh()->action, ['article' => $marked])])->save();
+            $article = $marked;
+        }
+        if (($unmarked = QuestionMarks::problems($article)) !== []) {
+            return ['verdict' => 'wrong', 'reason' => mb_substr('Soru olan başlıkta soru işareti yok ve başlık 60 karakteri aşıyor: «'.implode('», «', $unmarked).'». Başlığı kısaltıp soru işaretiyle bitir.', 0, 300), 'at' => $at];
+        }
         // Günlük blog: no person reads it before it goes live, so the quality gate decides first (Claude corrects what fails).
         if (DailyBlog::on($brand) && ($problems = DailyBlog::problems($article, $suggestion, $site)) !== []) {
             return ['verdict' => 'wrong', 'reason' => DailyBlog::reason($problems), 'at' => $at];

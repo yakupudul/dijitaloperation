@@ -1,7 +1,8 @@
 <?php
 
 return [
-    'connector_version' => '1.38.0',
+    'connector_version' => '1.38.1',
+    // 1.38.1 (yakup 2026-11-18): Akıllı tarih warns only for a real amount or offer, not for the words fiyat / kampanya.
     // 1.38.0 (yakup 2026-11-18): apply_setup "seopress" and the SEOPress site map index date fix.
     // 1.37.0 (yakup 2026-11-05): "Hız turu" — site fix `speed` switches the speed recipe parts on the site.
     'speed_min_plugin_version' => '1.37.0',

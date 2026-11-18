@@ -3,7 +3,7 @@ Contributors: moxdop
 Tags: moxdop, website, inventory, seo
 Requires at least: 6.2
 Requires PHP: 7.4
-Stable tag: 1.38.0
+Stable tag: 1.38.1
 License: GPLv2 or later
 
 Signed Website connector for MoxDOP. Reads inventory and health; can create drafts (never publishes); optional one-click admin login and approved updates, both off until the site admin enables them.
@@ -84,6 +84,9 @@ Daily inventory reconciliation complements activity delivery.
 Every remote action is written to the site's MoxDOP management log.
 
 == Changelog ==
+
+= 1.38.1 =
+* Akıllı tarih: the "geçmiş tarih yanıltabilir" warning comes only for a real amount (number + currency) or a real offer ("%20 indirim", "son gün", "kampanya süresince"); a post that only talks about prices or campaigns (a guide to the advertising rules) no longer gets it.
 
 = 1.38.0 =
 * Ready SEOPress setup (apply_setup name "seopress", setup_guide seo picks it when SEOPress is the SEO plugin): title separator and title / description templates filled only where empty, organisation schema (name, logo, type), author and date archives off, attachment pages redirected to their post, XML site map with images, ?replytocom removed; with SEOPress Pro the "404 → home page" redirect is switched off and the local business type is set when given. Never writes a noindex. Site-checked, put back when the site broke, undoable as one change.

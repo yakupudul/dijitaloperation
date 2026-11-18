@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\WhatsAppMessage;
 use App\Services\Assistant\PushNotifier;
 use App\Services\Compliance\ComplianceAuditor;
+use App\Services\SeoTasks\QuestionMarks;
 use App\Services\SeoTasks\SeoText;
 use App\Services\Social\SocialPlanner;
 use App\Services\Work\ContentAutopilot;
@@ -455,6 +456,10 @@ final class DailyBlog
                 $out[] = 'başlıkta iki nokta var';
             }
         }
+        $unmarked = QuestionMarks::problems($article);
+        if ($unmarked !== []) {
+            $out[] = 'soru olan başlıkta soru işareti yok («'.implode('», «', array_slice($unmarked, 0, 3)).'»)';
+        }
         $body = ComplianceAuditor::visibleText('<html><body>'.(string) ($article['html'] ?? '').'</body></html>');
         $text = implode(' ', [$title, (string) ($article['meta_title'] ?? ''), (string) ($article['meta_description'] ?? ''), (string) ($article['excerpt'] ?? ''), $body]);
         if (preg_match('/moxdop/iu', $text) === 1) {
@@ -648,7 +653,7 @@ final class DailyBlog
     {
         $t = SeoText::fold($title);
         foreach ([
-            'Mevzuat' => '/yonetmelik|mevzuat|yasak|tanitim kural/',
+            'Mevzuat' => '/yonetmelik|mevzuat|yasak|tanitim kural|reklam kural|kurallar|ceza|il saglik|uygun yol|yazilabilir mi|paylasilir mi|kullanilabilecek ifade/',
             'Meta reklam' => '/\b(meta|instagram|facebook)\b/',
             'Google Ads' => '/google ads|\breklam|kampanya|tiklama|butce/',
             'Google İşletme Profili' => '/isletme profili|harita|yorum|google karti/',
