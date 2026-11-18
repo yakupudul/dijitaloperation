@@ -632,6 +632,7 @@ a.door{text-decoration:none;color:#fff}
 .r-steps p{font-size:15.5px;line-height:1.6;color:var(--muted);margin-top:8px}
 
 .r-split{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
+.r-split>*,.r-place>*,.r-hero .wrap>*,.r-dark>*,.r-doc>*{min-width:0}
 .r-pq{position:relative}
 .r-pq>img{width:100%;aspect-ratio:9/10;object-fit:cover;object-position:50% 25%;border-radius:22px}
 .r-quote{position:absolute;right:-32px;bottom:-32px;max-width:340px;background:#fff;border-radius:16px;box-shadow:0 22px 54px -18px rgba(36,26,24,.38);padding:22px 24px}
@@ -755,8 +756,8 @@ body.r-lock{overflow:hidden}
   .r-strip .wrap{grid-template-columns:1fr}
   .r-qcs{grid-template-columns:1fr;gap:36px}
   .r-steps{grid-template-columns:1fr}
-  .r-nums{gap:16px;justify-content:space-between}
-  .r-nums b{font-size:23px}
+  .r-nums{gap:16px 20px;flex-wrap:wrap}
+  .r-nums b{font-size:23px;white-space:normal}
   .r-dark{padding:30px 20px;border-radius:20px}
   .r-clips{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .r-clips .clip figcaption{font-size:13px}
