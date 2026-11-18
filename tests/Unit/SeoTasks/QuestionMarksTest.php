@@ -26,6 +26,7 @@ final class QuestionMarksTest extends TestCase
             'two particles + verb' => ['İmplant ömrünü marka mı hasta mı belirler', true],
             'predicate' => ['Pıhtı neden bu kadar önemli', true],
             'first word neden' => ['Neden önce İşletme Profili', true],
+            'kimin + -malı' => ['Hesaplar kimin adına açılmalı', true],
             'capital I' => ['İMPLANT NE KADAR DAYANIR', true],
             // Not questions, or already marked.
             'has mark' => ['Kist tekrar oluşur mu?', false],
@@ -79,5 +80,7 @@ final class QuestionMarksTest extends TestCase
         $this->assertSame($title, $article['title']);
         $this->assertSame([$title], QuestionMarks::problems($article));
         $this->assertSame('Bütçe nasıl dengelenir?', QuestionMarks::fix('Bütçe nasıl dengelenir.', 'tr', 60), 'a full stop is replaced, not added to');
+        $this->assertSame('Hastane web sitesi yenileme nasıl planlanır? | Moximu', QuestionMarks::fix('Hastane web sitesi yenileme nasıl planlanır | Moximu', 'tr', 60), 'the brand after the separator stays');
+        $this->assertSame('Klinik web sitesinde fiyat yazılır mı? · Moximu', QuestionMarks::fix('Klinik web sitesinde fiyat yazılır mı? · Moximu'));
     }
 }

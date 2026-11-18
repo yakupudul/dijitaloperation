@@ -24,7 +24,7 @@ final class QuestionMarks
         'hangisi', 'hangisidir', 'hangileri', 'hangileridir', 'kim', 'kimdir', 'kimler', 'kimlerdir', 'nerede', 'neredir', 'nereye', 'nereden', 'ne zaman', 'ne kadar', 'ne demek', 'ne demektir'];
 
     /** Words that make a line ending in a verb a question ("Hangi durumlarda gerekir", "Ne kadar sürer"). */
-    private const string ASK_WORD = '/(?<!\p{L})(ne|neden|niçin|niye|nasıl|hangi\p{L}*|kaç\p{L}*|kim|kime|kimi|kimde|kimler\p{L}*|nerede|nereye|nereden|neyi|neye|neyle|neler\p{L}*|ne zaman|ne kadar)(?!\p{L})/u';
+    private const string ASK_WORD = '/(?<!\p{L})(ne|neden|niçin|niye|nasıl|hangi\p{L}*|kaç\p{L}*|kim|kime|kimi|kimde|kimin|kiminle|kimler\p{L}*|nerede|nereye|nereden|neyi|neye|neyle|neler\p{L}*|ne zaman|ne kadar)(?!\p{L})/u';
 
     /** First words that make the line a question whatever follows ("Neden Özel Demiderm", "Nasıl çalışır"). */
     private const array FIRST_WORDS = ['neden', 'niçin', 'niye', 'nasıl'];
@@ -52,6 +52,12 @@ final class QuestionMarks
     /** The line with "?" at its end when it is a question that lacks one; unchanged otherwise. */
     public static function fix(string $line, string $language = 'tr', ?int $max = null): string
     {
+        // An SEO title with the brand after a separator ("… nasıl planlanır | Moximu"): the mark goes before the separator.
+        if (preg_match('/^(.+?)(\s+[|·]\s+[^|·?]{1,40})$/u', $line, $m) === 1 && self::missing($m[1], $language)) {
+            $fixed = (string) preg_replace('/[\s.:;,…\x{00A0}]*$/u', '', $m[1]).'?'.$m[2];
+
+            return $max !== null && mb_strlen(self::plain($fixed)) > max($max, mb_strlen(self::plain($line))) ? $line : $fixed;
+        }
         if (! self::missing($line, $language)) {
             return $line;
         }
@@ -111,7 +117,7 @@ final class QuestionMarks
     public static function problems(array $article, ?string $language = null): array
     {
         $language ??= (string) ($article['language'] ?? 'tr');
-        $lines = [(string) ($article['title'] ?? ''), (string) ($article['meta_title'] ?? '')];
+        $lines = [(string) ($article['title'] ?? ''), (string) preg_replace('/\s+[|·]\s+[^|·?]{1,40}$/u', '', (string) ($article['meta_title'] ?? ''))];
         preg_match_all('/<h[1-6]\b[^>]*>(.*?)<\/h[1-6]>/isu', (string) ($article['html'] ?? ''), $m);
         foreach ($m[1] as $heading) {
             $lines[] = html_entity_decode(strip_tags($heading), ENT_QUOTES | ENT_HTML5, 'UTF-8');
