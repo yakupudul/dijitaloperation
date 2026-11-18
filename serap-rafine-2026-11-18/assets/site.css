@@ -801,3 +801,21 @@ body.r-lock{overflow:hidden}
 }
 
 .clip .poster{cursor:pointer}
+
+/* 18.11 tam genişlik uygulama fotoğrafı (hero'nun hemen altında) */
+.r-band{position:relative;height:clamp(420px,44vw,640px);overflow:hidden;background:var(--deep)}
+.r-band picture,.r-band img{position:absolute;inset:0;width:100%;height:100%}
+.r-band img{object-fit:cover;object-position:50% 45%}
+.r-band .temsili{z-index:2}
+.r-band .wrap{position:relative;height:100%;display:flex;align-items:flex-end;padding-bottom:48px}
+.r-band-tx{background:var(--deep);color:#d9cbc7;border-radius:20px;padding:26px 30px;max-width:460px}
+.r-band-tx .r-eye{color:#c4aea8;margin:0 0 8px}
+.r-band-tx h2{color:#fff;font-size:30px;font-weight:500;line-height:1.15;margin:0 0 8px;letter-spacing:-.01em}
+.r-band-tx p:last-child{margin:0;font-size:16px;line-height:1.5}
+@media (max-width:720px){
+  .r-band{height:auto;background:var(--deep)}
+  .r-band picture,.r-band img{position:relative;inset:auto;display:block;height:auto;aspect-ratio:4/3}
+  .r-band .wrap{height:auto;padding-bottom:0}
+  .r-band-tx{border-radius:0;margin:0 -24px;padding:22px 24px 26px;max-width:none}
+  .r-band-tx h2{font-size:24px}
+}
