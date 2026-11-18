@@ -767,3 +767,6 @@ body.r-lock{overflow:hidden}
   .r-bub{width:96px;bottom:calc(84px + env(safe-area-inset-bottom,0px));right:calc(12px + env(safe-area-inset-right,0px))}
   .r-bub-cap{font-size:10.5px;padding:6px 4px}
 }
+
+/* 18.11 yakup: ilk ekranda video kartı yok, fotoğrafı kapatıyordu */
+.r-vcard{display:none!important}
