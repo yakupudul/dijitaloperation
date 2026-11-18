@@ -3,6 +3,7 @@
 namespace App\Mcp\Tools;
 
 use App\Models\Strategy;
+use App\Services\Strategy\StrategyAdsQualityGate;
 use App\Services\Strategy\StrategyBook;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -10,7 +11,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Saves a strategy you wrote for the operator into Stratejiler (the Stratejiler view of the brand page, where he reads every earlier strategy of that brand; give brand_id whenever the strategy is for one brand). Without strategy_id it creates one (title and body required); with strategy_id it changes the given scope fields and, when body differs, adds a new version (earlier versions stay). body is the whole strategy in Turkish Markdown (## headings become its table of contents). evidence lists the data it is based on ({label, detail}: which accounts, period, numbers). For a Google Ads strategy also send plan: {campaigns:[{name, daily_budget, max_cpc, bid_strategy, languages, locations, excluded_locations, location_bids:[{location, modifier}], ad_schedule, age, note, negatives:[{text, match}], ad_groups:[{name, final_url, keywords:[{text, match:exact|phrase|broad}], negatives, ads:[{headlines:[≤30 chars ×3–15], descriptions:[≤90 ×2–4], final_url, path1, path2}]}]}], shared_negative_lists:[{name, campaigns:[names], keywords}], notes:[strings]}; the operator downloads it as a Google Ads Editor import file once he approves. Saving never writes to an ad account.')]
+#[Description('Saves a strategy you wrote for the operator into Stratejiler (the Stratejiler view of the brand page, where he reads every earlier strategy of that brand; give brand_id whenever the strategy is for one brand). Without strategy_id it creates one (title and body required); with strategy_id it changes the given scope fields and, when body differs, adds a new version (earlier versions stay). body is the whole strategy in Turkish Markdown (## headings become its table of contents). evidence lists the data it is based on ({label, detail}: which accounts, period, numbers). For a Google Ads strategy also send plan: {campaigns:[{name, daily_budget, max_cpc, bid_strategy, languages, locations, excluded_locations, location_bids:[{location, modifier}], ad_schedule, age, note, negatives:[{text, match}], ad_groups:[{name, final_url, keywords:[{text, match:exact|phrase|broad}], negatives, ads:[{headlines:[≤30 chars ×15], descriptions:[≤90 ×4], final_url, path1, path2}]}], assets:{sitelinks:[{text ≤25, description1 ≤35, description2 ≤35, final_url} ×4+], callouts:[≤25 ×4+], snippets:[{header, values:[≤25 ×3–10]}], phone, phone_country}}], account_assets:{business_name ≤25, logo_url, whatsapp, location}, shared_negative_lists:[{name, campaigns:[names], keywords}], notes:[strings]}; the operator downloads it as a Google Ads Editor import file once he approves. The answer lists the Kalite kapısı gaps (15 headlines, 4 descriptions, sitelinks, callouts, snippet, phone, schedule, business name, logo...): a plan with gaps is never called ready. Saving never writes to an ad account.')]
 class SaveStrategy extends Tool
 {
     public function handle(Request $request, StrategyBook $book): Response
@@ -23,7 +24,15 @@ class SaveStrategy extends Tool
         $validated = $request->validate(StrategyBook::rules($strategy === null));
         $strategy = $book->save($validated, 'Claude', $strategy);
 
-        return Response::text('Strateji #'.$strategy->id.' kaydedildi (v'.$strategy->current_version.'): '.route('operator.strategy', ['strategyId' => $strategy->id]));
+        $text = 'Strateji #'.$strategy->id.' kaydedildi (v'.$strategy->current_version.'): '.route('operator.strategy', ['strategyId' => $strategy->id]);
+        if (! empty($strategy->plan)) {
+            $gaps = StrategyAdsQualityGate::check((array) $strategy->plan);
+            $text .= $gaps === []
+                ? "\nKalite kapısı: geçti."
+                : "\nKalite kapısı: ".count($gaps)." eksik. Bunlar kapanmadan plan 'hazır' denmez (google-ads kitabı › Kurulum standardı):\n- ".implode("\n- ", $gaps);
+        }
+
+        return Response::text($text);
     }
 
     /** @return array<string, mixed> */
