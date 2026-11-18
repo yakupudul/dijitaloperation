@@ -34,7 +34,7 @@ final class Playbooks
      */
     public function all(): array
     {
-        $rows = SchemaState::hasTable('playbooks') ? Playbook::query()->get()->keyBy('key') : collect();
+        $rows = SchemaState::hasTable('brain_playbooks') ? Playbook::query()->get()->keyBy('key') : collect();
         $books = [];
         foreach ($this->shipped() as $key => $file) {
             $books[$key] = $this->shape((string) $key, $file, $rows->get($key));
