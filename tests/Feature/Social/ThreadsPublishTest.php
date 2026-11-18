@@ -65,7 +65,7 @@ final class ThreadsPublishTest extends TestCase
         ]);
         $begin = app(ThreadsApi::class)->begin($this->admin->id);
         parse_str((string) parse_url($begin['url'], PHP_URL_QUERY), $query);
-        $this->assertSame('threads_basic,threads_content_publish', $query['scope']);
+        $this->assertSame('threads_basic,threads_content_publish,threads_manage_insights', $query['scope']);
 
         $this->actingAs($this->admin)->get('/integrations/threads/callback?code=abc%23_&state='.$query['state'])->assertRedirect();
         $account = SocialAccount::query()->where('platform', 'threads')->firstOrFail();

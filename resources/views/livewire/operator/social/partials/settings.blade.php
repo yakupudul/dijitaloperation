@@ -334,7 +334,7 @@
                 <span @class([$liBadge, $liStep($threadsApp)])>{{ $threadsApp ? '✓' : '2' }}</span>
                 <div class="min-w-0 space-y-1">
                     <p class="font-semibold">Meta uygulamasına Threads’i ekleyin</p>
-                    <p class="text-gray-600 dark:text-gray-300"><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener" class="underline">Meta for Developers › Uygulamalarım ↗</a>: sosyal medya için kullandığımız uygulamada <b>Kullanım alanları › Kullanım alanı ekle › Threads API’ye eriş</b>. Ardından <b>Threads API’ye eriş › Ayarlar</b> sayfasında üç “Yönlendirme / geri çağırma URL” alanına şunu yazın: <code class="text-xs">{{ $threadsCallback }}</code>. <b>İzinler</b> bölümünde <b>threads_content_publish</b>’i ekleyin.</p>
+                    <p class="text-gray-600 dark:text-gray-300"><a href="https://developers.facebook.com/apps/" target="_blank" rel="noopener" class="underline">Meta for Developers › Uygulamalarım ↗</a>: sosyal medya için kullandığımız uygulamada <b>Kullanım alanları › Kullanım alanı ekle › Threads API’ye eriş</b>. Ardından <b>Threads API’ye eriş › Ayarlar</b> sayfasında üç “Yönlendirme / geri çağırma URL” alanına şunu yazın: <code class="text-xs">{{ $threadsCallback }}</code>. <b>İzinler</b> bölümünde <b>threads_content_publish</b> ve <b>threads_manage_insights</b> izinlerini ekleyin (ikincisi gönderi sayılarını Sonuçlar’da gösterir; ekledikten sonra “Threads’i yeniden bağla”ya basın).</p>
                 </div>
             </li>
             <li class="flex gap-3" data-step="threads-tester">

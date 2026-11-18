@@ -69,6 +69,12 @@ class LinkedInApi
         return $this->json($this->send(fn () => $this->request($token)->get(self::API_BASE.$path, $query)));
     }
 
+    /** A path that already carries its query (Rest.li List(...) values must not be encoded again). @return array<string, mixed> */
+    public function getRaw(string $pathWithQuery, string $token): array
+    {
+        return $this->json($this->send(fn () => $this->request($token)->get(self::API_BASE.$pathWithQuery)));
+    }
+
     /** @param  array<string, mixed>  $body */
     public function post(string $path, string $token, array $body): Response
     {

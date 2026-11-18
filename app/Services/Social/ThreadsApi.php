@@ -25,7 +25,8 @@ class ThreadsApi
 
     public const string API_BASE = 'https://graph.threads.net';
 
-    public const array SCOPES = ['threads_basic', 'threads_content_publish'];
+    /** Publishing, plus reading each post's numbers (Sonuçlar). The app must carry these permissions in Meta for Developers. */
+    public const array SCOPES = ['threads_basic', 'threads_content_publish', 'threads_manage_insights'];
 
     public const int MAX_TEXT = 500;
 
@@ -81,7 +82,7 @@ class ThreadsApi
             return ['error' => 'Oturum süresi doldu; “Threads’i bağla” ile yeniden başlayın.'];
         }
         if ($oauthError !== null && $oauthError !== '') {
-            return ['error' => 'Threads izin vermedi ('.Str::limit(trim(preg_replace('/[^\pL\pN _.:-]/u', '', (string) ($errorText ?: $oauthError)) ?? ''), 160).').'];
+            return ['error' => 'Threads izin vermedi ('.Str::limit(trim(preg_replace('/[^\pL\pN _.:-]/u', '', (string) ($errorText ?: $oauthError)) ?? ''), 160).'). Uygulamanın İzinler bölümünde threads_content_publish ve threads_manage_insights ekli olmalı.'];
         }
         $app = self::app();
         if ($code === null || $code === '' || $app === null) {

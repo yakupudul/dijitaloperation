@@ -10,12 +10,12 @@
         <button type="button" wire:click="$set('period', 28)" @class(['btn', 'border-second bg-second-soft text-second' => $period === 28])>28 gün</button>
     </span>
 </div>
-<div class="metric-strip grid-cols-2 lg:grid-cols-4" data-social-results>
+<div class="metric-strip grid-cols-2 lg:grid-cols-5" data-social-results>
     @foreach ($results['channels'] as $c)
         <div class="bg-white p-4 dark:bg-gray-900">
             <p class="text-[13px] text-gray-500">{{ $c['label'] }}</p>
             <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $n($c['published']) }} <span class="text-sm font-normal text-gray-500">paylaşım</span></p>
-            <p class="mt-1 text-xs text-gray-500">{{ $c['measured'] ? $n($i['reach']).' erişim · '.$n($i['views']).' görüntülenme' : 'Ölçüm bu kanalda henüz okunmuyor' }}</p>
+            <p class="mt-1 text-xs text-gray-500">{{ $c['measured'] ? ($c['reach'] > 0 ? $n($c['reach']).' erişim · ' : '').$n($c['views']).' görüntülenme · '.$n($c['likes']).' beğeni · '.$n($c['comments']).' yorum' : ($c['key'] === 'linkedin_me' ? 'LinkedIn kişisel gönderi sayılarını vermiyor' : ($c['key'] === 'facebook' ? 'Ölçüm bu kanalda henüz okunmuyor' : ($c['published'] > 0 ? 'Sayılar henüz okunmadı' : 'Bu dönemde paylaşım yok'))) }}</p>
         </div>
     @endforeach
 </div>
