@@ -114,6 +114,9 @@ final class DailyBlogTest extends SiteTestCase
         $local = $this->idea('Ankara diş kliniği haritada nasıl görünür?', Suggestion::APPROVED, $ok + ['daily' => ['lane' => 'yerel']]);
         $held = $this->idea('Kontrolde kalan yazı', Suggestion::APPROVED, ['daily' => ['lane' => 'rehber'], 'autopilot' => ['review' => ['verdict' => 'wrong', 'reason' => 'x', 'at' => now()->toIso8601String()]], 'check_fixes' => 3]);
         $this->assertSame(0, app(ContentAutopilot::class)->ready()->count(), 'the daily click never takes this line');
+        $outside = $this->idea('Hattın dışında kalan yazı', Suggestion::APPROVED, $ok);
+        $this->assertSame(0, app(ContentAutopilot::class)->ready()->count(), 'nor an article of this brand outside the line (it would go as an undated draft)');
+        $outside->delete();
 
         $now = CarbonImmutable::parse('2026-11-13 07:30', 'Europe/Istanbul');
         $this->travelTo($now); // the slot has to be in the future for the post to go scheduled

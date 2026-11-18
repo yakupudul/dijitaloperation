@@ -751,8 +751,10 @@ final class ContentAutopilot
 
         return Suggestion::query()->where('channel', 'search')->where('action_type', SiteSuggestionTypes::CONTENT)->where('status', Suggestion::APPROVED)
             ->whereNotNull('action->autopilot')->when($brandId !== null, fn (Builder $q): Builder => $q->where('brand_id', $brandId))
-            ->whereHas('brand', fn (Builder $brand): Builder => $brand->operational())->get()
-            ->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.review.verdict') === 'ok' && self::sendable($s) && ! DailyBlog::taken($s)
+            ->whereHas('brand', fn (Builder $brand): Builder => $brand->operational())->with('brand')->get()
+            // A daily-blog brand (moximu.com) publishes on its own slots; the daily click never sends its articles as undated
+            // drafts (yakup 2026-11-18: three went out that way on 16 Nov and waited in WordPress for a date by hand).
+            ->filter(fn (Suggestion $s): bool => data_get($s->action, 'autopilot.review.verdict') === 'ok' && self::sendable($s) && ! DailyBlog::taken($s) && ! DailyBlog::on($s->brand)
                 && (! is_string(data_get($s->action, 'autopilot.date'))
                     || (string) data_get($s->action, 'autopilot.date') <= (data_get($s->action, 'autopilot.week') !== null ? $weekEnd : $today)))
             ->sortBy(fn (Suggestion $s): string => (string) (data_get($s->action, 'autopilot.date') ?? '9999'))->values();
