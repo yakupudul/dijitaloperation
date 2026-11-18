@@ -1,6 +1,6 @@
 {{-- One small mark per channel of the post; the color is that channel's result. --}}
 @php
-    $short = ['instagram' => 'IG', 'facebook' => 'FB', 'linkedin' => 'in', 'threads' => 'Th', 'youtube' => 'YT'];
+    $short = ['instagram' => 'IG', 'facebook' => 'FB', 'linkedin' => 'in', 'threads' => 'Th', 'linkedin_me' => 'in·K', 'youtube' => 'YT'];
 @endphp
 <span class="flex shrink-0 flex-wrap justify-end gap-1" data-social-row-channels>
     @foreach ($post->targets as $target)

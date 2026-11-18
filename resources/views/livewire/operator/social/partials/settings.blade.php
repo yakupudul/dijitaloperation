@@ -244,6 +244,67 @@
     </div>
 
     @php
+        $meAccount = $accounts->where('platform', 'linkedin_me')->first();
+        $meLive = $meAccount !== null && ! $meAccount->isManual();
+        $meEnds = $meAccount?->token_expires_at;
+    @endphp
+    <div class="card space-y-5 p-5" data-linkedin-personal>
+        <div>
+            <h2 class="section-title">Kişisel LinkedIn profili{{ $meLive ? ' · otomatik paylaşım açık' : '' }}</h2>
+            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                @if ($meLive)
+                    {{ $meAccount->name }} bağlı. Kişisel metni olan onaylı gönderiler saatinde profilinizde paylaşılır. Bağlantı {{ $meEnds?->timezone($tz)->format('d.m.Y') }} tarihine kadar geçerli; LinkedIn bu izinde kendiliğinden yenileme vermez, bitmeden yeniden bağlamanız gerekir. Kişisel gönderilerin istatistiğini LinkedIn bu yolla vermez.
+                @else
+                    Kendi profilinizde paylaşım için şirket sayfasından ayrı, ikinci bir LinkedIn uygulaması gerekir (LinkedIn iki izni aynı uygulamada vermiyor). Üç adım bir kez yapılır; izin anında verilir, onay beklemez.
+                @endif
+            </p>
+            @if ($meLive && $meEnds && $meEnds->isBefore(now()->addDays(10)))
+                <p class="tone-look mt-2 rounded-lg px-3 py-2 text-sm" data-linkedin-personal-expiring>Kişisel LinkedIn bağlantısı {{ $meEnds->timezone($tz)->format('d.m.Y') }} tarihinde bitiyor; aşağıdan yeniden bağlayın.</p>
+            @endif
+        </div>
+        <details @if (! $meLive) open @endif data-setup-steps>
+            <summary class="cursor-pointer text-sm text-gray-600 dark:text-gray-300">{{ $meLive ? 'Kurulum adımları ve yeniden bağlama (tamamlandı)' : 'Kurulum adımları' }}</summary>
+            <ol class="mt-4 space-y-4 text-sm">
+                <li class="flex gap-3" data-step="linkedin-me-app">
+                    <span @class([$liBadge, $liStep($linkedinPersonalApp)])>{{ $linkedinPersonalApp ? '✓' : '1' }}</span>
+                    <div class="min-w-0 space-y-1">
+                        <p class="font-medium">İkinci uygulamayı açın ve iki ürünü ekleyin</p>
+                        <p class="text-gray-600 dark:text-gray-300"><a href="https://www.linkedin.com/developers/apps/new" target="_blank" rel="noopener" class="underline">LinkedIn’de yeni uygulama</a> açın (ad: Moximu Kişisel, sayfa: Moximu). <b>Products</b> sekmesinde <b>Share on LinkedIn</b> ve <b>Sign In with LinkedIn using OpenID Connect</b> ürünlerini ekleyin.</p>
+                    </div>
+                </li>
+                <li class="flex gap-3" data-step="linkedin-me-keys">
+                    <span @class([$liBadge, $liStep($linkedinPersonalApp)])>{{ $linkedinPersonalApp ? '✓' : '2' }}</span>
+                    <div class="min-w-0 space-y-2">
+                        <p class="font-medium">Dönüş adresini ekleyin, anahtarları buraya yazın</p>
+                        <p class="text-gray-600 dark:text-gray-300"><b>Auth</b> sekmesinde <b>Authorized redirect URLs</b>’e şunu ekleyin: <code class="text-xs">{{ $linkedinCallback }}</code></p>
+                        @if ($canWrite)
+                            <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                                <input type="text" wire:model="linkedinPersonalClientId" autocomplete="off" placeholder="Client ID" class="rounded-lg border border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                <input type="password" wire:model="linkedinPersonalClientSecret" autocomplete="off" placeholder="{{ $linkedinPersonalApp ? 'Client Secret (kayıtlı)' : 'Primary Client Secret' }}" class="rounded-lg border border-gray-300 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                <button type="button" wire:click="saveLinkedinPersonalApp" class="btn" data-linkedin-personal-save>Kaydet</button>
+                            </div>
+                            @error('linkedinPersonalClientId')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                            @error('linkedinPersonalClientSecret')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                        @endif
+                    </div>
+                </li>
+                <li class="flex gap-3" data-step="linkedin-me-login">
+                    <span @class([$liBadge, $liStep($meLive)])>{{ $meLive ? '✓' : '3' }}</span>
+                    <div class="min-w-0 space-y-2">
+                        <p class="font-medium">Kendi LinkedIn hesabınızla giriş yapın</p>
+                        @if ($canWrite && $linkedinPersonalApp)
+                            <a href="{{ route('integrations.linkedin.authorize', ['hesap' => 'kisisel']) }}" class="btn-primary inline-flex" data-linkedin-personal-connect>{{ $meLive ? 'Kişisel LinkedIn’i yeniden bağla' : 'Kişisel LinkedIn’i bağla' }}</a>
+                        @endif
+                        @if ($linkedinPersonalAttempt)
+                            <p @class(['rounded-lg px-3 py-2', 'tone-ok' => $linkedinPersonalAttempt['ok'], 'tone-look' => ! $linkedinPersonalAttempt['ok']])>Son deneme: {{ $linkedinPersonalAttempt['text'] }}</p>
+                        @endif
+                    </div>
+                </li>
+            </ol>
+        </details>
+    </div>
+
+    @php
         $thAccount = $accounts->where('platform', 'threads')->first();
         $thLive = $thAccount !== null && ! $thAccount->isManual() && ! ($thAccount->token_expires_at?->isPast() ?? false);
     @endphp

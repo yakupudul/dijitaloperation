@@ -9,8 +9,8 @@
     $linePlace = $place($opened);
     $lineOf = $opened->kind === 'text' ? $textLine : ($opened->kind === 'story' ? $storyLine : ($opened->kind === 'reels' && $reelLine !== null ? $reelLine : $line));
     $lineAt = array_search($opened->id, $lineOf, true);
-    $texts = ['instagram' => $opened->caption, 'facebook' => $opened->caption, 'linkedin' => $opened->linkedin_text, 'threads' => $opened->threads_text];
-    $openWord = ['instagram' => "Instagram'da aç", 'facebook' => "Facebook'ta aç", 'linkedin' => "LinkedIn'de aç", 'threads' => "Threads'te aç"];
+    $texts = ['instagram' => $opened->caption, 'facebook' => $opened->caption, 'linkedin' => $opened->linkedin_text, 'threads' => $opened->threads_text, 'linkedin_me' => $opened->personal_text];
+    $openWord = ['instagram' => "Instagram'da aç", 'facebook' => "Facebook'ta aç", 'linkedin' => "LinkedIn'de aç", 'threads' => "Threads'te aç", 'linkedin_me' => "LinkedIn'de aç"];
     $firstChannel = collect(array_keys($channelNames))->first(fn ($k) => $byPlatform->has($k)) ?? 'instagram';
 @endphp
 <div class="fixed inset-0 z-99999 flex justify-end bg-gray-900/40" wire:click.self="closePost" x-data="{ ch: '{{ $firstChannel }}' }" x-on:keydown.escape.window="$wire.closePost()" data-social-post-modal="{{ $opened->id }}">
@@ -52,6 +52,8 @@
                         <textarea wire:model="editLinkedin" rows="6" maxlength="3000" class="mt-1 w-full rounded-lg border border-gray-300 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"></textarea></label>
                     <label class="block text-[13px] text-gray-500">Threads metni (en çok 500 karakter; boşsa Threads’e gitmez)
                         <textarea wire:model="editThreads" rows="4" maxlength="500" class="mt-1 w-full rounded-lg border border-gray-300 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"></textarea></label>
+                    <label class="block text-[13px] text-gray-500">Kişisel LinkedIn metni (kendi profiliniz; boşsa profilinize gitmez)
+                        <textarea wire:model="editPersonal" rows="6" maxlength="3000" class="mt-1 w-full rounded-lg border border-gray-300 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100" data-social-edit-personal></textarea></label>
                     <label class="block text-[13px] text-gray-500">Yayın zamanı (değiştirirseniz tarih sabitlenir)
                         <input type="datetime-local" wire:model="editTime" class="mt-1 w-full rounded-lg border border-gray-300 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"></label>
                     <div class="flex gap-2"><button type="button" wire:click="saveEdit" class="btn-primary">Kaydet</button><button type="button" wire:click="cancelEdit" class="btn">Vazgeç</button></div>

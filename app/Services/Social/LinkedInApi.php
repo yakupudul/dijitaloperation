@@ -30,15 +30,16 @@ class LinkedInApi
     private const int REFRESH_BEFORE_DAYS = 7;
 
     /** @return array{id: string, secret: string}|null */
-    public static function app(): ?array
+    public static function app(bool $personal = false): ?array
     {
         try {
             $setting = AgencySetting::query()->first();
         } catch (Throwable) {
             return null;
         }
-        $id = trim((string) ($setting?->social_linkedin_client_id ?? ''));
-        $secret = trim((string) ($setting?->social_linkedin_client_secret ?? ''));
+        // The personal profile has its own LinkedIn app: "Share on LinkedIn" cannot live beside the Community Management API.
+        $id = trim((string) ($personal ? $setting?->social_linkedin_personal_client_id : $setting?->social_linkedin_client_id));
+        $secret = trim((string) ($personal ? $setting?->social_linkedin_personal_client_secret : $setting?->social_linkedin_client_secret));
 
         return $id !== '' && $secret !== '' ? ['id' => $id, 'secret' => $secret] : null;
     }
@@ -75,9 +76,9 @@ class LinkedInApi
     }
 
     /** Token exchange / refresh at www.linkedin.com. @param  array<string, string>  $form  @return array<string, mixed> */
-    public function token(array $form): array
+    public function token(array $form, bool $personal = false): array
     {
-        $app = self::app();
+        $app = self::app($personal);
         if ($app === null) {
             throw new SocialGraphException('LinkedIn uygulaması tanımlı değil (Sosyal › Hesaplar).', 'auth');
         }
@@ -102,7 +103,7 @@ class LinkedInApi
 
             return $token;
         }
-        $data = $this->token(['grant_type' => 'refresh_token', 'refresh_token' => $refresh]);
+        $data = $this->token(['grant_type' => 'refresh_token', 'refresh_token' => $refresh], $account->platform === SocialAccount::LINKEDIN_PERSONAL);
         $new = (string) ($data['access_token'] ?? '');
         if ($new === '') {
             throw new SocialGraphException('LinkedIn bağlantısı yenilenemedi; Hesaplar’dan yeniden bağlayın.', 'auth');
@@ -118,11 +119,13 @@ class LinkedInApi
     /** @return array{status: string, id?: string, permalink?: ?string, container?: string} */
     public function publish(SocialPost $post, SocialPostTarget $target, SocialAccount $account): array
     {
-        $org = (string) ($account->meta['org_urn'] ?? '');
+        // The author: the company page, or the member himself on the personal profile (which carries its own text).
+        $personal = $account->platform === SocialAccount::LINKEDIN_PERSONAL;
+        $org = (string) ($account->meta[$personal ? 'person_urn' : 'org_urn'] ?? '');
         if ($org === '') {
-            throw new SocialGraphException('LinkedIn sayfası seçili değil; Hesaplar’dan yeniden bağlayın.', 'auth');
+            throw new SocialGraphException($personal ? 'Kişisel LinkedIn profili bağlı değil; Hesaplar’dan bağlayın.' : 'LinkedIn sayfası seçili değil; Hesaplar’dan yeniden bağlayın.', 'auth');
         }
-        $text = trim((string) $post->linkedin_text);
+        $text = trim((string) ($personal ? $post->personal_text : $post->linkedin_text));
         if ($text === '') {
             throw new SocialGraphException('LinkedIn metni yok.');
         }

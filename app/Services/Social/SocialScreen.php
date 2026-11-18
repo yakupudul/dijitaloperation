@@ -26,7 +26,7 @@ final class SocialScreen
 
     public const array CHANNELS = [
         SocialAccount::INSTAGRAM => 'Instagram', SocialAccount::FACEBOOK => 'Facebook',
-        SocialAccount::LINKEDIN => 'LinkedIn', SocialAccount::THREADS => 'Threads',
+        SocialAccount::LINKEDIN => 'LinkedIn', SocialAccount::THREADS => 'Threads', SocialAccount::LINKEDIN_PERSONAL => 'Kişisel LinkedIn',
     ];
 
     public const array STATUS_FILTERS = [

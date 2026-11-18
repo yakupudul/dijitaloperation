@@ -22,7 +22,10 @@ class SocialAccount extends Model
     /** The agency's Threads profile: short text posts through the Threads API once "Threads'i bağla" stored a token. */
     public const string THREADS = 'threads';
 
-    public const array PLATFORMS = [self::INSTAGRAM, self::FACEBOOK, self::LINKEDIN, self::THREADS];
+    /** The owner's own LinkedIn profile (second LinkedIn app, "Share on LinkedIn"): posts that carry a personal text. */
+    public const string LINKEDIN_PERSONAL = 'linkedin_me';
+
+    public const array PLATFORMS = [self::INSTAGRAM, self::FACEBOOK, self::LINKEDIN, self::THREADS, self::LINKEDIN_PERSONAL];
 
     protected $guarded = [];
 
@@ -41,6 +44,7 @@ class SocialAccount extends Model
             self::FACEBOOK => 'Facebook',
             self::LINKEDIN => 'LinkedIn',
             self::THREADS => 'Threads',
+            self::LINKEDIN_PERSONAL => 'LinkedIn (kişisel)',
             default => (string) $this->platform,
         };
     }
@@ -62,6 +66,11 @@ class SocialAccount extends Model
                 || ($this->token_expires_at !== null && $this->token_expires_at->isPast() && ($this->refresh_token === null || $this->refresh_token === ''));
         }
 
+        if ($this->platform === self::LINKEDIN_PERSONAL) {
+            // A member token of the personal app has no refresh token: once it ends the profile must be connected again.
+            return ($this->meta['person_urn'] ?? '') === '' || ($this->token_expires_at !== null && $this->token_expires_at->isPast());
+        }
+
         return false;
     }
 
@@ -70,7 +79,7 @@ class SocialAccount extends Model
         return match ($this->platform) {
             self::INSTAGRAM => $this->username ? 'https://www.instagram.com/'.$this->username.'/' : null,
             self::FACEBOOK => 'https://www.facebook.com/'.$this->external_id,
-            self::LINKEDIN => $this->meta['url'] ?? null,
+            self::LINKEDIN, self::LINKEDIN_PERSONAL => $this->meta['url'] ?? null,
             self::THREADS => $this->username ? 'https://www.threads.net/@'.$this->username : null,
             default => null,
         };

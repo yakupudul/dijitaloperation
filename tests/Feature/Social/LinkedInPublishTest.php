@@ -213,4 +213,62 @@ final class LinkedInPublishTest extends TestCase
         $this->assertTrue(LinkedInConnector::lastAttempt()['ok']);
         $this->assertFalse(Cache::has('social_linkedin_oauth:'.hash('sha256', $query['state'])));
     }
+
+    public function test_personal_profile_connects_with_its_own_app_and_gets_only_posts_with_a_personal_text(): void
+    {
+        $this->linkedin();
+        Livewire::actingAs($this->admin)->withQueryParams(['sekme' => 'hesaplar'])->test(SocialPage::class)
+            ->assertSee('Kişisel LinkedIn profili')
+            ->set('linkedinPersonalClientId', '86personal123')
+            ->set('linkedinPersonalClientSecret', 'WPL_AP1.personal')
+            ->call('saveLinkedinPersonalApp')
+            ->assertHasNoErrors()
+            ->assertSeeHtml('data-linkedin-personal-connect');
+        $this->assertSame('WPL_AP1.personal', AgencySetting::query()->first()->social_linkedin_personal_client_secret);
+
+        $location = (string) $this->actingAs($this->admin)->get(route('integrations.linkedin.authorize', ['hesap' => 'kisisel']))->headers->get('Location');
+        $this->assertStringContainsString('client_id=86personal123', $location);
+        $this->assertStringContainsString('w_member_social', urldecode($location));
+        parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
+
+        $posts = [];
+        Http::fake(function (Request $request) use (&$posts) {
+            $url = $request->url();
+
+            return match (true) {
+                str_contains($url, '/oauth/v2/accessToken') => Http::response(['access_token' => 'me-token', 'expires_in' => 5184000, 'scope' => 'openid,profile,w_member_social']),
+                str_contains($url, '/v2/userinfo') => Http::response(['sub' => 'AbC123', 'name' => 'Yakup Udul']),
+                str_ends_with($url, '/rest/posts') => tap(Http::response('', 201, ['x-restli-id' => 'urn:li:share:'.(count($posts) + 1)]), function () use (&$posts, $request): void {
+                    $posts[] = $request->data();
+                }),
+                default => Http::response(['error' => 'x'], 400),
+            };
+        });
+        $this->actingAs($this->admin)->get(route('integrations.linkedin.callback', ['code' => 'c9', 'state' => $query['state']]))
+            ->assertRedirect(route('operator.social', ['sekme' => 'hesaplar']));
+        $me = SocialAccount::query()->where('platform', SocialAccount::LINKEDIN_PERSONAL)->sole();
+        $this->assertSame('urn:li:person:AbC123', $me->meta['person_urn']);
+        $this->assertFalse($me->isManual());
+        $this->assertSame('urn:li:organization:42', SocialAccount::query()->where('platform', 'linkedin')->sole()->meta['org_urn'], 'the company page is untouched');
+
+        // A text post with both texts: the page gets the page text, the profile its own; a post without a personal text skips the profile.
+        $planner = app(SocialPlanner::class);
+        $both = $planner->create(['kind' => 'text', 'linkedin_text' => 'Sayfa metni.', 'personal_text' => 'Bu hafta bir hekimle konuştum.', 'publish_at' => '2026-11-13 09:00'], []);
+        $pageOnly = $planner->create(['kind' => 'text', 'linkedin_text' => 'Yalnız sayfa.', 'publish_at' => '2026-11-13 09:00'], []);
+        $this->assertSame(['linkedin', 'linkedin_me'], $both->targets->map(fn ($t) => $t->account->platform)->sort()->values()->all());
+        $this->assertSame(['linkedin'], $pageOnly->targets->map(fn ($t) => $t->account->platform)->all());
+        $both->update(['pinned' => true]);
+        $planner->approve($both, $this->admin->id);
+        $this->travelTo(CarbonImmutable::parse('2026-11-13 09:05', 'Europe/Istanbul'));
+        app(SocialPublisher::class)->run();
+
+        $byAuthor = collect($posts)->keyBy('author');
+        $this->assertSame('Bu hafta bir hekimle konuştum.', $byAuthor['urn:li:person:AbC123']['commentary']);
+        $this->assertSame('Sayfa metni.', $byAuthor['urn:li:organization:42']['commentary']);
+        $this->assertSame('published', $both->fresh()->status);
+
+        // The member token has no refresh: once it ends the posts wait as copy-and-open until he connects again.
+        $me->forceFill(['token_expires_at' => now()->subDay()])->save();
+        $this->assertTrue($me->fresh()->isManual());
+    }
 }

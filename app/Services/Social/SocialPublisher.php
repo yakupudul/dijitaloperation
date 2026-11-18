@@ -108,7 +108,7 @@ class SocialPublisher
             $outcome = match ($account->platform) {
                 SocialAccount::INSTAGRAM => $this->instagram($post, $target, $account),
                 SocialAccount::FACEBOOK => $this->facebook($post, $account),
-                SocialAccount::LINKEDIN => $this->linkedin->publish($post, $target, $account),
+                SocialAccount::LINKEDIN, SocialAccount::LINKEDIN_PERSONAL => $this->linkedin->publish($post, $target, $account),
                 SocialAccount::THREADS => $this->threads->publish($post, $account),
                 default => throw new SocialGraphException('Bu kanal desteklenmiyor.'),
             };
