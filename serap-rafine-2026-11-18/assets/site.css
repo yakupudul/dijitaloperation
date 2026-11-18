@@ -581,7 +581,7 @@ a.door{text-decoration:none;color:#fff}
 .r-ticks b{color:var(--ink);font-weight:600}
 .r-hero-fig{position:relative;margin:0}
 .r-hero-fig img{width:100%;aspect-ratio:4/5;object-fit:cover;object-position:50% 20%;border-radius:22px;max-height:640px}
-.r-vcard{position:absolute;right:-24px;top:44px;display:flex;align-items:center;gap:12px;background:#fff;border:0;border-radius:14px;padding:8px 16px 8px 8px;box-shadow:0 18px 44px -14px rgba(36,26,24,.35);cursor:pointer;font-family:var(--font);text-align:left;color:var(--muted);font-size:12.5px;line-height:1.35}
+.r-vcard{position:absolute;right:-24px;top:auto;bottom:210px;display:flex;align-items:center;gap:12px;background:#fff;border:0;border-radius:14px;padding:8px 16px 8px 8px;box-shadow:0 18px 44px -14px rgba(36,26,24,.35);cursor:pointer;font-family:var(--font);text-align:left;color:var(--muted);font-size:12.5px;line-height:1.35}
 .r-vcard img{width:48px;height:58px;border-radius:9px;object-fit:cover}
 .r-vcard i{position:absolute;left:22px;top:26px;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.95);display:grid;place-items:center}
 .r-vcard i svg{width:10px;height:10px;color:var(--brown);fill:var(--brown)}
@@ -699,7 +699,8 @@ a.door{text-decoration:none;color:#fff}
 
 /* sağ alttaki video */
 .r-bub[hidden],.r-pop[hidden]{display:none}
-.r-bub{position:fixed;right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:60;width:132px;animation:r-in .6s ease both}
+.r-bub{position:fixed;right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:60;width:132px;transition:opacity .4s ease,transform .4s ease}
+.r-bub.r-off{opacity:0;transform:translateY(16px);pointer-events:none}
 @keyframes r-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 .r-bub-open{display:block;width:100%;aspect-ratio:9/14;border:3px solid #fff;border-radius:18px;overflow:hidden;padding:0;cursor:pointer;background:var(--deep);box-shadow:0 18px 44px -10px rgba(36,26,24,.5);position:relative;transition:transform .25s}
 .r-bub-open:hover{transform:scale(1.04)}
@@ -717,7 +718,7 @@ a.door{text-decoration:none;color:#fff}
 .r-pop-foot .btn{min-height:48px;font-size:16px;width:100%}
 body.r-lock{overflow:hidden}
 
-@media (prefers-reduced-motion:reduce){.r-mark path{animation:none;stroke-dashoffset:0}.r-bub{animation:none}}
+@media (prefers-reduced-motion:reduce){.r-mark path{animation:none;stroke-dashoffset:0}.r-bub{transition:none}}
 @media (max-width:1180px){
   .r-head nav{display:none}
   .r-vcard{right:-10px}.r-hcard{left:-14px}
@@ -745,13 +746,12 @@ body.r-lock{overflow:hidden}
   .r-top{display:none}
   .r-head .wrap{min-height:64px;gap:12px}
   .r-logo img{height:36px}
-  .r-logo small,.r-hb .r-call{display:none}
-  .r-hb .btn{min-height:42px;padding:0 16px}
+  .r-logo small,.r-hb{display:none}
   .r-hero{padding-block:34px 56px}
   .r-hero h1{font-size:38px;letter-spacing:-.03em}
   .r-lead{font-size:17px}
   .r-acts .btn{flex:1 1 100%}
-  .r-vcard{right:12px;top:12px}
+  .r-vcard{right:12px;top:auto;bottom:96px}
   .r-hcard{left:12px;bottom:12px}
   .r-strip .wrap{grid-template-columns:1fr}
   .r-qcs{grid-template-columns:1fr;gap:36px}

@@ -66,6 +66,12 @@
   function startSmall(){
     if(closed)return;
     bub.hidden=false;
+    /* ilk ekranda görünmez (orada zaten video kartı var); ilk ekran geçilince belirir */
+    var hero=document.querySelector('.r-hero');
+    if(hero&&'IntersectionObserver' in window){
+      bub.classList.add('r-off');
+      new IntersectionObserver(function(es){es.forEach(function(e){bub.classList.toggle('r-off',e.isIntersecting);});}).observe(hero);
+    }
     if(still)return;
     small.src=bub.dataset.src;small.muted=true;
     var p=small.play();if(p&&p.catch)p.catch(function(){});
