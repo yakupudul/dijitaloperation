@@ -105,3 +105,13 @@
   pop.querySelector('.r-pop-x').addEventListener('click',close);
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!pop.hidden)close();});
 })();
+/* 18.11 video şeridi: oklarla bir sayfa kaydırır */
+(function(){
+  document.querySelectorAll('.r-dark-wide').forEach(function(box){
+    var row=box.querySelector('.r-clips'),btns=box.querySelectorAll('.r-cn');
+    if(!row||!btns.length)return;
+    function upd(){btns[0].disabled=row.scrollLeft<4;btns[1].disabled=row.scrollLeft+row.clientWidth>=row.scrollWidth-4;}
+    btns.forEach(function(b){b.addEventListener('click',function(){row.scrollBy({left:(+b.dataset.d)*row.clientWidth*0.8,behavior:'smooth'});});});
+    row.addEventListener('scroll',upd,{passive:true});window.addEventListener('resize',upd);upd();
+  });
+})();
