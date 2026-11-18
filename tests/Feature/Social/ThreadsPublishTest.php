@@ -16,6 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Sleep;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -77,12 +78,17 @@ final class ThreadsPublishTest extends TestCase
     public function test_only_posts_with_a_threads_text_go_to_threads_as_a_short_text(): void
     {
         SocialAccount::query()->create(['platform' => 'threads', 'external_id' => '77', 'username' => 'moximucom', 'access_token' => 'long-token', 'token_expires_at' => now()->addDays(40), 'enabled' => true]);
-        Http::fake(function (Request $request) {
+        // Threads is not ready the first time the container is published; the second try goes through.
+        Sleep::fake();
+        $tries = 0;
+        Http::fake(function (Request $request) use (&$tries) {
             $url = $request->url();
 
             return match (true) {
-                str_contains($url, '/77/threads_publish') => Http::response(['id' => 'T1']),
-                str_contains($url, '/77/threads') => Http::response(['id' => 'C1']),
+                str_contains($url, '/me/threads_publish') => ++$tries === 1
+                    ? Http::response(['error' => ['message' => 'The requested resource does not exist', 'code' => 24]], 400)
+                    : Http::response(['id' => 'T1']),
+                str_contains($url, '/me/threads') => Http::response(['id' => 'C1']),
                 str_contains($url, '/T1') => Http::response(['permalink' => 'https://www.threads.net/@moximucom/post/x']),
                 default => Http::response(['error' => ['message' => 'x']], 400),
             };
@@ -103,7 +109,8 @@ final class ThreadsPublishTest extends TestCase
         $target = $post->targets()->firstOrFail();
         $this->assertSame('published', $target->status);
         $this->assertSame('https://www.threads.net/@moximucom/post/x', $target->permalink);
-        Http::assertSent(fn (Request $r): bool => str_ends_with($r->url(), '/77/threads') && $r['media_type'] === 'TEXT'
+        $this->assertSame(2, $tries);
+        Http::assertSent(fn (Request $r): bool => str_ends_with($r->url(), '/me/threads') && $r['media_type'] === 'TEXT'
             && mb_strlen((string) $r['text']) <= ThreadsApi::MAX_TEXT && str_ends_with((string) $r['text'], 'https://moximu.com/rehber/ornek/'));
     }
 }
