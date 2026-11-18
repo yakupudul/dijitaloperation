@@ -115,3 +115,13 @@
     row.addEventListener('scroll',upd,{passive:true});window.addEventListener('resize',upd);upd();
   });
 })();
+/* 18.11 yakup: videonun herhangi bir yerine tıklayınca oynar; biri oynayınca diğerleri durur */
+(function(){
+  document.querySelectorAll('.clip .poster').forEach(function(im){
+    im.addEventListener('click',function(){var b=im.closest('.clip').querySelector('.play');if(b)b.click();});
+  });
+  document.addEventListener('play',function(e){
+    if(!e.target.closest||!e.target.closest('.clip'))return;
+    document.querySelectorAll('.clip video').forEach(function(v){if(v!==e.target&&!v.paused)v.pause();});
+  },true);
+})();

@@ -799,3 +799,5 @@ body.r-lock{overflow:hidden}
   .r-vids .r-clips .clip .play span{display:none}
   .r-clip-nav{display:none}
 }
+
+.clip .poster{cursor:pointer}
