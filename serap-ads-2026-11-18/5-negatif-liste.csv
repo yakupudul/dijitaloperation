@@ -1,0 +1,58 @@
+﻿Action,Negative keyword list name,Negative keyword,Keyword or list,Match type
+Add,Serap | Genel negatifler,nedir,Keyword,Broad match
+Add,Serap | Genel negatifler,nasıl yapılır,Keyword,Phrase match
+Add,Serap | Genel negatifler,işe yarar,Keyword,Phrase match
+Add,Serap | Genel negatifler,faydaları,Keyword,Broad match
+Add,Serap | Genel negatifler,zararları,Keyword,Broad match
+Add,Serap | Genel negatifler,yan etkileri,Keyword,Phrase match
+Add,Serap | Genel negatifler,yorumları,Keyword,Broad match
+Add,Serap | Genel negatifler,yorum,Keyword,Broad match
+Add,Serap | Genel negatifler,şikayet,Keyword,Broad match
+Add,Serap | Genel negatifler,kadınlar kulübü,Keyword,Phrase match
+Add,Serap | Genel negatifler,ekşi,Keyword,Broad match
+Add,Serap | Genel negatifler,forum,Keyword,Broad match
+Add,Serap | Genel negatifler,kurs,Keyword,Broad match
+Add,Serap | Genel negatifler,kursu,Keyword,Broad match
+Add,Serap | Genel negatifler,eğitim,Keyword,Broad match
+Add,Serap | Genel negatifler,eğitimi,Keyword,Broad match
+Add,Serap | Genel negatifler,sertifika,Keyword,Broad match
+Add,Serap | Genel negatifler,iş ilanı,Keyword,Phrase match
+Add,Serap | Genel negatifler,maaş,Keyword,Broad match
+Add,Serap | Genel negatifler,serum,Keyword,Broad match
+Add,Serap | Genel negatifler,serumu,Keyword,Broad match
+Add,Serap | Genel negatifler,krem,Keyword,Broad match
+Add,Serap | Genel negatifler,kremi,Keyword,Broad match
+Add,Serap | Genel negatifler,ampul,Keyword,Broad match
+Add,Serap | Genel negatifler,maske,Keyword,Broad match
+Add,Serap | Genel negatifler,eczane,Keyword,Broad match
+Add,Serap | Genel negatifler,trendyol,Keyword,Broad match
+Add,Serap | Genel negatifler,hepsiburada,Keyword,Broad match
+Add,Serap | Genel negatifler,gratis,Keyword,Broad match
+Add,Serap | Genel negatifler,watsons,Keyword,Broad match
+Add,Serap | Genel negatifler,satın al,Keyword,Phrase match
+Add,Serap | Genel negatifler,sipariş,Keyword,Broad match
+Add,Serap | Genel negatifler,toptan,Keyword,Broad match
+Add,Serap | Genel negatifler,evde,Keyword,Broad match
+Add,Serap | Genel negatifler,kendi kendine,Keyword,Phrase match
+Add,Serap | Genel negatifler,ameliyat,Keyword,Broad match
+Add,Serap | Genel negatifler,ameliyatı,Keyword,Broad match
+Add,Serap | Genel negatifler,bedava,Keyword,Broad match
+Add,Serap | Genel negatifler,ücretsiz,Keyword,Broad match
+Add,Serap | Genel negatifler,youtube,Keyword,Broad match
+Add,Serap | Genel negatifler,video,Keyword,Broad match
+Add,Serap | Genel negatifler,izmir,Keyword,Broad match
+Add,Serap | Genel negatifler,ankara,Keyword,Broad match
+Add,Serap | Genel negatifler,bursa,Keyword,Broad match
+Add,Serap | Genel negatifler,antalya,Keyword,Broad match
+Add,Serap | Genel negatifler,adana,Keyword,Broad match
+Add,Serap | Genel negatifler,konya,Keyword,Broad match
+Add,Serap | Genel negatifler,kocaeli,Keyword,Broad match
+Add,Serap | Genel negatifler,izmit,Keyword,Broad match
+Add,Serap | Genel negatifler,avrupa yakası,Keyword,Phrase match
+Add,Serap | Genel negatifler,beşiktaş,Keyword,Broad match
+Add,Serap | Genel negatifler,şişli,Keyword,Broad match
+Add,Serap | Genel negatifler,bakırköy,Keyword,Broad match
+Add,Serap | Genel negatifler,nişantaşı,Keyword,Broad match
+Add,Serap | Genel negatifler,beylikdüzü,Keyword,Broad match
+Add,Serap | Genel negatifler,başakşehir,Keyword,Broad match
+Add,Serap | Genel negatifler,esenyurt,Keyword,Broad match
