@@ -286,4 +286,27 @@ final class DailyBlogTest extends SiteTestCase
         $this->brand->forceFill(['cover_style' => null])->save();
         $this->assertSame([], DailyBlog::directionTopics($this->brand->fresh()), 'other brands keep their own demand');
     }
+
+    /** 2026-11-18: an article on its topic shelf (categories [{name}]) lost its social post: the cover words threw on the array. */
+    public function test_an_article_on_its_topic_shelf_still_gets_its_social_post(): void
+    {
+        Queue::fake();
+        $this->connection();
+        $this->page('/hizmetlerimiz/google-isletme-profili/', 'Google İşletme Profili · Moximu');
+        $this->page('/ucretsiz-klinik-analizi/', 'Ücretsiz ön değerlendirme');
+        $this->brand->forceFill(['cover_style' => BrandCover::MOXIMU_REHBER])->save();
+        SocialAccount::query()->create(['platform' => 'facebook', 'external_id' => 'FB1', 'username' => 'moximu', 'access_token' => 't', 'page_id' => 'P1', 'enabled' => true, 'brand_id' => $this->brand->id]);
+        $ok = ['autopilot' => ['review' => ['verdict' => 'ok', 'reason' => '', 'at' => now()->toIso8601String()]], 'image' => ['media_id' => 55, 'url' => 'https://panorama.com.tr/k.jpg', 'motif' => 'harita']];
+        $guide = $this->idea('Google İşletme Profili nasıl kurulur?', Suggestion::APPROVED, $ok + ['daily' => ['lane' => 'rehber']]);
+        $now = CarbonImmutable::parse('2026-11-13 07:30', 'Europe/Istanbul');
+        $this->travelTo($now);
+        $sent = app(DailyBlog::class)->publish($this->site, $this->admin, $now);
+        $this->assertSame(1, $sent);
+        $this->assertSame([['name' => 'Google İşletme Profili']], data_get($guide->fresh()->action, 'article.categories'), 'the article went on its shelf');
+        $social = SocialPost::query()->find((int) data_get($guide->fresh()->action, 'daily.instagram_id'));
+        $this->assertNotNull($social, 'the article on its shelf still gets its social post');
+        $this->assertSame('blog', $social->created_by);
+        $this->assertSame(SocialPost::APPROVED, $social->status);
+        $this->assertSame('Google İşletme Profili', BrandCover::words($guide->fresh())['tag'], 'the shelf name is the cover tag');
+    }
 }

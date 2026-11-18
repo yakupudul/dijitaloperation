@@ -627,7 +627,7 @@ final class DailyBlog
             $action['daily']['instagram_id'] = (int) $post->id;
             $suggestion->forceFill(['action' => $action])->save();
         } catch (Throwable $e) {
-            Log::info('Daily blog Instagram draft skipped.', ['suggestion' => $suggestion->id, 'error' => $e->getMessage()]);
+            Log::warning('Daily blog social post failed.', ['suggestion' => $suggestion->id, 'error' => $e->getMessage()]);
         }
     }
 
