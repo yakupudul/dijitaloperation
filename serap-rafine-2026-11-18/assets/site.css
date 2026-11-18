@@ -771,28 +771,31 @@ body.r-lock{overflow:hidden}
 /* 18.11 yakup: ilk ekranda video kartı yok, fotoğrafı kapatıyordu */
 .r-vcard{display:none!important}
 
-/* 18.11 Instagram videoları: çok video varsa yana kaydırılan şerit */
-.r-dark.r-dark-wide{grid-template-columns:1fr;gap:36px;position:relative}
-.r-dark-wide .r-dark-tx{max-width:680px}
-.r-dark-wide .r-clips{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;margin:0 -64px;padding:0 64px 4px;scroll-padding:0 64px}
-.r-dark-wide .r-clips::-webkit-scrollbar{display:none}
-.r-dark-wide .r-clips .clip{flex:0 0 calc((100% - 48px)/4.4);scroll-snap-align:start}
-.r-dark-wide .r-clips .clip figcaption{font-size:15px;line-height:1.35}
-.r-dark-wide .r-clips:focus-visible{outline:2px solid #fff;outline-offset:4px}
-.r-clip-nav{position:absolute;right:64px;top:64px;display:flex;gap:10px}
-.r-cn{width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;display:grid;place-items:center;cursor:pointer;transition:background .2s ease,border-color .2s ease}
+/* 18.11 Instagram videoları: tam genişlik koyu bant, yana kaydırılan şerit */
+.r-vids{background:var(--deep);color:#d9cbc7;padding-block:104px;--gx:max(24px,calc((100% - var(--wrap))/2 + 24px))}
+.r-vids .r-eye{color:#c4aea8}
+.r-vids .r-h2{color:#fff}
+.r-vids .r-sub{color:#d9cbc7}
+.r-vids .r-ig{color:#fff;border-color:rgba(255,255,255,.3)}
+.r-vtop{display:flex;align-items:flex-end;justify-content:space-between;gap:40px;margin-bottom:44px}
+.r-vtop .r-dark-tx{max-width:680px}
+.r-vids .r-clips{display:flex;gap:18px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:0 var(--gx) 4px;scroll-padding:0 var(--gx)}
+.r-vids .r-clips::-webkit-scrollbar{display:none}
+.r-vids .r-clips .clip{flex:0 0 clamp(200px,19vw,290px);scroll-snap-align:start;margin:0}
+.r-vids .r-clips .clip figcaption{color:#fff;font-size:15px;line-height:1.35;margin-top:12px}
+.r-vids .r-clips:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+.r-clip-nav{display:flex;gap:10px;flex:none}
+.r-cn{width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;display:grid;place-items:center;cursor:pointer;transition:background .2s ease,border-color .2s ease}
 .r-cn:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.6)}
 .r-cn:disabled{opacity:.35;cursor:default;background:transparent}
 .r-cn svg{width:20px;height:20px}
 .r-cn[data-d="-1"] svg{transform:rotate(180deg)}
-@media (max-width:1100px){
-  .r-dark-wide .r-clips{margin:0 -44px;padding:0 44px 4px;scroll-padding:0 44px}
-  .r-dark-wide .r-clips .clip{flex-basis:calc((100% - 32px)/3.3)}
-  .r-clip-nav{right:44px;top:44px}
-}
 @media (max-width:720px){
-  .r-dark-wide .r-clips{margin:0 -20px;padding:0 20px 4px;scroll-padding:0 20px;gap:10px}
-  .r-dark-wide .r-clips .clip{flex-basis:44%}
-  .r-dark-wide .r-clips .clip figcaption{font-size:13px}
+  .r-vids{padding-block:64px}
+  .r-vtop{display:block;margin-bottom:28px}
+  .r-vids .r-clips{gap:10px}
+  .r-vids .r-clips .clip{flex-basis:44%}
+  .r-vids .r-clips .clip figcaption{font-size:13px}
+  .r-vids .r-clips .clip .play span{display:none}
   .r-clip-nav{display:none}
 }
