@@ -150,6 +150,26 @@ class ActivityAwareCollectionTest extends TestCase
         $this->assertSame(ActivityTier::Dormant, $tiers->refreshResource($resource)->tier);
     }
 
+    public function test_a_new_account_that_never_spent_is_checked_daily_for_its_first_month_then_weekly(): void
+    {
+        $resource = $this->resource('google_ads', '1110000010');
+        $gate = app(CollectionActivityGate::class);
+        $this->assertSame(ActivityTier::Dormant, app(ActivityTierService::class)->refreshResource($resource)->tier);
+
+        $gate->markLightCheck((int) $resource->id);
+        $this->assertFalse($gate->plan($resource)->due);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse(self::NOW, 'UTC')->addDay());
+        Carbon::setTestNow(Carbon::parse(self::NOW, 'UTC')->addDay());
+        $this->assertTrue($gate->plan($resource)->due, 'a launch the day after binding is seen the next day');
+
+        CarbonImmutable::setTestNow(CarbonImmutable::parse(self::NOW, 'UTC')->addDays(40));
+        Carbon::setTestNow(Carbon::parse(self::NOW, 'UTC')->addDays(40));
+        $gate->markLightCheck((int) $resource->id);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse(self::NOW, 'UTC')->addDays(42));
+        Carbon::setTestNow(Carbon::parse(self::NOW, 'UTC')->addDays(42));
+        $this->assertFalse($gate->plan($resource)->due, 'after a month without spend it is a weekly check again');
+    }
+
     public function test_operator_pause_counts_as_dormant_and_clears_itself_when_spend_reappears(): void
     {
         [$asset, $resource] = $this->boundAds('meta_ads', 'act_4440001', 'meta');

@@ -52,6 +52,12 @@ class CollectionActivityGate
             ActivityTier::Dormant => ActivityCollectionPlan::MODE_CHECK,
         };
         $interval = max(1, (int) config('moxdop-collection-activity.light_interval_days', 7));
+        // A newly bound account that has never spent is waiting for its launch, not abandoned: check it daily for
+        // its first `dormant_days`, otherwise the first week of a new campaign stays invisible.
+        if ($row->last_active_on === null && $row->tier_since !== null
+            && $row->tier_since->greaterThan(now()->subDays((int) config('moxdop-collection-activity.dormant_days', 30)))) {
+            $interval = 1;
+        }
         $nextDue = $mode === ActivityCollectionPlan::MODE_FULL || $row->last_light_check_at === null
             ? null
             : $row->last_light_check_at->addDays($interval);

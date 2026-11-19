@@ -13,6 +13,8 @@
 |   idle    — no activity for active_days..dormant_days → weekly light set
 |   dormant — no activity for dormant_days+ days (or operator pause) → weekly
 |             cheap check of account-level totals for the last `check_days`
+|             (daily for its first `dormant_days` when the account has never
+|             spent: a newly bound account waiting for its launch)
 |
 | Structure datasets (campaign / ad group / ad / creative snapshots) are
 | collected only when the provider reports a change, at most weekly otherwise.
