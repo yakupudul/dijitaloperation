@@ -34,6 +34,37 @@ final class LogoAccent
         });
     }
 
+    /**
+     * The logo as a data: address, so the card page can turn itself into a PDF in the browser (a canvas refuses images
+     * from another site without CORS). Null when the logo cannot be read or is larger than 1.5 MB; the page then keeps
+     * the original address.
+     */
+    public static function dataUri(?string $logoUrl): ?string
+    {
+        $url = trim((string) $logoUrl);
+        if ($url === '' || filter_var($url, FILTER_VALIDATE_URL) === false) {
+            return null;
+        }
+        $uri = Cache::remember('logo-data:'.md5($url), now()->addDays(30), static function () use ($url): string {
+            try {
+                $response = Http::timeout(5)->withHeaders(['Accept' => 'image/*'])->get($url);
+                $body = $response->successful() ? (string) $response->body() : '';
+            } catch (Throwable) {
+                return '';
+            }
+            if ($body === '' || strlen($body) > 1_500_000) {
+                return '';
+            }
+            $head = ltrim(substr($body, 0, 512));
+            $mime = str_starts_with($head, '<') || str_contains($head, '<svg') ? 'image/svg+xml'
+                : (string) (finfo_buffer(finfo_open(FILEINFO_MIME_TYPE), $body) ?: '');
+
+            return str_starts_with($mime, 'image/') ? 'data:'.$mime.';base64,'.base64_encode($body) : '';
+        });
+
+        return $uri !== '' ? $uri : null;
+    }
+
     /** The accent of an image's bytes (SVG text or a PNG/JPEG/WebP/GIF file), or null when it has no colourful part. */
     public static function fromImage(string $bytes): ?string
     {

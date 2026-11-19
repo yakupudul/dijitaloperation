@@ -24,24 +24,14 @@
         .btn:hover { background: #0a4744; }
         .btn:focus-visible, .bar a:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
 
-        .sheet { display: flex; flex-wrap: wrap; gap: 22mm; justify-content: center; padding: 14mm 16px 20mm; }
         .choose { display: grid; grid-template-columns: repeat(auto-fit, minmax(110mm, 1fr)); gap: 16mm 10mm; max-width: 248mm; margin: 0 auto; padding: 12mm 16px 20mm; justify-items: center; }
         .pick { display: flex; flex-direction: column; align-items: center; gap: 5mm; }
-        .pick form { display: flex; align-items: center; gap: 12px; }
+        .pick-row { display: flex; align-items: center; gap: 16px; }
+        .btn[disabled] { opacity: .6; cursor: progress; }
         .pick b { font-size: 15px; font-weight: 600; margin-right: 8px; }
-        .pick .now { font-size: 13px; color: var(--teal); font-weight: 500; }
 
-        /* A6 kart: 105 × 148 mm, kesim köşe işaretleriyle. Dört tasarım (2026-11-19): sakin, antet, renk, cerceve. */
+        /* A6 kart: 105 × 148 mm. Dört tasarım (2026-11-19): sakin, antet, renk, cerceve. */
         .card { position: relative; width: 105mm; height: 148mm; background: #fff; overflow: hidden; }
-        .crop { position: absolute; width: 5mm; height: 5mm; pointer-events: none; }
-        .crop::before, .crop::after { content: ""; position: absolute; background: #9aa0a6; }
-        .crop::before { width: 4mm; height: .2mm; }
-        .crop::after { width: .2mm; height: 4mm; }
-        .sheet .card { overflow: visible; }
-        .tl { top: -5mm; left: -5mm; } .tl::before { bottom: 0; left: 0; } .tl::after { right: 0; top: 0; }
-        .tr { top: -5mm; right: -5mm; } .tr::before { bottom: 0; right: 0; } .tr::after { left: 0; top: 0; }
-        .bl { bottom: -5mm; left: -5mm; } .bl::before { top: 0; left: 0; } .bl::after { right: 0; bottom: 0; }
-        .br { bottom: -5mm; right: -5mm; } .br::before { top: 0; right: 0; } .br::after { left: 0; bottom: 0; }
 
         .head { display: flex; align-items: center; gap: 3.5mm; height: 12mm; }
         .logo { flex: none; height: 12mm; max-width: 62mm; object-fit: contain; object-position: left center; }
@@ -83,7 +73,8 @@
 
         /* Renk alanı: üst bölüm marka renginde, logo beyaz. */
         .d-renk .top { background: var(--accent); padding: 10mm 10mm 0; height: 58mm; }
-        .d-renk .logo { filter: brightness(0) invert(1); }
+        .d-renk .logo { visibility: hidden; }
+        .d-renk .logo.white { visibility: visible; }
         .d-renk .brand, .d-renk .where { color: #fff; }
         .d-renk .ask { color: #fff; margin-top: 11mm; max-width: 80mm; }
         .d-renk .rate { padding: 7mm 10mm 0; }
@@ -109,8 +100,7 @@
         @media screen { .card { box-shadow: 0 0 0 1px #e8eaed, 0 2px 6px rgba(60, 64, 67, .08), 0 14px 36px rgba(60, 64, 67, .10); } }
         @media screen and (max-width: 460px) { .card { zoom: .82; } .choose { grid-template-columns: 1fr; } }
         @media print {
-            .bar, .pick form, .pick b, .pick .now { display: none; }
-            .sheet { min-height: 100vh; align-items: center; align-content: center; padding: 0; gap: 24mm; }
+            .bar, .pick-row { display: none; }
             .choose { grid-template-columns: repeat(2, 105mm); gap: 10mm 24mm; justify-content: center; padding: 8mm 0; }
             .pick { break-inside: avoid; }
         }
@@ -125,25 +115,16 @@
     @endphp
 
     <div class="bar">
-        @if ($design === null)
-            <p><b>{{ $public ? $business.' için Google yorum kartı' : 'Google yorum kartı' }}</b>Dört tasarımdan birini seçin. Seçtiğiniz tasarım kaydedilir; sonra yazdırabilir ya da yazdırma ekranında “PDF olarak kaydet”i seçip matbaaya gönderebilirsiniz.</p>
-        @else
-            <p><b>{{ $public ? $business.' için Google yorum kartı' : 'Google yorum kartı' }}, {{ $designs[$design] }}</b>Yazdır’a basın: A4 yatay kâğıda iki kart çıkar. Matbaa için yazdırma ekranında “PDF olarak kaydet”i seçin. Köşedeki işaretlerden kesip resepsiyondaki standa takın ya da elden verin.</p>
-            <div class="acts">
-                <a href="{{ $allUrl }}">Tasarımı değiştir</a>
-                <button type="button" class="btn" onclick="window.print()">Yazdır</button>
-            </div>
-        @endif
+        <p><b>{{ $public ? $business.' için Google yorum kartı' : 'Google yorum kartı' }}</b>Dört tasarım, A6 (105 × 148 mm). Beğendiğiniz tasarımın altındaki “PDF indir” ile dosyayı alın; matbaaya doğrudan gönderebilir ya da kendiniz yazdırabilirsiniz. Kart resepsiyondaki standa takılır ya da elden verilir.</p>
     </div>
 
-    <div class="{{ $design === null ? 'choose' : 'sheet' }}">
-        @foreach ($design === null ? array_keys($designs) : [$design, $design] as $d)
-            @if ($design === null)<div class="pick">@endif
+    <div class="choose">
+        @foreach (array_keys($designs) as $d)
+            <div class="pick">
             <div class="card d-{{ $d }}" data-review-card data-design="{{ $d }}">
-                @if ($design !== null)<span class="crop tl"></span><span class="crop tr"></span><span class="crop bl"></span><span class="crop br"></span>@endif
                 @php
                     $head = '<div class="head">'
-                        .($logo ? '<img class="logo" src="'.e($logo).'" alt="'.e($business).'" onload="if (this.naturalWidth / Math.max(1, this.naturalHeight) < 1.8) { this.nextElementSibling.hidden = false; }">' : '')
+                        .($logo ? '<img class="logo" src="'.e($logoData ?? $logo).'" alt="'.e($business).'" onload="if (this.naturalWidth / Math.max(1, this.naturalHeight) < 1.8) { this.nextElementSibling.hidden = false; }">' : '')
                         .'<div class="who"'.($logo ? ' hidden' : '').'><p class="brand">'.e($business).'</p>'.($place !== '' ? '<p class="where">'.e($place).'</p>' : '').'</div></div>';
                 @endphp
                 @switch($d)
@@ -190,20 +171,75 @@
                     @endif
                 </div>
             </div>
-            @if ($design === null)
-                <div>
+                <div class="pick-row">
                     <b>{{ $designs[$d] }}</b>
-                    @if ($chosen === $d) <span class="now">Şu an seçili</span> @endif
+                    <button type="button" class="btn" data-download="{{ $d }}" data-file="google-yorum-karti-{{ $slug }}-{{ $d }}.pdf">PDF indir</button>
                 </div>
-                <form method="post" action="{{ $chooseUrl }}">
-                    @csrf
-                    <input type="hidden" name="tasarim" value="{{ $d }}">
-                    @if ($public)<input type="hidden" name="genel" value="1">@endif
-                    <button type="submit" class="btn">Bu tasarımı seç</button>
-                </form>
-                </div>
-            @endif
+            </div>
         @endforeach
     </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        // Logos are redrawn as PNG at their own proportions (the PDF step cannot draw an SVG with object-fit). On the
+        // Renk alanı design every visible pixel turns white, transparency stays (a CSS filter would not survive the PDF).
+        document.querySelectorAll('.card .logo').forEach(function (img) {
+            const white = !!img.closest('.d-renk');
+            const redraw = function () {
+                const w = img.naturalWidth || 600, h = img.naturalHeight || 200, ratio = w / Math.max(h, 1);
+                const height = Math.min(12, 62 / ratio);
+                img.style.height = height + 'mm';
+                img.style.width = (height * ratio) + 'mm';
+                img.style.maxWidth = 'none';
+                img.style.objectFit = 'fill';
+                try {
+                    const scale = 1400 / Math.max(w, 1);
+                    const c = document.createElement('canvas');
+                    c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+                    const x = c.getContext('2d');
+                    x.drawImage(img, 0, 0, c.width, c.height);
+                    if (white) {
+                        x.globalCompositeOperation = 'source-in';
+                        x.fillStyle = '#ffffff';
+                        x.fillRect(0, 0, c.width, c.height);
+                    }
+                    img.removeEventListener('load', redraw);
+                    img.src = c.toDataURL('image/png');
+                } catch (e) { /* another site's logo without CORS: keep it as it is */ }
+                img.classList.add('white');
+            };
+            img.complete && img.naturalWidth ? redraw() : img.addEventListener('load', redraw);
+        });
+
+        // "PDF indir": the card is copied off screen at its real size (no phone zoom), drawn at ~400 dpi and saved as an A6 PDF.
+        document.querySelectorAll('[data-download]').forEach(function (button) {
+            button.addEventListener('click', async function () {
+                const card = document.querySelector('[data-review-card][data-design="' + button.dataset.download + '"]');
+                const label = button.textContent;
+                button.disabled = true;
+                button.textContent = 'Hazırlanıyor…';
+                const holder = document.createElement('div');
+                holder.style.cssText = 'position:fixed;left:-10000px;top:0;zoom:1';
+                const copy = card.cloneNode(true);
+                copy.style.cssText = 'zoom:1;box-shadow:none';
+                holder.appendChild(copy);
+                document.body.appendChild(holder);
+                try {
+                    await document.fonts.ready;
+                    const canvas = await html2canvas(copy, { scale: 4, backgroundColor: '#ffffff', useCORS: true, logging: false });
+                    const pdf = new window.jspdf.jsPDF({ unit: 'mm', format: [105, 148], orientation: 'portrait' });
+                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 105, 148);
+                    pdf.save(button.dataset.file);
+                    button.textContent = 'İndirildi';
+                } catch (e) {
+                    button.textContent = 'İndirilemedi, tekrar deneyin';
+                } finally {
+                    holder.remove();
+                    button.disabled = false;
+                    setTimeout(function () { button.textContent = label; }, 2500);
+                }
+            });
+        });
+    </script>
 </body>
 </html>

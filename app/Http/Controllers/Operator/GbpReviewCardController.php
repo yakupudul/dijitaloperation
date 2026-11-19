@@ -3,16 +3,15 @@
 namespace App\Http\Controllers\Operator;
 
 use App\Http\Controllers\Controller;
-use App\Models\Brand;
 use App\Models\User;
 use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Site\Backlinks\LinkDesk;
 use App\Support\LogoAccent;
 use Illuminate\Contracts\View\View;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 
 /**
  * İşletme profilleri › Yorumlar › "Yazdırılabilir kart" (ADR-079): an A6 counter card with the branch name, Google's
@@ -24,9 +23,9 @@ use Illuminate\Support\Facades\URL;
  * with a one-line instruction, and the area + phone of the profile at the foot. The same page opens without login
  * through a signed link (route gbp-review-card.public) so the operator can send it to the business to print.
  *
- * Four designs (yakup 2026-11-19 20:18 "hepsi olsun, müşteri hangisini beğenirse o kalır"): sakin, antet, renk, cerceve.
- * Until the business picks one (brands.review_card_design) the page shows all four side by side, each with "Bu tasarımı
- * seç"; after that it shows the picked one, two per A4 page, with a link back to the four.
+ * Four designs (yakup 2026-11-19 "hepsi olsun"; 20:33 "neden seçmek zorunda kalsın, her tasarımın altında indir
+ * butonu olsun"): sakin, antet, renk, cerceve side by side, each with "PDF indir" that turns that card into an A6 PDF
+ * in the browser (html2canvas + jsPDF). The logo is inlined as a data: address so the canvas can read it.
  */
 final class GbpReviewCardController extends Controller
 {
@@ -48,8 +47,6 @@ final class GbpReviewCardController extends Controller
         $business = (string) ($location->brand?->name ?: GbpDesk::shortName((string) $location->name));
         $branch = GbpDesk::shortName((string) $location->name);
 
-        $chosen = self::design($location->brand_id !== null ? Brand::query()->whereKey($location->brand_id)->value('review_card_design') : null);
-        $preview = self::design((string) $request->query('tasarim', ''));
         $public = $request->routeIs('gbp-review-card.public');
 
         $logo = filter_var((string) $location->brand?->logo_url, FILTER_VALIDATE_URL) ? (string) $location->brand?->logo_url : null;
@@ -70,32 +67,9 @@ final class GbpReviewCardController extends Controller
                 : 'Görüşleriniz, bizi araştıran başka insanlara yol gösterir.',
             'public' => $public,
             'designs' => self::DESIGNS,
-            'chosen' => $chosen,
-            // One design: the one asked for in the address, else the picked one; null = show all four to choose.
-            'design' => $request->boolean('tumu') ? null : ($preview ?? $chosen),
-            'chooseUrl' => URL::signedRoute('gbp-review-card.choose', ['assetId' => (int) $location->id]),
-            'allUrl' => $public ? URL::signedRoute('gbp-review-card.public', ['assetId' => (int) $location->id, 'tumu' => 1])
-                : route('operator.gbp-review-card', ['assetId' => (int) $location->id, 'tumu' => 1]),
+            'logoData' => LogoAccent::dataUri($logo),
+            'slug' => Str::slug($branch) ?: 'kart',
         ]);
-    }
-
-    /** The business (or the operator) picks a design; it stays for the whole brand. */
-    public function choose(Request $request, int $assetId, GbpDesk $desk): RedirectResponse
-    {
-        $location = $desk->locations()->firstWhere('id', $assetId) ?? abort(404);
-        $design = self::design((string) $request->input('tasarim', '')) ?? abort(422);
-        if ($location->brand_id !== null) {
-            Brand::query()->whereKey($location->brand_id)->update(['review_card_design' => $design]);
-        }
-
-        return redirect()->to(auth()->user() instanceof User && ! $request->boolean('genel')
-            ? route('operator.gbp-review-card', ['assetId' => $assetId])
-            : self::shareUrl($assetId));
-    }
-
-    public static function design(?string $key): ?string
-    {
-        return $key !== null && array_key_exists($key, self::DESIGNS) ? $key : null;
     }
 
     /** The link the operator sends to the business: opens the same card without login, never expires. */
