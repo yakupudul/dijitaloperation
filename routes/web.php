@@ -56,6 +56,7 @@ Route::get('/baglanti-kaynaklari/{token}', [LinkSurveyController::class, 'show']
 Route::post('/baglanti-kaynaklari/{token}', [LinkSurveyController::class, 'store'])->middleware('throttle:20,1')->name('link-survey.store');
 // Google yorum kartı, müşteriye gönderilen imzalı bağlantı (giriş yok); yakup 2026-11-19.
 Route::get('/kart/yorum/{assetId}', GbpReviewCardController::class)->where('assetId', '[0-9]{1,18}')->middleware(['signed', 'throttle:60,1'])->name('gbp-review-card.public');
+Route::post('/kart/yorum/{assetId}/sec', [GbpReviewCardController::class, 'choose'])->where('assetId', '[0-9]{1,18}')->middleware(['signed', 'throttle:20,1'])->name('gbp-review-card.choose');
 Route::get('/onay/yorum-yanitlari/{token}', [GbpReviewApprovalController::class, 'show'])->middleware('throttle:60,1')->name('gbp-review-approval');
 Route::post('/onay/yorum-yanitlari/{token}', [GbpReviewApprovalController::class, 'store'])->middleware('throttle:20,1')->name('gbp-review-approval.store');
 // claude.ai connector OAuth: the Admin approves the MCP connection (login first, then back here).

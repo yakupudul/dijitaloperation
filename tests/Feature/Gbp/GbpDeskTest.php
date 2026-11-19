@@ -51,6 +51,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -349,6 +350,15 @@ final class GbpDeskTest extends TestCase
         $this->get(route('gbp-review-card.public', ['assetId' => $this->location->id]))->assertForbidden();
         $this->get(route('operator.gbp-review-card', ['assetId' => $this->location->id]))->assertStatus(302);
         $this->assertSame('Pendik, İstanbul', GbpReviewCardController::footArea('Pendik, İstanbul, İstanbul'));
+
+        // Four designs: none picked yet → all four with a choose button; the business picks one and it stays.
+        $this->get($share)->assertSee('data-design="sakin"', false)->assertSee('data-design="cerceve"', false)->assertSee('Bu tasarımı seç');
+        $choose = URL::signedRoute('gbp-review-card.choose', ['assetId' => $this->location->id]);
+        $this->post($choose, ['tasarim' => 'yok'])->assertStatus(422);
+        $this->post($choose, ['tasarim' => 'renk', 'genel' => 1])->assertRedirect($share);
+        $this->assertSame('renk', DB::table('brands')->where('id', $this->location->brand_id)->value('review_card_design'));
+        $this->get($share)->assertSee('data-design="renk"', false)->assertDontSee('data-design="sakin"', false)->assertDontSee('Bu tasarımı seç')->assertSee('Tasarımı değiştir');
+        $this->post(route('gbp-review-card.choose', ['assetId' => $this->location->id]), ['tasarim' => 'antet'])->assertForbidden();
     }
 
     public function test_logo_accent_reads_the_brand_colour_from_the_logo(): void
