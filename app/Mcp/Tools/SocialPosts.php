@@ -29,6 +29,7 @@ class SocialPosts extends Tool
             'caption' => ['nullable', 'string', 'max:2200'],
             'linkedin_text' => ['nullable', 'string', 'max:3000'],
             'threads_text' => ['nullable', 'string', 'max:500'],
+            'personal_text' => ['nullable', 'string', 'max:3000'],
             'publish_at' => ['nullable', 'date'],
             'source_url' => ['nullable', 'string', 'max:1000'],
             'platforms' => ['nullable', 'array'],
@@ -75,7 +76,7 @@ class SocialPosts extends Tool
         }
         $post = $planner->create([
             'kind' => $v['kind'], 'pillar' => $v['pillar'] ?? null, 'title' => $v['title'] ?? null, 'caption' => $v['caption'] ?? null,
-            'linkedin_text' => $v['linkedin_text'] ?? null, 'threads_text' => $v['threads_text'] ?? null, 'publish_at' => $v['publish_at'], 'source_url' => $v['source_url'] ?? null,
+            'linkedin_text' => $v['linkedin_text'] ?? null, 'threads_text' => $v['threads_text'] ?? null, 'personal_text' => $v['personal_text'] ?? null, 'publish_at' => $v['publish_at'], 'source_url' => $v['source_url'] ?? null,
             'created_by' => 'claude', 'platforms' => $v['platforms'] ?? null,
         ], $files);
 
@@ -89,7 +90,7 @@ class SocialPosts extends Tool
         if (! $post instanceof SocialPost) {
             return Response::error('Gönderi bulunamadı.');
         }
-        $planner->edit($post, array_intersect_key($v, array_flip(['caption', 'linkedin_text', 'threads_text', 'publish_at', 'title'])));
+        $planner->edit($post, array_intersect_key($v, array_flip(['caption', 'linkedin_text', 'threads_text', 'personal_text', 'publish_at', 'title'])));
 
         return Response::text('Gönderi #'.$post->id.' güncellendi.');
     }
@@ -123,7 +124,7 @@ class SocialPosts extends Tool
         $tz = SocialPlanner::TIMEZONE;
         $row = fn (SocialPost $p): array => [
             'id' => $p->id, 'kind' => $p->kind, 'pillar' => $p->pillar, 'title' => $p->title, 'status' => $p->status, 'fixed_date' => (bool) $p->pinned,
-            'publish_at' => $p->publish_at->timezone($tz)->format('Y-m-d H:i'), 'caption' => $p->caption, 'linkedin_text' => $p->linkedin_text, 'threads_text' => $p->threads_text,
+            'publish_at' => $p->publish_at->timezone($tz)->format('Y-m-d H:i'), 'caption' => $p->caption, 'linkedin_text' => $p->linkedin_text, 'threads_text' => $p->threads_text, 'personal_text' => $p->personal_text,
             'media' => array_map(fn (array $m): string => $m['url'], $p->mediaItems()), 'created_by' => $p->created_by,
             'channels' => $p->targets->map(fn (SocialPostTarget $t): array => [
                 'platform' => $t->account?->platform, 'status' => $t->status, 'permalink' => $t->permalink, 'error' => $t->error, 'insights' => $t->insights, 'insights_at' => $t->insights_at?->toIso8601String(),
@@ -151,6 +152,7 @@ class SocialPosts extends Tool
             'title' => $schema->string()->description('Short internal label shown on the approval card.'),
             'caption' => $schema->string()->description('Instagram + Facebook text (with hashtags).'),
             'linkedin_text' => $schema->string()->description('LinkedIn text; omit to skip LinkedIn.'),
+            'personal_text' => $schema->string()->description('Text for the owner\'s own LinkedIn profile, in his first-person voice (not the company page text); the profile gets the post only when given. Omit to skip.'),
             'threads_text' => $schema->string()->description('Threads text (its own short conversational text, at most 500 characters; published as a text post); omit to skip Threads.'),
             'publish_at' => $schema->string()->description('Istanbul time, "Y-m-d H:i".'),
             'source_url' => $schema->string()->description('The site page the post is based on.'),

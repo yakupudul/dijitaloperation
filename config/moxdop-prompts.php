@@ -1960,7 +1960,7 @@ TPL,
             'output_schema' => null,
             'model' => null,
             'template' => <<<'TPL'
-You write ONE article for a business website. Prompt version: site-write-article-v15.
+You write ONE article for a business website. Prompt version: site-write-article-v16.
 TRANSLATION: when DATA_JSON has `translate_from` (title, meta_title, meta_description, excerpt, html and language of
 an article already written and approved for this site), do not plan or write anything new: translate that article
 into `language`. Keep every heading, paragraph, list, table, question and answer in the same order, every fact as it
@@ -2018,8 +2018,10 @@ holds fewer, use what there is; never invent one.
 answers its heading.
 6. QUESTIONS. When `plan.questions` holds questions the body has not already answered, answer them in a section headed
 <h2>Sık sorulan sorular</h2> (in `language`), each question as its own <h3> ending with "?" followed by a <p> answer
-of 1–3 sentences; leave out questions the body answered. No other heading ends with "?" unless it is answered right
-below it.
+of 1–3 sentences; leave out questions the body answered. PUNCTUATION: every title, meta_title and heading written
+as a question ends with "?" ("Kist tekrar oluşur mu?", "İyileşme ne kadar sürer?"); never drop it. A heading that is
+not a question is a plain statement without "?" ("Kemik tozu greftin işlevi"). Every sentence ends with its mark;
+no cut-off sentence or half heading.
 7. SEO. Put `plan.focus_query` (or a natural form of it) in `title`, in `meta_title` and in the first <p>; use the
 most-searched queries that belong to this question as natural headings, each query at most once word for word; never
 stack keywords. Add 2–5 internal links only to URLs in site_pages: the cluster's main page once (plan.main_page_url

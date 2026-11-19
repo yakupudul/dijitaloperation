@@ -57,7 +57,7 @@ final class StrategyBook
 
     /**
      * The structured Google Ads plan behind a strategy: what the Ads Editor file is built from. Every campaign is
-     * exported paused; settings the file cannot carry (location option, exclusions, schedule, age) go into `notes`.
+     * exported paused with its assets (sitelinks, callouts, snippets, phone); settings the file cannot carry (location option, exclusions, schedule, age, account assets) go into `notes`; StrategyAdsQualityGate lists what is still missing.
      *
      * @return array<string, mixed>
      */
@@ -91,6 +91,20 @@ final class StrategyBook
             $c.'.age' => ['nullable', 'string', 'max:500'],
             $c.'.note' => ['nullable', 'string', 'max:1000'],
             ...$kw($c.'.negatives'),
+            $c.'.assets' => ['nullable', 'array'],
+            $c.'.assets.sitelinks' => ['nullable', 'array', 'max:20'],
+            $c.'.assets.sitelinks.*.text' => ['required', 'string', 'max:25'],
+            $c.'.assets.sitelinks.*.description1' => ['nullable', 'string', 'max:35'],
+            $c.'.assets.sitelinks.*.description2' => ['nullable', 'string', 'max:35'],
+            $c.'.assets.sitelinks.*.final_url' => ['required', 'string', 'max:500'],
+            $c.'.assets.callouts' => ['nullable', 'array', 'max:20'],
+            $c.'.assets.callouts.*' => ['string', 'max:25'],
+            $c.'.assets.snippets' => ['nullable', 'array', 'max:5'],
+            $c.'.assets.snippets.*.header' => ['required', 'string', 'max:40'],
+            $c.'.assets.snippets.*.values' => ['required', 'array', 'min:3', 'max:10'],
+            $c.'.assets.snippets.*.values.*' => ['string', 'max:25'],
+            $c.'.assets.phone' => ['nullable', 'string', 'max:30'],
+            $c.'.assets.phone_country' => ['nullable', 'string', 'size:2'],
             $c.'.ad_groups' => ['nullable', 'array', 'max:50'],
             $g.'.name' => ['required', 'string', 'max:120'],
             $g.'.final_url' => ['nullable', 'string', 'max:500'],
@@ -110,6 +124,11 @@ final class StrategyBook
             'plan.shared_negative_lists.*.campaigns' => ['nullable', 'array', 'max:30'],
             'plan.shared_negative_lists.*.campaigns.*' => ['string', 'max:120'],
             ...$kw('plan.shared_negative_lists.*.keywords'),
+            'plan.account_assets' => ['nullable', 'array'],
+            'plan.account_assets.business_name' => ['nullable', 'string', 'max:25'],
+            'plan.account_assets.logo_url' => ['nullable', 'string', 'max:500'],
+            'plan.account_assets.whatsapp' => ['nullable', 'string', 'max:30'],
+            'plan.account_assets.location' => ['nullable', 'string', 'max:200'],
             'plan.notes' => ['nullable', 'array', 'max:40'],
             'plan.notes.*' => ['string', 'max:1000'],
         ];

@@ -20,7 +20,7 @@
         <input type="text" wire:model="newTitle" maxlength="190" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900">
     </label>
     @if ($newKind === 'text')
-        <p class="tone-info rounded-lg px-3.5 py-2.5 text-[13px]">Yalnız metin gönderisi Threads ve LinkedIn’e gider, Instagram ve Facebook’a gitmez. Onaylanınca metin sırasına girer ve Ayarlar’daki metin saatlerinde çıkar; tarihi sabitlerseniz seçtiğiniz saatte çıkar.</p>
+        <p class="tone-info rounded-lg px-3.5 py-2.5 text-[13px]">Yalnız metin gönderisi Threads’e, LinkedIn sayfasına ve kişisel LinkedIn profilinize gider, Instagram ve Facebook’a gitmez. Onaylanınca metin sırasına girer ve Ayarlar’daki metin saatlerinde çıkar; tarihi sabitlerseniz seçtiğiniz saatte çıkar.</p>
     @else
     <label class="block text-sm">Görsel ya da video (jpg, png, mp4; kaydırmalıda sırayla; Reels’te videodan sonra eklenen görsel kapak olur)
         <input type="file" wire:model="newFiles" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" class="mt-1 block w-full text-sm">
@@ -36,6 +36,9 @@
     </label>
     <label class="block text-sm">Threads metni (en çok 500 karakter; boş bırakılırsa Threads’e gitmez, yazılırsa yalnız metin olarak paylaşılır)
         <textarea wire:model="newThreads" rows="4" maxlength="500" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900"></textarea>
+    </label>
+    <label class="block text-sm">Kişisel LinkedIn metni (kendi profilinizde, sizin ağzınızdan; boş bırakılırsa profilinize gitmez)
+        <textarea wire:model="newPersonal" rows="5" maxlength="3000" class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-700 dark:bg-gray-900" data-social-new-personal></textarea>
     </label>
     @error('newThreads')<p class="text-sm text-error-600">{{ $message }}</p>@enderror
     <div class="flex gap-2"><button type="submit" class="btn-primary" wire:loading.attr="disabled">Plana ekle</button><span wire:loading wire:target="newFiles" class="text-sm text-gray-500">Dosyalar yükleniyor…</span></div>

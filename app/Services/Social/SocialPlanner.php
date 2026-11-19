@@ -39,7 +39,7 @@ class SocialPlanner
         }
         if ($kind === 'text') {
             // A text post lives on Threads and LinkedIn only; it waits in its own line (the text hours of Paylaşım düzeni), not in the Instagram line.
-            if (trim((string) ($data['threads_text'] ?? '')) === '' && trim((string) ($data['linkedin_text'] ?? '')) === '') {
+            if (trim((string) ($data['threads_text'] ?? '')) === '' && trim((string) ($data['linkedin_text'] ?? '')) === '' && trim((string) ($data['personal_text'] ?? '')) === '') {
                 throw new InvalidArgumentException('Metin gönderisi için Threads ya da LinkedIn metni gerekir.');
             }
             $files = [];
@@ -62,6 +62,7 @@ class SocialPlanner
                 'caption' => $this->clean($data['caption'] ?? null, 2200),
                 'linkedin_text' => $this->clean($data['linkedin_text'] ?? null, 3000),
                 'threads_text' => $this->clean($data['threads_text'] ?? null, 1000),
+                'personal_text' => $this->clean($data['personal_text'] ?? null, 3000),
                 'source_url' => $data['source_url'] ?? null,
                 'publish_at' => $publishAt->utc(),
                 'media' => [],
@@ -103,8 +104,12 @@ class SocialPlanner
             if ($platforms !== null && ! in_array($a->platform, $platforms, true)) {
                 return false;
             }
-            if ($post->kind === 'text' && ! in_array($a->platform, [SocialAccount::LINKEDIN, SocialAccount::THREADS], true)) {
+            if ($post->kind === 'text' && ! in_array($a->platform, [SocialAccount::LINKEDIN, SocialAccount::THREADS, SocialAccount::LINKEDIN_PERSONAL], true)) {
                 return false;
+            }
+            if ($a->platform === SocialAccount::LINKEDIN_PERSONAL) {
+                // The owner's profile gets a post only with its own text, written in his voice.
+                return $post->kind !== 'story' && trim((string) $post->personal_text) !== '';
             }
             if ($a->platform === SocialAccount::LINKEDIN) {
                 return $post->kind !== 'story' && trim((string) $post->linkedin_text) !== '';
@@ -253,6 +258,9 @@ class SocialPlanner
         }
         if (array_key_exists('threads_text', $data)) {
             $update['threads_text'] = $this->clean($data['threads_text'], 1000);
+        }
+        if (array_key_exists('personal_text', $data)) {
+            $update['personal_text'] = $this->clean($data['personal_text'], 3000);
         }
         if (array_key_exists('title', $data)) {
             $update['title'] = $data['title'] !== null ? Str::limit(trim($data['title']), 190, '') : null;

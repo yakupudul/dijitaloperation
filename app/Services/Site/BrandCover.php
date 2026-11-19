@@ -115,7 +115,11 @@ final class BrandCover
         }
         $question = $question !== '' ? $question : ($sentences[1] ?? $title);
         $answer = $answer !== '' ? $answer : ($sentences[0] ?? '');
-        $tag = self::clean((string) ($action['service'] ?? data_get($article, 'categories.0', '')));
+        // A category is a name or, once the daily blog put the article on its topic shelf, {name: ...} (2026-11-18:
+        // reading that as a string threw, and the blog article's social post was silently never made).
+        $category = data_get($article, 'categories.0', '');
+        $category = is_array($category) ? ($category['name'] ?? '') : $category;
+        $tag = self::clean(is_scalar($action['service'] ?? null) ? (string) $action['service'] : (is_scalar($category) ? (string) $category : ''));
         $query = self::clean((string) ($action['query'] ?? $article['focus_keyword'] ?? ''));
         $query = $query !== '' ? $query : mb_strtolower(rtrim($full, '?.!'), 'UTF-8');
         $items = self::headings($html);

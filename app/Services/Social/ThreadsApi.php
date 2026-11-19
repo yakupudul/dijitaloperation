@@ -9,6 +9,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -24,9 +25,13 @@ class ThreadsApi
 
     public const string API_BASE = 'https://graph.threads.net';
 
-    public const array SCOPES = ['threads_basic', 'threads_content_publish'];
+    /** Publishing, plus reading each post's numbers (Sonuçlar). The app must carry these permissions in Meta for Developers. */
+    public const array SCOPES = ['threads_basic', 'threads_content_publish', 'threads_manage_insights'];
 
     public const int MAX_TEXT = 500;
+
+    /** Seconds waited before each try of publishing a new container. */
+    private const array PUBLISH_WAITS = [3, 7, 15];
 
     private const int REFRESH_BEFORE_DAYS = 7;
 
@@ -77,7 +82,7 @@ class ThreadsApi
             return ['error' => 'Oturum süresi doldu; “Threads’i bağla” ile yeniden başlayın.'];
         }
         if ($oauthError !== null && $oauthError !== '') {
-            return ['error' => 'Threads izin vermedi ('.Str::limit(trim(preg_replace('/[^\pL\pN _.:-]/u', '', (string) ($errorText ?: $oauthError)) ?? ''), 160).').'];
+            return ['error' => 'Threads izin vermedi ('.Str::limit(trim(preg_replace('/[^\pL\pN _.:-]/u', '', (string) ($errorText ?: $oauthError)) ?? ''), 160).'). Uygulamanın İzinler bölümünde threads_content_publish ve threads_manage_insights ekli olmalı.'];
         }
         $app = self::app();
         if ($code === null || $code === '' || $app === null) {
@@ -133,14 +138,27 @@ class ThreadsApi
             throw new SocialGraphException('Threads metni yok.');
         }
         $token = $this->freshToken($account);
-        $user = (string) $account->external_id;
+        // The profile is addressed as "me": the token already names it, and a stored id that Threads no longer answers
+        // to gave "The requested resource does not exist" (first live post, 2026-11-18).
         $container = (string) ($this->json($this->send(fn () => Http::timeout(60)->acceptJson()->withToken($token)->asForm()
-            ->post(self::API_BASE.'/v1.0/'.$user.'/threads', ['media_type' => 'TEXT', 'text' => $text])))['id'] ?? '');
+            ->post(self::API_BASE.'/v1.0/me/threads', ['media_type' => 'TEXT', 'text' => $text])))['id'] ?? '');
         if ($container === '') {
             throw new SocialGraphException('Threads gönderi kabı açılamadı.');
         }
-        $id = (string) ($this->json($this->send(fn () => Http::timeout(60)->acceptJson()->withToken($token)->asForm()
-            ->post(self::API_BASE.'/v1.0/'.$user.'/threads_publish', ['creation_id' => $container])))['id'] ?? '');
+        // Threads needs a moment before a new container can be published; asked too early it answers "does not exist".
+        $id = '';
+        foreach (self::PUBLISH_WAITS as $try => $seconds) {
+            Sleep::for($seconds)->seconds();
+            try {
+                $id = (string) ($this->json($this->send(fn () => Http::timeout(60)->acceptJson()->withToken($token)->asForm()
+                    ->post(self::API_BASE.'/v1.0/me/threads_publish', ['creation_id' => $container])))['id'] ?? '');
+                break;
+            } catch (SocialGraphException $e) {
+                if ($try === array_key_last(self::PUBLISH_WAITS) || ! str_contains(mb_strtolower($e->getMessage()), 'does not exist')) {
+                    throw $e;
+                }
+            }
+        }
         if ($id === '') {
             throw new SocialGraphException('Threads gönderiyi yayınlamadı.');
         }

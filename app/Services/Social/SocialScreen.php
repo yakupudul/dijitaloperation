@@ -26,7 +26,7 @@ final class SocialScreen
 
     public const array CHANNELS = [
         SocialAccount::INSTAGRAM => 'Instagram', SocialAccount::FACEBOOK => 'Facebook',
-        SocialAccount::LINKEDIN => 'LinkedIn', SocialAccount::THREADS => 'Threads',
+        SocialAccount::LINKEDIN => 'LinkedIn', SocialAccount::THREADS => 'Threads', SocialAccount::LINKEDIN_PERSONAL => 'Kişisel LinkedIn',
     ];
 
     public const array STATUS_FILTERS = [
@@ -282,7 +282,7 @@ final class SocialScreen
     /**
      * Sonuçlar: what went out in the last N days per channel, the Instagram numbers that were read, and the best posts.
      *
-     * @return array{days: int, channels: list<array{key: string, label: string, published: int, measured: bool}>, instagram: array{reach: int, views: int, likes: int, comments: int, saved: int, shares: int, watch: ?float, measured: int}, top: Collection<int, SocialPostTarget>}
+     * @return array{days: int, channels: list<array{key: string, label: string, published: int, measured: bool, reach: int, views: int, likes: int, comments: int}>, instagram: array{reach: int, views: int, likes: int, comments: int, saved: int, shares: int, watch: ?float, measured: int}, top: Collection<int, SocialPostTarget>}
      */
     public function results(int $days): array
     {
@@ -291,7 +291,13 @@ final class SocialScreen
             ->where('published_at', '>=', $since)->with(['account', 'post'])->get();
         $channels = [];
         foreach (self::CHANNELS as $key => $label) {
-            $channels[] = ['key' => $key, 'label' => $label, 'published' => $targets->filter(fn (SocialPostTarget $t): bool => $t->account?->platform === $key)->count(), 'measured' => $key === SocialAccount::INSTAGRAM];
+            $of = $targets->filter(fn (SocialPostTarget $t): bool => $t->account?->platform === $key);
+            $read = $of->filter(fn (SocialPostTarget $t): bool => is_array($t->insights) && array_diff_key($t->insights, ['error' => 1]) !== []);
+            $total = fn (string $metric): int => (int) $read->sum(fn (SocialPostTarget $t): int => (int) ($t->insights[$metric] ?? 0));
+            $channels[] = [
+                'key' => $key, 'label' => $label, 'published' => $of->count(), 'measured' => $read->isNotEmpty(),
+                'reach' => $total('reach'), 'views' => $total('views'), 'likes' => $total('likes'), 'comments' => $total('comments'),
+            ];
         }
         $ig = $targets->filter(fn (SocialPostTarget $t): bool => $t->account?->platform === SocialAccount::INSTAGRAM && is_array($t->insights));
         $sum = fn (string $key): int => (int) $ig->sum(fn (SocialPostTarget $t): int => (int) ($t->insights[$key] ?? 0));

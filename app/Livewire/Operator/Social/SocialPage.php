@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Social\InstagramFeed;
 use App\Services\Social\LinkedInApi;
 use App\Services\Social\LinkedInConnector;
+use App\Services\Social\LinkedInPersonalConnector;
 use App\Services\Social\SocialGraph;
 use App\Services\Social\SocialMetaConnector;
 use App\Services\Social\SocialPlanner;
@@ -121,6 +122,8 @@ final class SocialPage extends Component
 
     public string $editThreads = '';
 
+    public string $editPersonal = '';
+
     public string $editTime = '';
 
     // Yeni gönderi
@@ -135,6 +138,8 @@ final class SocialPage extends Component
     public string $newLinkedin = '';
 
     public string $newThreads = '';
+
+    public string $newPersonal = '';
 
     public string $newTime = '';
 
@@ -177,6 +182,11 @@ final class SocialPage extends Component
 
     public string $linkedinClientId = '';
 
+    public string $linkedinPersonalClientId = '';
+
+    /** Write-only, like the other secrets. */
+    public string $linkedinPersonalClientSecret = '';
+
     public string $threadsAppId = '';
 
     /** Write-only: the stored Threads app secret never enters Livewire state. */
@@ -214,6 +224,7 @@ final class SocialPage extends Component
         $this->socialAppId = (string) (AgencySetting::query()->value('social_meta_app_id') ?? '');
         $this->linkedinClientId = (string) (AgencySetting::query()->value('social_linkedin_client_id') ?? '');
         $this->threadsAppId = (string) (AgencySetting::query()->value('social_threads_app_id') ?? '');
+        $this->linkedinPersonalClientId = (string) (AgencySetting::query()->value('social_linkedin_personal_client_id') ?? '');
         $this->newTime = now(SocialPlanner::TIMEZONE)->addDay()->setTime(11, 30)->format('Y-m-d\TH:i');
     }
 
@@ -520,6 +531,7 @@ final class SocialPage extends Component
         $this->editCaption = (string) $post->caption;
         $this->editLinkedin = (string) $post->linkedin_text;
         $this->editThreads = (string) $post->threads_text;
+        $this->editPersonal = (string) $post->personal_text;
         $this->editTime = $post->publish_at->timezone(SocialPlanner::TIMEZONE)->format('Y-m-d\TH:i');
     }
 
@@ -536,7 +548,7 @@ final class SocialPage extends Component
         }
         try {
             app(SocialPlanner::class)->edit($this->post($this->editing), [
-                'caption' => $this->editCaption, 'linkedin_text' => $this->editLinkedin, 'threads_text' => $this->editThreads, 'publish_at' => $this->editTime,
+                'caption' => $this->editCaption, 'linkedin_text' => $this->editLinkedin, 'threads_text' => $this->editThreads, 'personal_text' => $this->editPersonal, 'publish_at' => $this->editTime,
             ]);
             $this->editing = null;
             $this->message = 'Kaydedildi.';
@@ -556,14 +568,15 @@ final class SocialPage extends Component
             'newCaption' => ['nullable', 'string', 'max:2200'],
             'newLinkedin' => ['nullable', 'string', 'max:3000'],
             'newThreads' => ['nullable', 'string', 'max:500'],
+            'newPersonal' => ['nullable', 'string', 'max:3000'],
         ], [], ['newFiles' => 'dosyalar', 'newTime' => 'yayın zamanı']);
         try {
             $files = array_map(fn (TemporaryUploadedFile $f): array => ['bytes' => (string) $f->get(), 'name' => 'dosya.'.strtolower($f->getClientOriginalExtension() ?: $f->extension())], $this->newFiles);
             app(SocialPlanner::class)->create([
                 'kind' => $this->newKind, 'pillar' => $this->newPillar ?: null, 'title' => $this->newTitle ?: null,
-                'caption' => $this->newCaption, 'linkedin_text' => $this->newLinkedin, 'threads_text' => $this->newThreads, 'publish_at' => $this->newTime,
+                'caption' => $this->newCaption, 'linkedin_text' => $this->newLinkedin, 'threads_text' => $this->newThreads, 'personal_text' => $this->newPersonal, 'publish_at' => $this->newTime,
             ], $files);
-            $this->reset(['newFiles', 'newCaption', 'newLinkedin', 'newThreads', 'newTitle', 'newPillar']);
+            $this->reset(['newFiles', 'newCaption', 'newLinkedin', 'newThreads', 'newPersonal', 'newTitle', 'newPillar']);
             $this->jump('gonderiler', 'onay');
             $this->message = 'Gönderi plana eklendi; onayınızı bekliyor.';
         } catch (Throwable $e) {
@@ -651,6 +664,32 @@ final class SocialPage extends Component
         $this->linkedinClientSecret = '';
     }
 
+    /** The second LinkedIn app (Share on LinkedIn + OpenID) of the owner's own profile. */
+    public function saveLinkedinPersonalApp(): void
+    {
+        $this->authorizeAdmin();
+        $id = trim($this->linkedinPersonalClientId);
+        $secret = trim($this->linkedinPersonalClientSecret);
+        $setting = AgencySetting::query()->first() ?? new AgencySetting;
+        if ($id === '') {
+            $setting->forceFill(['social_linkedin_personal_client_id' => null, 'social_linkedin_personal_client_secret' => null])->save();
+            $this->message = 'Kişisel LinkedIn uygulaması kaldırıldı.';
+        } else {
+            $this->validate([
+                'linkedinPersonalClientId' => ['required', 'string', 'regex:/^[A-Za-z0-9]{8,40}$/'],
+                'linkedinPersonalClientSecret' => [$setting->social_linkedin_personal_client_secret ? 'nullable' : 'required', 'string', 'min:8', 'max:200'],
+            ], [
+                'linkedinPersonalClientId.regex' => 'Client ID, LinkedIn uygulamasının Auth sekmesindeki harf ve rakamlardan oluşan koddur.',
+                'linkedinPersonalClientSecret.required' => 'Primary Client Secret gerekli (Auth sekmesi).',
+            ]);
+            $setting->forceFill(['social_linkedin_personal_client_id' => $id] + ($secret !== '' ? ['social_linkedin_personal_client_secret' => $secret] : []))->save();
+            $this->message = 'Kişisel LinkedIn uygulaması kaydedildi. Şimdi “Kişisel LinkedIn’i bağla” ile kendi hesabınızla giriş yapın.';
+        }
+        $this->messageTone = 'success';
+        $this->linkedinPersonalClientId = $id;
+        $this->linkedinPersonalClientSecret = '';
+    }
+
     public function addLinkedin(): void
     {
         $this->authorizeAdmin();
@@ -736,6 +775,8 @@ final class SocialPage extends Component
                 'ownSocialApp' => SocialGraph::ownApp() !== null,
                 'lastAttempt' => SocialMetaConnector::lastAttempt(),
                 'linkedinApp' => LinkedInApi::app() !== null,
+                'linkedinPersonalApp' => LinkedInApi::app(true) !== null,
+                'linkedinPersonalAttempt' => LinkedInPersonalConnector::lastAttempt(),
                 'linkedinCallback' => LinkedInConnector::redirectUri(),
                 'linkedinScopes' => LinkedInConnector::SCOPES,
                 'linkedinAttempt' => LinkedInConnector::lastAttempt(),

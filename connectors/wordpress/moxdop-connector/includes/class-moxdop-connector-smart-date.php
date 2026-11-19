@@ -364,10 +364,12 @@ final class MoxDOP_Connector_Smart_Date
         if (preg_match('/\b('.$year.'|'.($year + 1).')\b/u', $text)) {
             $out[] = 'yıl ('.$year.')';
         }
-        if (preg_match('/(\d[\d.,]*\s?(TL|₺|€|£|\$|EUR|USD|GBP)\b)|((₺|€|£|\$)\s?\d)|\bfiyat/iu', $text)) {
+        // 1.38.1 (yakup 2026-11-18): only a real amount or a real offer dates a post. The words "fiyat", "kampanya" or
+        // "indirim" alone are not one: a guide about the advertising rules ("Fiyat, kampanya ve indirim dili") got the warning.
+        if (preg_match('/(\d[\d.,]*\s?(TL|₺|€|£|\$|EUR|USD|GBP|lira|euro|dolar)(?![\p{L}]))|((₺|€|£|\$)\s?\d)/iu', $text)) {
             $out[] = 'fiyat';
         }
-        if (preg_match('/\b(kampanya|indirim|fırsat|son gün|campaign|discount)/iu', $text)) {
+        if (preg_match('/((%\s?\d+|\d+\s?%)\s*(\p{L}+\s)?(indirim|discount|off\b))|\bindirimli\b|\bson gün(ü|e)?\b(?!\p{L})|kampanya(mız|sı)?\s(süresince|bitiyor|bitmeden|sona|sınırlı|devam)|stoklarla sınırlı|limited time/iu', $text)) {
             $out[] = 'kampanya';
         }
 

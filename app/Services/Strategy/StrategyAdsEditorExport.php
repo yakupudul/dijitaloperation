@@ -29,7 +29,8 @@ final class StrategyAdsEditorExport
             $header[] = 'Description '.$i;
         }
 
-        return [...$header, 'Path 1', 'Path 2', 'Final URL', 'Status', 'Comment'];
+        return [...$header, 'Path 1', 'Path 2', 'Final URL', 'Status', 'Link Text', 'Description Line 1', 'Description Line 2',
+            'Callout text', 'Header', 'Snippet Values', 'Phone Number', 'Country of phone', 'Comment'];
     }
 
     /**
@@ -73,6 +74,22 @@ final class StrategyAdsEditorExport
             foreach ([...(array) ($c['negatives'] ?? []), ...($sharedByCampaign[$name] ?? [])] as $kw) {
                 $rows[] = ['Campaign' => $name, 'Keyword' => (string) $kw['text'], 'Criterion Type' => 'Campaign Negative '.self::match($kw),
                     'Comment' => isset($kw['list']) ? 'Liste: '.$kw['list'] : ''];
+            }
+            $assets = (array) ($c['assets'] ?? []);
+            foreach ((array) ($assets['sitelinks'] ?? []) as $link) {
+                $rows[] = ['Campaign' => $name, 'Link Text' => (string) $link['text'], 'Description Line 1' => (string) ($link['description1'] ?? ''),
+                    'Description Line 2' => (string) ($link['description2'] ?? ''), 'Final URL' => (string) $link['final_url'], 'Status' => 'Enabled'];
+            }
+            foreach ((array) ($assets['callouts'] ?? []) as $callout) {
+                $rows[] = ['Campaign' => $name, 'Callout text' => (string) $callout, 'Status' => 'Enabled'];
+            }
+            foreach ((array) ($assets['snippets'] ?? []) as $snippet) {
+                $rows[] = ['Campaign' => $name, 'Header' => (string) $snippet['header'],
+                    'Snippet Values' => implode(';', array_map('strval', (array) $snippet['values'])), 'Status' => 'Enabled'];
+            }
+            if (trim((string) ($assets['phone'] ?? '')) !== '') {
+                $rows[] = ['Campaign' => $name, 'Phone Number' => (string) $assets['phone'],
+                    'Country of phone' => strtoupper((string) ($assets['phone_country'] ?? 'TR')), 'Status' => 'Enabled'];
             }
             foreach ((array) ($c['ad_groups'] ?? []) as $g) {
                 $group = (string) $g['name'];
@@ -156,6 +173,15 @@ final class StrategyAdsEditorExport
                     $notes[] = [$c['name'].' · '.$label.': '.(is_array($c[$key]) ? implode(', ', $c[$key]) : $c[$key])];
                 }
             }
+        }
+        $account = (array) ($strategy->plan['account_assets'] ?? []);
+        foreach (['business_name' => 'İşletme adı', 'logo_url' => 'Logo', 'whatsapp' => 'Mesaj (WhatsApp)', 'location' => 'Konum öğesi (İşletme Profili)'] as $key => $label) {
+            if (trim((string) ($account[$key] ?? '')) !== '') {
+                $notes[] = ['Hesap öğesi · '.$label.': '.$account[$key].' (hesap düzeyinde elle eklenir)'];
+            }
+        }
+        foreach (StrategyAdsQualityGate::check((array) ($strategy->plan ?? [])) as $gap) {
+            $notes[] = ['Kalite kapısı · eksik: '.$gap];
         }
         if (count($notes) === 1) {
             $notes[] = ['Ek ayar yok.'];

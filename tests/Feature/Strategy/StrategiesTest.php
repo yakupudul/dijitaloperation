@@ -172,6 +172,45 @@ final class StrategiesTest extends TestCase
         MoxdopServer::tool(ListStrategies::class, ['strategy_id' => $strategy->id])->assertOk()->assertSee('"has_plan":true');
     }
 
+    public function test_the_quality_gate_lists_missing_ad_parts_and_assets_go_into_the_editor_file(): void
+    {
+        $thin = ['campaigns' => [[
+            'name' => 'Serap | Dudak Dolgusu', 'languages' => ['tr'], 'locations' => ['Kadıköy'], 'bid_strategy' => 'Manual CPC',
+            'ad_groups' => [['name' => 'Dudak Dolgusu', 'keywords' => [['text' => 'dudak dolgusu', 'match' => 'phrase']],
+                'ads' => [['headlines' => ['Kadıköy Dudak Dolgusu', 'Doğal Görünüm', 'Hekim Uygular'], 'descriptions' => ['Bir.', 'İki.'], 'path1' => 'dudak']]]],
+        ]]];
+        MoxdopServer::tool(SaveStrategy::class, ['title' => 'İnce plan', 'channel' => 'google_ads', 'body' => $this->body, 'plan' => $thin])
+            ->assertOk()->assertSee('Kalite kapısı')->assertSee('başlık 3/15')->assertSee('açıklama 2/4')->assertSee('site bağlantısı 0')
+            ->assertSee('telefon')->assertSee('işletme adı')->assertSee('logo')->assertSee('reklam zamanlaması');
+
+        $headlines = ['Kadıköy Dudak Dolgusu', 'Doğal Dudak Dolgusu', 'Dudak Dolgusu Randevusu', 'Yüzünüze Uygun Dolgunluk', 'Az Miktarla Başlanır',
+            'Anadolu Yakası Dudak Dolgusu', 'Dr. Serap Korkmaz', 'Göztepe, Bağdat Caddesi', 'Uygulamayı Hekim Yapar', 'WhatsApp\'tan Randevu Alın',
+            'Pazartesi–Cumartesi 10–18', 'Önce Görüşme, Sonra Uygulama', 'Hemen Arayın', 'Kişiye Özel Plan', 'Hekim Muayenehanesi'];
+        $full = $thin;
+        $full['account_assets'] = ['business_name' => 'Dr. Serap Korkmaz', 'logo_url' => 'https://example.test/logo.png'];
+        $full['campaigns'][0]['ad_schedule'] = 'Pzt–Cmt 09:00–20:00';
+        $full['campaigns'][0]['ad_groups'][0]['ads'][0]['headlines'] = $headlines;
+        $full['campaigns'][0]['ad_groups'][0]['ads'][0]['descriptions'] = ['Bir açıklama.', 'İki açıklama.', 'Üç açıklama.', 'Dört açıklama.'];
+        $full['campaigns'][0]['assets'] = [
+            'sitelinks' => array_map(fn (int $i): array => ['text' => 'Bağlantı '.$i, 'description1' => 'Satır bir', 'description2' => 'Satır iki', 'final_url' => 'https://example.test/'.$i], range(1, 4)),
+            'callouts' => ['Hekim Uygular', 'Göztepe', 'Randevulu', 'WhatsApp'],
+            'snippets' => [['header' => 'Hizmetler', 'values' => ['Dudak Dolgusu', 'Somon DNA', 'Sıvı Yüz Germe']]],
+            'phone' => '0532 000 00 00',
+        ];
+        MoxdopServer::tool(SaveStrategy::class, ['title' => 'Tam plan', 'channel' => 'google_ads', 'body' => $this->body, 'plan' => $full])
+            ->assertOk()->assertSee('Kalite kapısı: geçti.');
+
+        $strategy = Strategy::query()->where('title', 'Tam plan')->sole();
+        $rows = StrategyAdsEditorExport::rows($strategy);
+        $this->assertCount(4, array_filter($rows, fn (array $r): bool => isset($r['Link Text'])));
+        $this->assertCount(4, array_filter($rows, fn (array $r): bool => isset($r['Callout text'])));
+        $snippet = array_values(array_filter($rows, fn (array $r): bool => isset($r['Snippet Values'])))[0];
+        $this->assertSame(['Hizmetler', 'Dudak Dolgusu;Somon DNA;Sıvı Yüz Germe'], [$snippet['Header'], $snippet['Snippet Values']]);
+        $phone = array_values(array_filter($rows, fn (array $r): bool => isset($r['Phone Number'])))[0];
+        $this->assertSame(['0532 000 00 00', 'TR'], [$phone['Phone Number'], $phone['Country of phone']]);
+        $this->assertSame(['campaigns' => 1, 'ad_groups' => 1, 'keywords' => 1, 'negatives' => 0, 'ads' => 1], StrategyAdsEditorExport::counts($strategy));
+    }
+
     public function test_a_pasted_strategy_is_stored_from_the_brand_page(): void
     {
         Livewire::actingAs($this->admin)->test(BrandStrategiesTab::class, ['brandId' => $this->brand->id])->set('creating', true)

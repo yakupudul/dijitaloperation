@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Integrations;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\Social\LinkedInConnector;
+use App\Services\Social\LinkedInPersonalConnector;
 use App\Support\Demo\DemoState;
 use App\Support\Roles;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +17,18 @@ class LinkedInOAuthController extends Controller
     public function authorize(Request $request, LinkedInConnector $connector): RedirectResponse
     {
         $this->admin($request);
+        // ?hesap=kisisel: the owner's own profile, through the second LinkedIn app.
+        if ($request->query('hesap') === 'kisisel') {
+            $result = app(LinkedInPersonalConnector::class)->begin((int) $request->user()->id);
+            if (isset($result['error'])) {
+                LinkedInPersonalConnector::rememberAttempt(false, 'Bağlantı başlatılamadı: '.$result['error']);
+                DemoState::flash('Kişisel LinkedIn bağlantısı başlatılamadı: '.$result['error'], 'error');
+
+                return redirect()->route('operator.social', ['sekme' => 'hesaplar']);
+            }
+
+            return redirect()->away($result['url']);
+        }
         $result = $connector->begin((int) $request->user()->id);
         if (isset($result['error'])) {
             LinkedInConnector::rememberAttempt(false, 'Bağlantı başlatılamadı: '.$result['error']);
@@ -30,6 +43,20 @@ class LinkedInOAuthController extends Controller
     public function callback(Request $request, LinkedInConnector $connector): RedirectResponse
     {
         $this->admin($request);
+        // Both LinkedIn apps return to this address; the state tells which sign-in it was.
+        if (LinkedInPersonalConnector::ownsState($request->query('state'))) {
+            $result = app(LinkedInPersonalConnector::class)->handleCallback(
+                $request->query('code'), $request->query('state'), $request->query('error'), $request->query('error_description'),
+                (int) $request->user()->id,
+            );
+            $text = isset($result['error'])
+                ? 'Kişisel LinkedIn bağlantısı kurulamadı: '.$result['error']
+                : 'Kişisel LinkedIn bağlandı: '.$result['name'].'. Kişisel metni olan onaylı gönderiler artık saatinde profilinizde paylaşılır.';
+            LinkedInPersonalConnector::rememberAttempt(! isset($result['error']), $text);
+            DemoState::flash($text, isset($result['error']) ? 'error' : 'success');
+
+            return redirect()->route('operator.social', ['sekme' => 'hesaplar']);
+        }
         $result = $connector->handleCallback(
             $request->query('code'), $request->query('state'), $request->query('error'), $request->query('error_description'),
             (int) $request->user()->id,

@@ -34,7 +34,8 @@ final class MoxDOP_Connector_AI_Full
         'nonce_key', 'nonce_salt', 'secure_auth_key', 'secure_auth_salt', 'rewrite_rules', 'can_compress_scripts', 'auto_update_plugins', 'auto_update_themes',
     ];
 
-    const SECRET_PATTERN = '/(key|secret|token|pass|license|licence|api|auth|salt|credential)/i';
+    // 1.38.0: "auth" no longer matches "author" (SEOPress author archive titles were shown as hidden).
+    const SECRET_PATTERN = '/(key|secret|token|pass|license|licence|api|auth(?!or)|salt|credential)/i';
 
     /** Option name prefixes of well-known plugins (their slug otherwise). */
     const PLUGIN_PREFIXES = [
@@ -89,8 +90,8 @@ final class MoxDOP_Connector_AI_Full
             'setup_guide' => ['level' => 'full', 'read' => true, 'description' => 'Professional setup guide for a topic (seo, cache, images, security, forms, speed): which plugin to use on this site and why, what apply_setup sets, and what to check by hand.', 'props' => [
                 'topic' => ['type' => 'string', 'enum' => ['seo', 'cache', 'images', 'security', 'forms', 'speed']],
             ], 'required' => ['topic']],
-            'apply_setup' => ['level' => 'full', 'read' => false, 'description' => 'Applies a ready professional setup to an active plugin: rank_math, yoast, litespeed, autoptimize, cache_enabler. values (optional): name (organisation), logo_url, type (company / person), business_type. Followed by a site check; a broken site puts every value back. Undoable as one change.', 'props' => [
-                'name' => ['type' => 'string', 'enum' => ['rank_math', 'yoast', 'litespeed', 'autoptimize', 'cache_enabler']], 'values' => $obj,
+            'apply_setup' => ['level' => 'full', 'read' => false, 'description' => 'Applies a ready professional setup to an active plugin: rank_math, yoast, seopress, litespeed, autoptimize, cache_enabler. seopress fills title templates only where empty and never writes a noindex. values (optional): name (organisation), logo_url, type (company / person), business_type. Followed by a site check; a broken site puts every value back. Undoable as one change.', 'props' => [
+                'name' => ['type' => 'string', 'enum' => ['rank_math', 'yoast', 'seopress', 'litespeed', 'autoptimize', 'cache_enabler']], 'values' => $obj,
             ], 'required' => ['name']],
             'clear_cache' => ['level' => 'full', 'read' => false, 'description' => 'Empties the page caches of the cache plugins in use (LiteSpeed, WP Rocket, W3TC, WP Super Cache, Cache Enabler, WP Fastest Cache, Autoptimize), the object cache and the Elementor CSS.', 'props' => []],
             'site_check' => ['level' => 'full', 'read' => true, 'description' => 'Loads the home page and the given paths like a visitor: status, time, size, cache and compression headers, PHP errors.', 'props' => [
@@ -900,6 +901,13 @@ final class MoxDOP_Connector_AI_Full
                         'disable-author' => true, 'disable-date' => true, 'disable-attachment' => true, 'noindex-author-wpseo' => true]),
                     'wpseo' => ['enable_xml_sitemap' => true],
                 ]],
+            // 1.38.0: SEOPress (free plugin; the Pro add-on adds the 404 and local business values when active).
+            'seopress' => ['plugin' => MoxDOP_Connector_Seopress::FREE_PLUGIN, 'merge' => true, 'does' => MoxDOP_Connector_Seopress::does(defined('SEOPRESS_PRO_VERSION')),
+                'options' => MoxDOP_Connector_Seopress::options(array_map(static function ($option) {
+                    return get_option($option, []);
+                }, ['seopress_titles_option_name' => 'seopress_titles_option_name', 'seopress_xml_sitemap_option_name' => 'seopress_xml_sitemap_option_name']),
+                    ['name' => $name, 'logo' => $logo, 'type' => $type, 'business' => $business, 'pro' => defined('SEOPRESS_PRO_VERSION'),
+                        'post_types' => array_values(array_diff(get_post_types(['public' => true]), ['attachment', 'elementor_library', 'e-landing-page', 'e-floating-buttons']))])],
             'litespeed' => ['plugin' => 'litespeed-cache/litespeed-cache.php', 'merge' => false,
                 'does' => 'LiteSpeed Cache (LiteSpeed servers): page and browser cache on, CSS / JS / HTML minified, query strings and emoji script removed, images lazy-loaded. CSS / JS combining stays off (breaks themes most often).',
                 'options' => ['litespeed.conf.cache' => 1, 'litespeed.conf.cache-browser' => 1, 'litespeed.conf.optm-css_min' => 1, 'litespeed.conf.optm-js_min' => 1,
@@ -919,8 +927,8 @@ final class MoxDOP_Connector_AI_Full
         $topic = (string) ($args['topic'] ?? '');
         $litespeed = self::litespeed_server();
         $guides = [
-            'seo' => ['use' => defined('RANK_MATH_VERSION') ? 'rank_math (installed)' : (defined('WPSEO_VERSION') ? 'yoast (installed)' : 'seo-by-rank-math (install; one SEO plugin only)'),
-                'apply_setup' => defined('WPSEO_VERSION') && ! defined('RANK_MATH_VERSION') ? 'yoast' : 'rank_math',
+            'seo' => ['use' => defined('RANK_MATH_VERSION') ? 'rank_math (installed)' : (defined('WPSEO_VERSION') ? 'yoast (installed)' : (defined('SEOPRESS_VERSION') ? 'seopress (installed)' : 'seo-by-rank-math (install; one SEO plugin only)')),
+                'apply_setup' => defined('RANK_MATH_VERSION') ? 'rank_math' : (defined('WPSEO_VERSION') ? 'yoast' : (defined('SEOPRESS_VERSION') ? 'seopress' : 'rank_math')),
                 'then' => ['Set the organisation name, logo and business type (values).', 'Check Settings › Reading "Discourage search engines" is off.', 'Permalinks /%postname%/.', 'Every page: unique SEO title ≤ 60, description ≤ 155 (update_seo).', 'Submit the sitemap in Search Console (the user does it).', 'Never run two SEO plugins at once.']],
             'cache' => ['use' => $litespeed ? 'litespeed-cache (the server is LiteSpeed)' : 'cache-enabler + autoptimize (the server is not LiteSpeed)',
                 'apply_setup' => $litespeed ? 'litespeed' : 'cache_enabler, then autoptimize',

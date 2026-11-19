@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Playbook extends Model
 {
+    /** Not `playbooks`: that name still holds the old Prompt 45 table on the live database (see the 2026_11_18 migration). */
+    protected $table = 'brain_playbooks';
+
     protected $guarded = ['id'];
 
     protected function casts(): array
