@@ -8,6 +8,7 @@ use App\Services\Gbp\Desk\GbpDesk;
 use App\Services\Gbp\Desk\ReviewDesk;
 use App\Services\Site\Backlinks\LinkDesk;
 use App\Support\LogoAccent;
+use App\Support\PrintLogo;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -49,7 +50,13 @@ final class GbpReviewCardController extends Controller
 
         $public = $request->routeIs('gbp-review-card.public');
 
-        $logo = filter_var((string) $location->brand?->logo_url, FILTER_VALIDATE_URL) ? (string) $location->brand?->logo_url : null;
+        // The logo from the header of the brand's own site (PrintLogo); the square site icon of brands.logo_url only
+        // when it is large enough to print, otherwise the card carries the brand name in type.
+        $print = PrintLogo::for($location->brand);
+        $icon = filter_var((string) $location->brand?->logo_url, FILTER_VALIDATE_URL) ? (string) $location->brand?->logo_url : null;
+        $iconData = $print === null ? LogoAccent::dataUri($icon) : null;
+        $iconOk = $iconData !== null && LogoAccent::printable($iconData);
+        $logo = $print['uri'] ?? ($iconOk ? $iconData : null);
         $area = (string) ($snapshot['area'] ?? '');
 
         return view('operator.gbp.review-card', [
@@ -61,13 +68,13 @@ final class GbpReviewCardController extends Controller
             'link' => $kit['link'],
             'qr' => $kit['qr'],
             'logo' => $logo,
-            'accent' => LogoAccent::for($logo),
+            'accent' => $print['accent'] ?? ($iconOk ? LogoAccent::for($icon) : LogoAccent::FALLBACK),
             'why' => $location->brand !== null && LinkDesk::isHealth($location->brand)
                 ? 'Görüşleriniz, bizi araştıran hastalara yol gösterir.'
                 : 'Görüşleriniz, bizi araştıran başka insanlara yol gösterir.',
             'public' => $public,
             'designs' => self::DESIGNS,
-            'logoData' => LogoAccent::dataUri($logo),
+            'logoData' => $logo,
             'slug' => Str::slug($branch) ?: 'kart',
         ]);
     }

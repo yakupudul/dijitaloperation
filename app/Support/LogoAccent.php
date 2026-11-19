@@ -65,6 +65,41 @@ final class LogoAccent
         return $uri !== '' ? $uri : null;
     }
 
+    /**
+     * The accent darkened step by step until white text on it reads (contrast 3:1, the large-text level; the band words are 10–20 pt), for colour bands and labels
+     * that carry white words. A pale brand colour (mint, sand) keeps its hue.
+     */
+    public static function forWhiteText(string $hex): string
+    {
+        $hex = self::normalize($hex) ?? self::FALLBACK;
+        [$r, $g, $b] = self::rgb($hex);
+        for ($i = 0; $i < 40 && self::contrastWithWhite($r, $g, $b) < 3.0; $i++) {
+            [$r, $g, $b] = [(int) floor($r * .94), (int) floor($g * .94), (int) floor($b * .94)];
+        }
+
+        return sprintf('#%02x%02x%02x', $r, $g, $b);
+    }
+
+    private static function contrastWithWhite(int $r, int $g, int $b): float
+    {
+        $lin = static fn (int $c): float => ($v = $c / 255) <= 0.03928 ? $v / 12.92 : (($v + 0.055) / 1.055) ** 2.4;
+        $l = 0.2126 * $lin($r) + 0.7152 * $lin($g) + 0.0722 * $lin($b);
+
+        return 1.05 / ($l + 0.05);
+    }
+
+    /** A data: logo big enough for a printed card: an SVG, or a raster at least 120 px wide. */
+    public static function printable(string $dataUri): bool
+    {
+        if (str_starts_with($dataUri, 'data:image/svg')) {
+            return true;
+        }
+        $bytes = base64_decode((string) substr($dataUri, (int) strpos($dataUri, ',') + 1), true);
+        $size = $bytes !== false && $bytes !== '' ? @getimagesizefromstring($bytes) : false;
+
+        return $size !== false && $size[0] >= 120;
+    }
+
     /** The accent of an image's bytes (SVG text or a PNG/JPEG/WebP/GIF file), or null when it has no colourful part. */
     public static function fromImage(string $bytes): ?string
     {

@@ -11,7 +11,7 @@
     <style>
         @page { size: A4 landscape; margin: 0; }
         * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        :root { --ink: #15171a; --grey: #5f6368; --line: #e3e3e3; --accent: {{ $accent }}; --teal: #0f5f5b; }
+        :root { --ink: #15171a; --grey: #5f6368; --line: #e3e3e3; --accent: {{ $accent }}; --accent-deep: {{ \App\Support\LogoAccent::forWhiteText($accent) }}; --teal: #0f5f5b; }
         html, body { background: #fff; }
         body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
 
@@ -72,7 +72,7 @@
         .d-antet .how { margin-bottom: 1.6mm; }
 
         /* Renk alanı: üst bölüm marka renginde, logo beyaz. */
-        .d-renk .top { background: var(--accent); padding: 10mm 10mm 0; height: 58mm; }
+        .d-renk .top { background: var(--accent-deep); padding: 10mm 10mm 0; height: 58mm; }
         .d-renk .logo { visibility: hidden; }
         .d-renk .logo.white { visibility: visible; }
         .d-renk .brand, .d-renk .where { color: #fff; }
@@ -88,9 +88,9 @@
         .d-cerceve .head { justify-content: center; }
         .d-cerceve .logo { object-position: center; }
         .d-cerceve .stars { margin-top: 6mm; }
-        .d-cerceve .frame { margin-top: 5mm; width: 50mm; border: 1mm solid var(--accent); border-radius: 4mm; padding: 4mm 4mm 0; overflow: hidden; }
+        .d-cerceve .frame { margin-top: 5mm; width: 50mm; border: 1mm solid var(--accent-deep); border-radius: 4mm; padding: 4mm 4mm 0; overflow: hidden; }
         .d-cerceve .qr { width: 100%; height: auto; aspect-ratio: 1; }
-        .d-cerceve .tab { display: flex; align-items: center; justify-content: center; gap: 2mm; margin: 3.5mm -4mm 0; padding: 3mm 0 3.4mm; background: var(--accent); color: #fff; font-size: 10pt; font-weight: 500; }
+        .d-cerceve .tab { display: flex; align-items: center; justify-content: center; gap: 2mm; margin: 3.5mm -4mm 0; padding: 3mm 0 3.4mm; background: var(--accent-deep); color: #fff; font-size: 10pt; font-weight: 500; }
         .d-cerceve .tab i { display: flex; width: 5.4mm; height: 5.4mm; border-radius: 50%; background: #fff; align-items: center; justify-content: center; }
         .d-cerceve .tab .g { width: 3.6mm; height: 3.6mm; }
         .d-cerceve .why { margin-top: 5mm; max-width: 70mm; color: var(--ink); }
@@ -181,8 +181,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
-        // Logos are redrawn as PNG at their own proportions (the PDF step cannot draw an SVG with object-fit). On the
-        // Renk alanı design every visible pixel turns white, transparency stays (a CSS filter would not survive the PDF).
+        // Logos are redrawn as PNG at their own proportions (the PDF step cannot draw an SVG with object-fit), near-white
+        // background boxes made transparent. On the Renk alanı design every visible pixel turns white (a CSS filter
+        // would not survive the PDF).
         document.querySelectorAll('.card .logo').forEach(function (img) {
             const white = !!img.closest('.d-renk');
             const redraw = function () {
@@ -193,16 +194,18 @@
                 img.style.maxWidth = 'none';
                 img.style.objectFit = 'fill';
                 try {
-                    const scale = 1400 / Math.max(w, 1);
+                    const scale = Math.min(8, 1400 / Math.max(w, 1));
                     const c = document.createElement('canvas');
                     c.width = Math.round(w * scale); c.height = Math.round(h * scale);
                     const x = c.getContext('2d');
                     x.drawImage(img, 0, 0, c.width, c.height);
-                    if (white) {
-                        x.globalCompositeOperation = 'source-in';
-                        x.fillStyle = '#ffffff';
-                        x.fillRect(0, 0, c.width, c.height);
+                    // A logo saved on a white or light grey box: the box goes, so only the mark sits on the card.
+                    const data = x.getImageData(0, 0, c.width, c.height), p = data.data;
+                    for (let i = 0; i < p.length; i += 4) {
+                        if (p[i] >= 235 && p[i + 1] >= 235 && p[i + 2] >= 235) { p[i + 3] = 0; continue; }
+                        if (white) { p[i] = 255; p[i + 1] = 255; p[i + 2] = 255; }
                     }
+                    x.putImageData(data, 0, 0);
                     img.removeEventListener('load', redraw);
                     img.src = c.toDataURL('image/png');
                 } catch (e) { /* another site's logo without CORS: keep it as it is */ }
