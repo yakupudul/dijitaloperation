@@ -455,6 +455,15 @@
                                             <a href="https://wa.me/?text={{ rawurlencode((string) $text) }}" target="_blank" rel="noopener" class="btn-quiet">WhatsApp’ta aç</a>
                                             <a href="{{ route('operator.gbp-review-card', ['assetId' => $location->id]) }}" target="_blank" class="btn-quiet">Yazdırılabilir kart</a>
                                         </div>
+                                        @php
+                                            $cardUrl = \App\Http\Controllers\Operator\GbpReviewCardController::shareUrl((int) $location->id);
+                                            $cardText = 'Merhaba, Google yorum kartınız hazır. Bağlantıyı açıp yazdırabilir ya da PDF olarak kaydedip matbaaya gönderebilirsiniz: '.$cardUrl;
+                                        @endphp
+                                        <div class="flex flex-wrap items-center gap-1" data-testid="gbp-review-card-share">
+                                            <span class="text-[13px] text-gray-500">Kartı müşteriye gönder:</span>
+                                            <button type="button" x-on:click="navigator.clipboard.writeText(@js($cardUrl)); copied = 'card'" class="btn-quiet"><span x-text="copied === 'card' ? 'Kopyalandı' : 'Kart bağlantısını kopyala'"></span></button>
+                                            <a href="https://wa.me/?text={{ rawurlencode($cardText) }}" target="_blank" rel="noopener" class="btn-quiet">WhatsApp’ta gönder</a>
+                                        </div>
                                     @else
                                         <p class="text-[13px] text-gray-500">Google yer kimliği (place id) henüz toplanmadı; profil verisi bir sonraki toplamada gelince yorum bağlantısı burada görünür.</p>
                                     @endif

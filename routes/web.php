@@ -14,6 +14,7 @@ use App\Http\Controllers\Integrations\WhatsAppExportController;
 use App\Http\Controllers\Integrations\WhatsAppSignupController;
 use App\Http\Controllers\LegacyRetiredPrefixController;
 use App\Http\Controllers\Mcp\McpOAuthController;
+use App\Http\Controllers\Operator\GbpReviewCardController;
 use App\Http\Controllers\Operator\PushController;
 use App\Http\Controllers\Operator\WebsiteHtmlSnapshotController;
 use App\Http\Controllers\Ops\OpsHealthController;
@@ -53,6 +54,8 @@ Route::post('/erisim/{token}', [AccessLinkController::class, 'store'])->middlewa
 Route::get('/rapor/{token}', [BrandReportController::class, 'show'])->middleware('throttle:60,1')->name('brand-report');
 Route::get('/baglanti-kaynaklari/{token}', [LinkSurveyController::class, 'show'])->middleware('throttle:60,1')->name('link-survey');
 Route::post('/baglanti-kaynaklari/{token}', [LinkSurveyController::class, 'store'])->middleware('throttle:20,1')->name('link-survey.store');
+// Google yorum kartı, müşteriye gönderilen imzalı bağlantı (giriş yok); yakup 2026-11-19.
+Route::get('/kart/yorum/{assetId}', GbpReviewCardController::class)->where('assetId', '[0-9]{1,18}')->middleware(['signed', 'throttle:60,1'])->name('gbp-review-card.public');
 Route::get('/onay/yorum-yanitlari/{token}', [GbpReviewApprovalController::class, 'show'])->middleware('throttle:60,1')->name('gbp-review-approval');
 Route::post('/onay/yorum-yanitlari/{token}', [GbpReviewApprovalController::class, 'store'])->middleware('throttle:20,1')->name('gbp-review-approval.store');
 // claude.ai connector OAuth: the Admin approves the MCP connection (login first, then back here).

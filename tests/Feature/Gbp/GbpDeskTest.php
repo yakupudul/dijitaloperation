@@ -42,6 +42,7 @@ use App\Services\Gbp\Desk\ReviewFlags;
 use App\Services\Gbp\GbpDailyWorkspace;
 use App\Services\Gbp\ReviewReplyCheck;
 use App\Services\Work\DailySend;
+use App\Support\LogoAccent;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -338,6 +339,32 @@ final class GbpDeskTest extends TestCase
         $this->assertSame('Ankara Gülüş Tasarımı, Çankaya', GbpReviewCardController::place('Dr. Dt. Burçin ÖNCÜL', 'Dr. Dt. Burçin Öncül - Ankara Gülüş Tasarımı', 'Çankaya, Ankara'));
         $this->assertSame('Buca, İzmir', GbpReviewCardController::place('Avrupadent', 'Avrupadent Buca', 'Buca, İzmir'));
         $this->assertSame('', GbpReviewCardController::place('Panorama', 'Panorama', ''));
+
+        // Antet design (2026-11-19): Google G + stars, a signed link the business opens without login.
+        $this->actingAs($this->admin)->get(route('operator.gbp-review-card', ['assetId' => $this->location->id]))
+            ->assertSee('class="strip"', false)->assertSee('#FBBC04', false)->assertSee('yol gösterir', false);
+        auth()->logout();
+        $share = GbpReviewCardController::shareUrl((int) $this->location->id);
+        $this->get($share)->assertOk()->assertSee('data-review-card', false)->assertSee('PDF olarak kaydet', false);
+        $this->get(route('gbp-review-card.public', ['assetId' => $this->location->id]))->assertForbidden();
+        $this->get(route('operator.gbp-review-card', ['assetId' => $this->location->id]))->assertStatus(302);
+        $this->assertSame('Pendik, İstanbul', GbpReviewCardController::footArea('Pendik, İstanbul, İstanbul'));
+    }
+
+    public function test_logo_accent_reads_the_brand_colour_from_the_logo(): void
+    {
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg"><path fill="#f39200" d=""/><path fill="#ec6707" d=""/><path fill="#ec6707" d=""/><text fill="#15171a">Ad</text><rect fill="#fff"/></svg>';
+        $this->assertSame('#ec6707', LogoAccent::fromImage($svg));
+        $this->assertNull(LogoAccent::fromSvg('<svg><path fill="#000"/><path fill="#ffffff"/><path fill="#777777"/></svg>'));
+        $this->assertSame(LogoAccent::FALLBACK, LogoAccent::for(null));
+
+        $img = imagecreatetruecolor(20, 20);
+        imagefill($img, 0, 0, imagecolorallocate($img, 255, 255, 255));
+        imagefilledrectangle($img, 0, 0, 19, 9, imagecolorallocate($img, 15, 95, 91));
+        ob_start();
+        imagepng($img);
+        $png = (string) ob_get_clean();
+        $this->assertSame('#0f5f5b', LogoAccent::fromImage($png));
     }
 
     public function test_review_grid_picks_fills_a_shared_reply_previews_and_publishes_in_bulk(): void
