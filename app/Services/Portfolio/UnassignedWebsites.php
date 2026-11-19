@@ -62,6 +62,21 @@ final class UnassignedWebsites
         ]);
     }
 
+    /**
+     * Takes a website off its brand and back to the unassigned list (a demo / staging site bound too early). The
+     * connector and the collected data stay on the site, so a brand can pick it again later. Only websites: an
+     * account without a brand would have nowhere to be found again.
+     */
+    public function release(DigitalAsset $site): bool
+    {
+        if ($site->type !== 'website' || $site->brand_id === null) {
+            return false;
+        }
+        $site->forceFill(['brand_id' => null, 'intent' => null, 'intent_note' => null, 'intent_at' => null])->save();
+
+        return true;
+    }
+
     /** Moves an unassigned website to the brand. A site that already belongs to a brand is left alone. */
     public function assign(DigitalAsset $site, Brand $brand): bool
     {

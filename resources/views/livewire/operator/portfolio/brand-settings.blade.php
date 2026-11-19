@@ -212,6 +212,7 @@
                                 <span class="flex w-full items-center gap-2 sm:w-auto">
                                     <select wire:model="moveTo.{{ $asset->id }}" aria-label="Taşı" class="{{ $input }} h-8! min-w-0 flex-1 sm:w-44 sm:flex-none">
                                         <option value="">Marka…</option>
+                                        @if ($asset->type === 'website')<option value="{{ \App\Livewire\Operator\Portfolio\BrandSettings::RELEASE }}">Markadan ayır (markasız)</option>@endif
                                         @foreach ($brands as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach
                                     </select>
                                     <button type="button" wire:click="moveAsset({{ $asset->id }})" wire:confirm="Varlık taşınsın mı?" class="btn">Taşı</button>

@@ -24,6 +24,7 @@ use App\Services\Compliance\SectorPackRegistry;
 use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
+use App\Services\Operator\BrandOutcome;
 use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\Ownership\OwnershipTransferService;
@@ -33,10 +34,12 @@ use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\Site\Showcase\SiteQuestions;
 use App\Services\Site\Showcase\SiteShowcase;
 use App\Support\Ai\AiRouteKeys;
+use App\Support\AssetIntent;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -52,6 +55,9 @@ use Throwable;
  */
 final class BrandSettings extends Component
 {
+    /** moveTo value that takes a website off the brand instead of moving it to another one. */
+    public const RELEASE = 'none';
+
     use AdminOnly;
 
     #[Locked]
@@ -322,6 +328,18 @@ final class BrandSettings extends Component
     {
         $actor = $this->admin();
         $asset = DigitalAsset::query()->where('brand_id', $this->brandId)->findOrFail($assetId);
+        if (($this->moveTo[$assetId] ?? '') === self::RELEASE) {
+            $released = app(UnassignedWebsites::class)->release($asset);
+            if ($released) {
+                BrandOutcome::forget($this->brandId);
+                AssetIntent::forget();
+                Log::info('asset.released_from_brand', ['asset_id' => $asset->id, 'brand_id' => $this->brandId, 'user_id' => $actor->id]);
+            }
+            unset($this->moveTo[$assetId]);
+            $this->message = $released ? $asset->name.' markadan ayrıldı. Bağlantısı ve verisi sitede kaldı; bir marka onu "Hesap / site" listesinden yeniden bağlayabilir.' : 'Yalnız web sitesi markadan ayrılabilir.';
+
+            return;
+        }
         $target = Brand::query()->find((int) ($this->moveTo[$assetId] ?? 0));
         if ($target === null) {
             $this->message = 'Hedef marka seçin.';

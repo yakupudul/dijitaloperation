@@ -22,6 +22,7 @@ use App\Models\User;
 use App\Services\AiTasks\AiTaskQueue;
 use App\Services\Catalog\ServiceCatalogService;
 use App\Services\Portfolio\BrandServiceExtractor;
+use App\Services\Portfolio\UnassignedWebsites;
 use App\Services\Prompts\PromptRegistry;
 use App\Support\Ai\AiRouteKeys;
 use App\Support\Roles;
@@ -235,6 +236,24 @@ final class BrandServicesAndSettingsTest extends TestCase
         $member->assignRole(Roles::TEAM_MEMBER);
         $this->actingAs($member);
         Livewire::test(BrandSettings::class, ['brandId' => $this->brand->id])->call('moveAsset', $this->site->id)->assertForbidden();
+    }
+
+    public function test_a_website_is_released_from_the_brand_and_listed_unassigned_again(): void
+    {
+        $this->site->forceFill(['intent' => 'paused', 'intent_at' => now()])->save();
+        $ads = DigitalAsset::factory()->create(['brand_id' => $this->brand->id, 'type' => 'google_ads', 'name' => 'Panorama Ads']);
+
+        Livewire::test(BrandSettings::class, ['brandId' => $this->brand->id, 'part' => 'assets'])
+            ->assertSeeHtml('value="'.BrandSettings::RELEASE.'"')
+            ->set('moveTo.'.$this->site->id, BrandSettings::RELEASE)->call('moveAsset', $this->site->id)
+            ->set('moveTo.'.$ads->id, BrandSettings::RELEASE)->call('moveAsset', $ads->id)
+            ->assertSet('message', 'Yalnız web sitesi markadan ayrılabilir.');
+
+        $site = $this->site->fresh();
+        $this->assertNull($site->brand_id, 'site has no brand');
+        $this->assertNull($site->intent, 'intent of the old brand is cleared');
+        $this->assertTrue(app(UnassignedWebsites::class)->list()->contains('id', $site->id), 'listed unassigned again');
+        $this->assertSame($this->brand->id, $ads->fresh()->brand_id, 'accounts are never left without a brand');
     }
 
     public function test_today_lists_only_operational_brands(): void
