@@ -118,7 +118,7 @@ final class BrandlessSitesTest extends TestCase
         $keep = $this->task(new RunSiteOperationJob((int) $this->serviced->id, SiteOperations::WEEKLY_CONTENT));
 
         $this->artisan('moxdop:sites:stop-brandless')
-            ->expectsOutput('Markasız sitelerde 2 bekleyen yazma iptal edildi, 1 geriye dönük doldurma kapandı, 1 AI işi kapandı.')
+            ->expectsOutput('Markasız ve içerik/SEO kapalı sitelerde 2 bekleyen yazma iptal edildi, 1 geriye dönük doldurma kapandı, 1 AI işi, 0 içerik/onarım satırı kapandı.')
             ->assertSuccessful();
 
         $this->assertSame(['failed', 'failed', 'queued', 'queued'], [$article->fresh()->status, $scheduled->fresh()->status, $build->fresh()->status, $other->fresh()->status]);
@@ -128,7 +128,7 @@ final class BrandlessSitesTest extends TestCase
         $this->assertSame(AiTask::PENDING, $keep->fresh()->status);
 
         $this->artisan('moxdop:sites:stop-brandless')
-            ->expectsOutput('Markasız sitelerde 0 bekleyen yazma iptal edildi, 0 geriye dönük doldurma kapandı, 0 AI işi kapandı.');
+            ->expectsOutput('Markasız ve içerik/SEO kapalı sitelerde 0 bekleyen yazma iptal edildi, 0 geriye dönük doldurma kapandı, 0 AI işi, 0 içerik/onarım satırı kapandı.');
     }
 
     public function test_the_connector_turns_index_now_off_when_moxdop_says_the_site_has_no_brand(): void

@@ -816,7 +816,7 @@ final class ExternalWriteService
     {
         // Queued before the rule or before the site lost its brand: nothing goes to a brandless website (BrandlessSites).
         if (! BrandlessSites::writeAllowed($action, $action->digital_asset_id !== null ? DigitalAsset::query()->find($action->digital_asset_id) : null)) {
-            $this->abandon($action, 'Gönderilmedi: '.BrandlessSites::REASON);
+            $this->abandon($action, 'Gönderilmedi: '.BrandlessSites::reason($action->digital_asset_id !== null ? (int) $action->digital_asset_id : null));
 
             return;
         }
@@ -1069,7 +1069,7 @@ final class ExternalWriteService
     private function guardBrandless(DigitalAsset $site): void
     {
         if (! BrandlessSites::serviced($site)) {
-            throw ValidationException::withMessages(['write' => BrandlessSites::REASON]);
+            throw ValidationException::withMessages(['write' => BrandlessSites::reason($site)]);
         }
     }
 

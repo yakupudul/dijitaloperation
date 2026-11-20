@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\ExternalWrites\ExternalWriteService;
 use App\Services\Measurement\Ga4Conversions;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\BrandlessSites;
 use App\Services\Site\ChangeApplier;
 use App\Services\Site\LlmsTxt;
 use App\Services\Site\SiteScope;
@@ -151,7 +152,8 @@ final class WebHealthAudit
     public function run(): array
     {
         $done = ['sites' => 0, 'opened' => 0, 'closed' => 0];
-        DigitalAsset::query()->operational()->where('type', 'website')->whereNotNull('brand_id')->orderBy('id')->each(function (DigitalAsset $site) use (&$done): void {
+        DigitalAsset::query()->operational()->where('type', 'website')->whereNotNull('brand_id')
+            ->whereNotIn('id', BrandlessSites::seoOffIds() ?: [0])->orderBy('id')->each(function (DigitalAsset $site) use (&$done): void {
             try {
                 $result = $this->audit($site);
             } catch (Throwable $e) {

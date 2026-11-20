@@ -1348,7 +1348,7 @@ Artisan::command('moxdop:content:backfill-scope', function (ContentAutopilot $au
 // the back-dated fill, the AI tasks of their site operations). Run on deploy; safe to run again.
 Artisan::command('moxdop:sites:stop-brandless', function (): void {
     $out = BrandlessSites::stopPending();
-    $this->info(sprintf('Markasız sitelerde %d bekleyen yazma iptal edildi, %d geriye dönük doldurma kapandı, %d AI işi kapandı.', $out['writes'], $out['backfills'], $out['tasks']));
+    $this->info(sprintf('Markasız ve içerik/SEO kapalı sitelerde %d bekleyen yazma iptal edildi, %d geriye dönük doldurma kapandı, %d AI işi, %d içerik/onarım satırı kapandı.', $out['writes'], $out['backfills'], $out['tasks'], $out['suggestions']));
 })->purpose('Stop the automatic work still waiting for websites without a brand (they are only built, never serviced)');
 
 // İçerik işleri hiç beklemez (yakup, 2026-10-12): titles, articles and translations that wait behind other jobs or in

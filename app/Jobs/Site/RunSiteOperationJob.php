@@ -86,7 +86,7 @@ final class RunSiteOperationJob implements ShouldBeUnique, ShouldQueue
         }
         if (! BrandlessSites::serviced($site)) {
             // Queued before the site lost its brand (or before the rule): nothing runs, not even the AI call.
-            SiteOperations::putStatus($this->siteId, $this->operation, ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::REASON], $this->params);
+            SiteOperations::putStatus($this->siteId, $this->operation, ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::reason($site)], $this->params);
 
             return;
         }

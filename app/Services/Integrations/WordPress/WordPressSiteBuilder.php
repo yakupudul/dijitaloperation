@@ -102,7 +102,8 @@ final class WordPressSiteBuilder
         }
         // A brandless site being built (its "Claude site kurulumu" switch on, yakup 2026-10-29) gets the write tools
         // too: plugins, Polylang and pages are part of the build the operator asked for; nothing automatic runs.
-        $serviced = $connection->digitalAsset !== null && BrandlessSites::serviced($connection->digitalAsset);
+        // The build tools need only a brand: a site with SEO / content off (Ads landing pages) is still built on request.
+        $serviced = $connection->digitalAsset !== null && BrandlessSites::branded($connection->digitalAsset);
         // The stored capabilities can be older than the site (a pull site never answers the periodic status call):
         // ask the site once before refusing, as connection() does (parlarozelegitim.com 2026-11-15).
         if (! in_array($tool, self::READ_TOOLS, true) && ! $serviced && $this->freshState($connection) !== null) {

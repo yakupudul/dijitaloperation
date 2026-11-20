@@ -116,7 +116,7 @@ final class SiteOperations
     public static function dispatch(int $siteId, string $operation, array $params = []): void
     {
         if (! BrandlessSites::serviced($siteId)) {
-            self::putStatus($siteId, $operation, ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::REASON], $params);
+            self::putStatus($siteId, $operation, ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::reason($siteId)], $params);
 
             return;
         }
@@ -146,7 +146,7 @@ final class SiteOperations
     public static function dispatchUrlAnalysis(int $siteId, array $pageIds): int
     {
         if (! BrandlessSites::serviced($siteId)) {
-            self::putStatus($siteId, self::URL_ANALYSIS, ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::REASON]);
+            self::putStatus($siteId, self::URL_ANALYSIS, ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::reason($siteId)]);
 
             return 0;
         }
@@ -166,7 +166,7 @@ final class SiteOperations
     public function run(DigitalAsset $site, string $operation, array $params = []): array
     {
         if (! BrandlessSites::serviced($site)) {
-            return ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::REASON];
+            return ['status' => BrandlessSites::SKIPPED, 'reason' => BrandlessSites::reason($site)];
         }
         $brand = SiteScope::brandOf($site);
         $suggestion = isset($params['suggestion_id']) ? Suggestion::query()->where('brand_id', $site->brand_id)->find((int) $params['suggestion_id']) : null;
@@ -383,7 +383,7 @@ final class SiteOperations
             'no_services' => 'onaylı hizmet yok',
             'no_clusters' => 'onaylı küme yok',
             'no_queries' => 'sorgu yok',
-            'no_brand' => isset($status['reason']) ? 'markaya bağlı değil: otomatik iş yapılmaz' : 'marka / sektör yok',
+            'no_brand' => isset($status['reason']) ? ($status['reason'] === BrandlessSites::SEO_OFF_REASON ? 'içerik ve SEO kapalı: otomatik iş yapılmaz' : 'markaya bağlı değil: otomatik iş yapılmaz') : 'marka / sektör yok',
             'no_gaps' => 'giderilecek eksik yok',
             'has_page' => 'sayfası var',
             'blocked' => 'uyum kuralına takıldı',

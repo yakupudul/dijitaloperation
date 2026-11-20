@@ -11,6 +11,7 @@ use App\Models\Page;
 use App\Models\Suggestion;
 use App\Services\Ai\AiBudget;
 use App\Services\BrandSetup\BrandAutofill;
+use App\Services\Site\BrandlessSites;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentTopics;
 use App\Services\Site\SiteOperations;
@@ -48,7 +49,8 @@ final class ContentCoverage
     public function rows(?int $brandId = null): array
     {
         $brands = Brand::query()->operational()->when($brandId !== null, fn ($q) => $q->whereKey($brandId))->orderBy('name')->get(['id', 'name', 'weekly_content_capacity']);
-        $sites = DigitalAsset::query()->where('type', 'website')->whereIn('brand_id', $brands->pluck('id')->all() ?: [0])->orderBy('id')->get()->groupBy('brand_id');
+        $sites = DigitalAsset::query()->where('type', 'website')->whereIn('brand_id', $brands->pluck('id')->all() ?: [0])
+            ->whereNotIn('id', BrandlessSites::seoOffIds() ?: [0])->orderBy('id')->get()->groupBy('brand_id');
         $clusterRows = BrandClusterPage::query()->whereIn('brand_id', $brands->pluck('id')->all() ?: [0])->where('excluded', false)
             ->orderBy('id')->get(['id', 'website_asset_id', 'cluster_id', 'state', 'language'])->groupBy('website_asset_id');
         $titles = $this->titleCounts($brands->pluck('id')->all());

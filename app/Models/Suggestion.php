@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Brand\NewOrder;
+use App\Services\Site\BrandlessSites;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,6 +51,8 @@ class Suggestion extends Model
     {
         // Marka başına "yeni düzen": a row that would land on the desk of a new-order brand is set aside (NewOrder).
         static::saving(fn (self $suggestion) => NewOrder::hold($suggestion));
+        // İçerik / SEO kapalı site (yakup, 2026-11-20): its search rows close as they are saved (BrandlessSites).
+        static::saving(fn (self $suggestion) => BrandlessSites::holdSuggestion($suggestion));
     }
 
     /**

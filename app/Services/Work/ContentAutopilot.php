@@ -16,6 +16,7 @@ use App\Services\Compliance\ForbiddenTerms;
 use App\Services\Epicrisis\Epicrisis;
 use App\Services\Epicrisis\EpicrisisClaims;
 use App\Services\SeoTasks\QuestionMarks;
+use App\Services\Site\BrandlessSites;
 use App\Services\Site\ContentFormat;
 use App\Services\Site\ContentMap;
 use App\Services\Site\ContentPlanner;
@@ -97,7 +98,8 @@ final class ContentAutopilot
     /** @return Collection<int, DigitalAsset> websites of operational brands */
     public static function sites(): Collection
     {
-        return DigitalAsset::query()->operational()->where('digital_assets.type', 'website')->whereNotNull('digital_assets.brand_id')->get();
+        return DigitalAsset::query()->operational()->where('digital_assets.type', 'website')->whereNotNull('digital_assets.brand_id')
+            ->whereNotIn('digital_assets.id', BrandlessSites::seoOffIds() ?: [0])->get();
     }
 
     /** @return list<int> WordPress post ids MoxDOP wrote on the site (article drafts, page copies) */

@@ -37,7 +37,7 @@ final class ConnectionStepsCard extends Component
     {
         $actor = $this->actor();
         $site = $this->site();
-        if (! BrandlessSites::serviced($site)) {
+        if (! BrandlessSites::branded($site)) {
             $this->message = 'Markaya atanmamış sitede tarama yapılmaz; önce markaya bağla.';
 
             return;

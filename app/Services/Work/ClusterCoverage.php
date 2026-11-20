@@ -10,6 +10,7 @@ use App\Models\DigitalAsset;
 use App\Models\Suggestion;
 use App\Services\Meta\MetaDesk;
 use App\Services\SeoTasks\SeoText;
+use App\Services\Site\BrandlessSites;
 use App\Services\Site\ContentPlanner;
 use App\Services\Site\ContentTopics;
 use App\Services\Site\SiteSuggestionTypes;
@@ -49,7 +50,7 @@ final class ClusterCoverage
     public function forBrand(Brand $brand): array
     {
         $out = [];
-        foreach (DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->orderBy('id')->get() as $site) {
+        foreach (DigitalAsset::query()->where('brand_id', $brand->id)->where('type', 'website')->whereNotIn('id', BrandlessSites::seoOffIds() ?: [0])->orderBy('id')->get() as $site) {
             $site->setRelation('brand', $brand);
             $rows = ContentTopics::mainRows($site);
             if ($rows->isEmpty()) {
