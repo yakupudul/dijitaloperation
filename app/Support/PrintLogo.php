@@ -5,7 +5,9 @@ namespace App\Support;
 use App\Models\Brand;
 use App\Models\DigitalAsset;
 use App\Services\Site\SiteScope;
+use App\Services\Website\PublicDiscovery\StoredHtmlReader;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
@@ -17,12 +19,21 @@ use Throwable;
  * read once, the logo images of its <header> (then the page's other "logo" images, an inline header SVG and the
  * schema "logo") are downloaded, white logos meant for a dark header and small icons are dropped, and the sharpest
  * wide one wins. Result (a data: address + the logo's own colour) is cached for 7 days per brand.
+ *
+ * Most client hosts refuse the MoxDOP server (yakup 2026-11-20 "logolar görünmüyor": every card fell back to the
+ * name). So the home page falls back to MoxDOP's own stored copy of it (the crawl / connector export), and an image
+ * the host refuses is fetched through the public image proxy wsrv.nl (vectors come back as a 1200 px PNG).
  */
 final class PrintLogo
 {
     private const MAX_BYTES = 1_500_000;
 
     private const TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
+
+    private const PROXY = 'https://wsrv.nl/';
+
+    /** Set once the host refused the home page: its images go straight through the proxy. */
+    private static bool $hostRefuses = false;
 
     /** @return array{uri: string, accent: string}|null */
     public static function for(?Brand $brand): ?array
@@ -36,10 +47,10 @@ final class PrintLogo
             return null;
         }
 
-        $key = 'print-logo:v1:'.$brand->id.':'.md5($origin);
+        $key = 'print-logo:v2:'.$brand->id.':'.md5($origin);
         $found = Cache::get($key);
         if (! is_array($found)) {
-            $found = self::find($origin) ?? [];
+            $found = self::find($origin, self::storedHome($site)) ?? [];
             // A site that did not answer is asked again within the hour, a found logo is kept for a week.
             Cache::put($key, $found, $found !== [] ? now()->addDays(7) : now()->addHour());
         }
@@ -48,9 +59,11 @@ final class PrintLogo
     }
 
     /** @return array{uri: string, accent: string}|null */
-    public static function find(string $origin): ?array
+    public static function find(string $origin, ?string $storedHtml = null): ?array
     {
         $html = self::fetch($origin.'/')['body'] ?? '';
+        self::$hostRefuses = $html === '';
+        $html = $html !== '' ? $html : (string) $storedHtml;
         if ($html === '') {
             return null;
         }
@@ -61,7 +74,7 @@ final class PrintLogo
                 continue;
             }
             $image = $candidate['inline'] ?? null;
-            $image ??= self::fetch($candidate['url'], true);
+            $image ??= (self::$hostRefuses ? null : self::fetch($candidate['url'], true)) ?? self::viaProxy($candidate['url']);
             if ($image === null) {
                 continue;
             }
@@ -221,11 +234,42 @@ final class PrintLogo
         return false;
     }
 
+    /** The site's home page as MoxDOP last stored it (crawl or connector export), for a host that refuses the server. */
+    private static function storedHome(DigitalAsset $site): ?string
+    {
+        try {
+            if (! SchemaState::hasTable('website_html_snapshot')) {
+                return null;
+            }
+            $snapshot = DB::table('website_html_snapshot')->where('digital_asset_id', $site->id)
+                ->whereNotNull('raw_ingestion_object_id')->where(fn ($q) => $q->whereNull('status_code')->orWhere('status_code', 200))
+                ->orderByDesc('observed_at')->orderByDesc('id')->limit(300)->get(['id', 'url'])
+                ->first(fn ($row): bool => rtrim((string) parse_url((string) $row->url, PHP_URL_PATH), '/') === '');
+
+            return $snapshot !== null ? (app(StoredHtmlReader::class)->read($site, (string) $snapshot->url, (int) $snapshot->id)['html'] ?? null) : null;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
+    }
+
+    /** An image through wsrv.nl (its own servers fetch it); a vector is rasterised 1200 px wide. */
+    private static function viaProxy(string $url): ?array
+    {
+        if (! preg_match('#^https?://#i', $url)) {
+            return null;
+        }
+        $vector = (bool) preg_match('/\.svgz?(\?|$)/i', $url);
+
+        return self::fetch(self::PROXY.'?'.http_build_query(array_filter(['url' => $url, 'w' => $vector ? 1200 : null, 'output' => $vector ? 'png' : null])), true);
+    }
+
     /** @return array{body: string, type: string}|null */
     private static function fetch(string $url, bool $image = false): ?array
     {
         try {
-            $response = Http::timeout(10)->connectTimeout(5)->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP logo check)'])->get($url);
+            $response = Http::timeout(8)->connectTimeout(4)->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; MoxDOP logo check)'])->get($url);
         } catch (Throwable) {
             return null;
         }
