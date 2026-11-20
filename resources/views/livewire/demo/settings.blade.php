@@ -437,6 +437,17 @@
                             @error('new_role')<p class="{{ $error }}">{{ $message }}</p>@enderror
                         </div>
                     </div>
+                    <div class="{{ $row }}">
+                        <label for="team-access-role" class="{{ $rowLabel }}"><span class="{{ $labelText }}">Yetki rolü</span></label>
+                        <div class="{{ $control }}">
+                            <select id="team-access-role" wire:model="new_access_role" class="{{ $input }}">
+                                <option value="">Rol yok (tüm menüler)</option>
+                                @foreach (\App\Panel\Models\AccessRole::query()->where('scope', 'moxdop')->orderBy('id')->get(['id', 'name']) as $accessRole)
+                                    <option value="{{ $accessRole->id }}">{{ $accessRole->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
                     <label class="card-row cursor-pointer">
                         <span class="min-w-0 flex-1 text-sm font-medium text-gray-900 dark:text-white">{{ __('operator.team.fields.status') }}</span>
                         <span class="inline-flex items-center gap-2 text-[13px] text-gray-600 dark:text-gray-300">

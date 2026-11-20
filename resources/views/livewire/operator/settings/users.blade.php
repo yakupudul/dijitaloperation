@@ -8,14 +8,17 @@
             <h1 class="page-title">Kullanıcılar</h1>
             <p class="page-sub">{{ count($members) }} kullanıcı, {{ $active }} aktif.</p>
         </div>
-        <a href="{{ route('operator.settings', ['section' => 'team']) }}" wire:navigate class="btn w-full sm:w-auto" title="Ayarlar › Ekip ve Yetkiler">Ekibi düzenle</a>
+        <div class="flex w-full gap-2 sm:w-auto">
+            @if ($isAdmin)<a href="{{ route('operator.settings.roles', ['kapsam' => 'moxdop']) }}" wire:navigate class="btn flex-1 sm:flex-none">Roller</a>@endif
+            <a href="{{ route('operator.settings', ['section' => 'team']) }}" wire:navigate class="btn flex-1 sm:flex-none" title="Ayarlar › Ekip ve Yetkiler">Ekibi düzenle</a>
+        </div>
     </header>
     @if ($notice !== '')
         <p class="-mt-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-300" data-users-notice>{{ $notice }}</p>
     @endif
     <section class="card -mt-4 overflow-x-auto" data-users>
         <table class="data-table">
-            <thead><tr><th>Ad</th><th class="hidden md:table-cell">E-posta</th><th>Rol</th><th class="hidden sm:table-cell">Durum</th><th class="hidden text-right! lg:table-cell">Son giriş</th></tr></thead>
+            <thead><tr><th>Ad</th><th class="hidden md:table-cell">E-posta</th><th>Rol</th><th>Yetki rolü</th><th class="hidden sm:table-cell">Durum</th><th class="hidden text-right! lg:table-cell">Son giriş</th></tr></thead>
             <tbody>
                 @forelse ($members as $member)
                     <tr wire:key="user-{{ $member['id'] }}">
@@ -42,11 +45,23 @@
                             @endif
                         </td>
                         <td class="text-[13px] text-gray-700 dark:text-gray-300">{{ $roleLabels[$member['role']] ?? $member['role'] }}</td>
+                        <td class="text-[13px] text-gray-600 dark:text-gray-400" data-user-access-role>
+                            @if ($member['role'] === \App\Support\Roles::ADMIN)
+                                Her şey
+                            @elseif ($isAdmin)
+                                <select wire:change="setAccessRole({{ $member['id'] }}, $event.target.value)" class="h-8 rounded-lg border border-gray-200 bg-white px-2 text-[13px] dark:border-gray-700 dark:bg-transparent" aria-label="{{ $member['name'] }} yetki rolü">
+                                    <option value="">Rol yok (tüm menüler)</option>
+                                    @foreach ($accessRoles as $accessRole)<option value="{{ $accessRole->id }}" @selected(($assigned[$member['id']] ?? null) === $accessRole->id)>{{ $accessRole->name }}</option>@endforeach
+                                </select>
+                            @else
+                                {{ $accessRoles->firstWhere('id', $assigned[$member['id']] ?? null)?->name ?? 'Rol yok' }}
+                            @endif
+                        </td>
                         <td class="hidden sm:table-cell"><x-ta.pill :tone="$member['is_active'] ? 'ok' : 'info'">{{ $member['is_active'] ? 'Aktif' : 'Pasif' }}</x-ta.pill></td>
                         <td class="hidden whitespace-nowrap text-right text-xs tabular-nums text-gray-500 lg:table-cell">{{ $member['last_login'] ?? '—' }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="5"><x-ta.empty-state size="sm" icon="none" title="Kullanıcı yok." class="px-0! py-0!" /></td></tr>
+                    <tr><td colspan="6"><x-ta.empty-state size="sm" icon="none" title="Kullanıcı yok." class="px-0! py-0!" /></td></tr>
                 @endforelse
             </tbody>
         </table>

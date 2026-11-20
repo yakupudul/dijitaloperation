@@ -83,6 +83,8 @@ final class DemoMenu
                     $child($tr ? 'Dijital varlıklar' : 'Digital assets', 'operator.assets', $tr ? 'Bağlantılar' : 'Connections'),
                     $child($tr ? 'Genel ayarlar' : 'General settings', 'operator.settings', $tr ? 'Ajans' : 'Agency'),
                     $child($tr ? 'Kullanıcılar' : 'Users', 'operator.settings.users', $tr ? 'Ajans' : 'Agency'),
+                    ...($admin ? [$child($tr ? 'Roller' : 'Roles', 'operator.settings.roles', $tr ? 'Ajans' : 'Agency')] : []),
+                    $child($tr ? 'Müşteri paneli' : 'Client panel', 'operator.settings.panel-users', $tr ? 'Ajans' : 'Agency'),
                     $child($tr ? 'Standartlar' : 'Standards', 'operator.library.website-standards', $tr ? 'Kurallar' : 'Rules'),
                     $child($tr ? 'Sektör ve hizmet kataloğu' : 'Sector & service catalog', 'operator.library.services', $tr ? 'Kurallar' : 'Rules'),
                     $child($tr ? 'Sorgu kuralları' : 'Query rules', 'operator.settings.query-rules', $tr ? 'Kurallar' : 'Rules'),

@@ -42,6 +42,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+
+        // Müşteri paneli (panel.moximu.com): the brands' own users, a separate table and a separate session key.
+        'client' => [
+            'driver' => 'session',
+            'provider' => 'panel_users',
+        ],
     ],
 
     /*
@@ -65,6 +71,11 @@ return [
         'users' => [
             'driver' => 'eloquent',
             'model' => env('AUTH_MODEL', User::class),
+        ],
+
+        'panel_users' => [
+            'driver' => 'eloquent',
+            'model' => App\Panel\Models\PanelUser::class,
         ],
 
         // 'users' => [

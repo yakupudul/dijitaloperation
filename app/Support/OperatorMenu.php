@@ -8,6 +8,8 @@ use App\Models\GbpQueuedPost;
 use App\Models\Reminder;
 use App\Models\SocialPost;
 use App\Models\SocialPostTarget;
+use App\Models\User;
+use App\Panel\Support\OperatorAccess;
 use App\Services\GoogleAds\Desk\GoogleAdsDesk;
 use App\Services\Inbox\InboxQueue;
 use App\Services\Meta\MetaDesk;
@@ -37,6 +39,11 @@ final class OperatorMenu
         foreach (DemoMenu::groups() as $group) {
             $items = [];
             foreach ($group['items'] as $item) {
+                // Merkezi roller: a menu the user's role does not include is not drawn.
+                $section = OperatorAccess::sectionOfMenuRoute($item['route']);
+                if ($section !== null && auth()->user() instanceof User && ! OperatorAccess::allowsSection(auth()->user(), $section)) {
+                    continue;
+                }
                 // Arayüz kararı 2026-11-17: the desks are tabs of an entry now, so the entry carries the badge of its most
                 // urgent tab (red = money or data being lost first), else its own.
                 if (! isset($counts[$item['route']]) && ! isset($badges[$item['route']])) {

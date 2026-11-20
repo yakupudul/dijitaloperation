@@ -3,6 +3,8 @@
 namespace App\Livewire\Operator\Settings;
 
 use App\Models\User;
+use App\Panel\Models\AccessRole;
+use App\Panel\Support\PanelPermissions;
 use App\Services\Operator\OperatorUserDirectory;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
@@ -45,10 +47,26 @@ final class UsersPage extends Component
         $this->editing = null;
     }
 
+    /** Merkezi roller (yakup 2026-11-20): the MoxDOP role decides which menus a team member opens; empty = as before. */
+    public function setAccessRole(int $userId, string $roleId): void
+    {
+        abort_unless((bool) auth()->user()?->hasRole(Roles::ADMIN), 403);
+        $user = User::query()->findOrFail($userId);
+        $role = $roleId === '' ? null : AccessRole::query()->where('scope', PanelPermissions::SCOPE_MOXDOP)->findOrFail((int) $roleId);
+        $user->forceFill(['access_role_id' => $role?->id])->save();
+        Log::info('user.access_role.changed', ['user' => $user->id, 'role' => $role?->id, 'by' => auth()->id()]);
+        $this->notice = $user->name.': '.($role ? $role->name.' rolü verildi.' : 'rol kaldırıldı, tüm menüler açık.');
+    }
+
     public function render(): View
     {
+        AccessRole::ensureDefaults();
+
         return view('livewire.operator.settings.users', [
             'members' => OperatorUserDirectory::presentationMembers(),
+            'accessRoles' => AccessRole::query()->where('scope', PanelPermissions::SCOPE_MOXDOP)->orderBy('id')->get(['id', 'name']),
+            'assigned' => User::query()->whereNotNull('access_role_id')->pluck('access_role_id', 'id'),
+            'isAdmin' => (bool) auth()->user()?->hasRole(Roles::ADMIN),
         ]);
     }
 }

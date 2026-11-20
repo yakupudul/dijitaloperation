@@ -32,6 +32,9 @@ use App\Livewire\Operator\WhatsApp\Conversations as WhatsAppConversations;
 use App\Livewire\Operator\WhatsApp\Inbox as WhatsAppInbox;
 use Illuminate\Support\Facades\Route;
 
+// Müşteri paneli first: its host-bound routes must win over the operator routes of the same path.
+require __DIR__.'/panel.php';
+
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [OperatorLoginController::class, 'create'])->name('app.login');
     Route::post('/login', [OperatorLoginController::class, 'store'])->middleware('throttle:10,1')->name('app.login.store');

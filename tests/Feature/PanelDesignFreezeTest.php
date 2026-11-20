@@ -108,10 +108,10 @@ class PanelDesignFreezeTest extends TestCase
         $this->assertSame([false, true, false, false], array_slice(array_column($tabs, 'active'), 0, 4));
         $settingsTabs = collect(OperatorMenu::sectionTabs('operator.settings.users'));
         $this->assertSame([
-            ['/settings', '/settings/users'],
+            ['/settings', '/settings/users', '/settings/roles', '/settings/panel-users'],
             ['/library/website-standards', '/library/services', '/settings/query-rules', '/settings/books'],
             ['/settings/ai', '/settings/ai-operations', '/settings/mcp', '/settings/security', '/settings/system-health', '/settings/jobs', '/settings/changes', '/settings/improvements', '/settings/releases'],
-        ], $settingsTabs->groupBy('group')->map(fn ($tabs): array => $tabs->pluck('url')->all())->values()->slice(1)->values()->all(), 'Bağlantı Düzeni 2.3 (2026-11-11): Ayarlar in three groups, Ajans / Kurallar / Makine');
+        ], $settingsTabs->groupBy('group')->map(fn ($tabs): array => $tabs->pluck('url')->all())->values()->slice(1)->values()->all(), 'Bağlantı Düzeni 2.3 (2026-11-11): Ayarlar in three groups, Ajans / Kurallar / Makine; Roller and Müşteri paneli joined Ajans with the client panel (2026-11-20)');
         $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
         $this->assertSame(['/brands', '/portfoy', '/websites'], array_slice(array_column(OperatorMenu::sectionTabs('operator.portfolio'), 'url'), 0, 3), 'Portföy and Web siteleri are tabs of Markalar since 2026-11-09');
 

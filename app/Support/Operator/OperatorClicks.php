@@ -3,6 +3,7 @@
 namespace App\Support\Operator;
 
 use App\Http\Middleware\RecordOperatorActivity;
+use App\Models\User;
 use App\Services\Work\OperatorTime;
 use Livewire\Component;
 
@@ -20,7 +21,7 @@ final class OperatorClicks
     {
         on('call', function (mixed $component, mixed $method): void {
             if (! $component instanceof Component || ! is_string($method) || preg_match(self::NOT_A_CLICK, $method) === 1
-                || ! str_starts_with($component::class, 'App\\Livewire\\') || ($user = auth()->user()) === null) {
+                || ! str_starts_with($component::class, 'App\\Livewire\\') || ! ($user = auth()->user()) instanceof User) {
                 return;
             }
             OperatorTime::record($user, self::brandOf($component), true);

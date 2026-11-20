@@ -27,7 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withEvents(discover: false)
     ->withMiddleware(function (Middleware $middleware): void {
         // Canonical operator login is /login. Filament technical admin is /admin.
-        $middleware->redirectGuestsTo(fn (): string => route('app.login'));
+        $middleware->redirectGuestsTo(fn (Request $request): string => \App\Panel\Http\Middleware\PanelHostBoundary::isPanelHost($request) ? route('panel.login') : route('app.login'));
 
         $trustedProxies = env('TRUSTED_PROXIES');
         if (is_string($trustedProxies) && $trustedProxies !== '') {
@@ -46,7 +46,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // The phone's share sheet posts /paylas without a CSRF token; the session login still guards it.
         $middleware->validateCsrfTokens(except: ['paylas']);
+        // Müşteri paneli: the host wall (see the class). On web it runs right after the session starts, before any
+        // route middleware; the api group has no session.
+        $middleware->api(prepend: [\App\Panel\Http\Middleware\PanelHostBoundary::class]);
         $middleware->web(append: [
+            \App\Panel\Http\Middleware\PanelHostBoundary::class,
             // Panel audit D4: a password change signs out the user's other sessions (Auth::logoutOtherDevices).
             AuthenticateSession::class,
             RecordRequestTiming::class,

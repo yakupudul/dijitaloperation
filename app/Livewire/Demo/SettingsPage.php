@@ -98,6 +98,9 @@ class SettingsPage extends Component
 
     public string $new_role = Roles::TEAM_MEMBER;
 
+    /** Merkezi roller: the MoxDOP role (menus) a new team member starts with; empty = every menu. */
+    public string $new_access_role = '';
+
     public string $new_password = '';
 
     public string $new_password_confirmation = '';
@@ -245,13 +248,18 @@ class SettingsPage extends Component
             'new_is_active' => ['boolean'],
         ]);
 
-        app(OperatorTeamAccessService::class)->createOperator($this->actor(), [
+        $created = app(OperatorTeamAccessService::class)->createOperator($this->actor(), [
             'name' => $validated['new_name'],
             'email' => $validated['new_email'],
             'password' => $validated['new_password'],
             'role' => $validated['new_role'],
             'is_active' => (bool) $validated['new_is_active'],
         ]);
+        $accessRole = $this->new_access_role !== '' ? \App\Panel\Models\AccessRole::query()->where('scope', \App\Panel\Support\PanelPermissions::SCOPE_MOXDOP)->find((int) $this->new_access_role) : null;
+        if ($accessRole !== null && $validated['new_role'] !== Roles::ADMIN) {
+            $created->forceFill(['access_role_id' => $accessRole->id])->save();
+        }
+        $this->new_access_role = '';
 
         $this->new_name = '';
         $this->new_email = '';

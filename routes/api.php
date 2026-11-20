@@ -60,3 +60,9 @@ Route::post('/satis/form', LeadFormController::class)->middleware('throttle:30,1
 Route::get('/hizli-not', [QuickCaptureController::class, 'index'])->middleware('throttle:60,1')->name('api.quick-capture.index');
 Route::post('/hizli-not', [QuickCaptureController::class, 'store'])->middleware('throttle:30,1')->name('api.quick-capture.store');
 Route::post('/hizli-not/{reminder}/tik', [QuickCaptureController::class, 'toggle'])->whereNumber('reminder')->middleware('throttle:60,1')->name('api.quick-capture.toggle');
+
+// Müşteri paneli: a brand's site form posts here (no session, no CSRF); the secret token in the address names the brand.
+Route::domain((string) config('panel.domain'))->group(function (): void {
+    Route::post('/f/{token}', \App\Panel\Http\Controllers\PanelIntakeController::class)->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:30,1')->name('panel.intake');
+    Route::options('/f/{token}', [\App\Panel\Http\Controllers\PanelIntakeController::class, 'options'])->where('token', '[A-Za-z0-9]{32,64}')->name('panel.intake.options');
+});

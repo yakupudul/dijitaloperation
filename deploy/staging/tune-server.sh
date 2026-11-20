@@ -236,6 +236,78 @@ phone_backup_nginx() {
 phone_backup_nginx
 
 # ---------------------------------------------------------------------------------------------------------------
+# 6. Müşteri paneli (2026-11-20, yakup added the DNS record): panel.moximu.com answers from this same app. The name
+#    is added to the app's server_name lines and the existing Let's Encrypt certificate is widened to cover it.
+#    Skipped when the certificate already covers the name or the name does not point at this server; tried at most
+#    once in six hours (Let's Encrypt limits); every changed file is put back when nginx -t or certbot fails.
+# ---------------------------------------------------------------------------------------------------------------
+panel_domain_nginx() {
+  local domain="${MOXDOP_PANEL_DOMAIN:-panel.moximu.com}" main="${MOXDOP_STAGING_DOMAIN:-app.moximu.com}"
+  local stamp="${ROOT}/storage/app/panel-domain.tried" files conf changed=() backups=() i
+  command -v nginx >/dev/null 2>&1 || { note "panel alan adı: nginx bulunamadı; atlandı"; return; }
+  command -v certbot >/dev/null 2>&1 || { note "panel alan adı: certbot bulunamadı; atlandı"; return; }
+  if echo | timeout 15 openssl s_client -connect 127.0.0.1:443 -servername "$domain" 2>/dev/null \
+      | openssl x509 -noout -text 2>/dev/null | grep -q "DNS:${domain}"; then
+    note "panel alan adı: ${domain} sertifikada var"
+    return
+  fi
+  local here pointed
+  here="$(hostname -I 2>/dev/null) ${MOXDOP_STAGING_IP:-178.105.36.235}"
+  pointed="$(getent ahostsv4 "$domain" 2>/dev/null | awk '{print $1}' | sort -u | head -n1)"
+  if [[ -z "$pointed" ]] || ! grep -qw -- "$pointed" <<< "$here"; then
+    note "panel alan adı: ${domain} bu sunucuyu göstermiyor (${pointed:-kayıt yok}); atlandı"
+    return
+  fi
+  if [[ -f "$stamp" ]] && [[ -n "$(find "$stamp" -mmin -360 2>/dev/null)" ]]; then
+    note "panel alan adı: son altı saatte denendi; sıradaki deploy'da yeniden denenecek"
+    return
+  fi
+  touch "$stamp"
+  restore() {
+    for i in "${!changed[@]}"; do cp "${backups[$i]}" "${changed[$i]}"; done
+    nginx -t >/dev/null 2>&1 && { systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null || true; }
+  }
+  files="$(nginx -T 2>/dev/null | sed -n 's/^# configuration file \(.*\):$/\1/p' | sort -u)"
+  for conf in $files; do
+    [[ -f "$conf" ]] || continue
+    grep -Eq "^[[:space:]]*server_name[^;]*[[:space:]]${main//./\\.}[[:space:];]" "$conf" || continue
+    backups+=("$(mktemp /tmp/moxdop-nginx.XXXXXX)")
+    changed+=("$conf")
+    cp "$conf" "${backups[-1]}"
+    # Only server_name lines that name the app and do not name the panel yet.
+    sed -E -i "/^[[:space:]]*server_name[^;]*[[:space:]]${main//./\\.}[[:space:];]/{/${domain//./\\.}/!s/;[[:space:]]*(#.*)?\$/ ${domain};/}" "$conf"
+  done
+  if [[ ${#changed[@]} -eq 0 ]]; then
+    note "panel alan adı: ${main} için sunucu bloğu bulunamadı; atlandı"
+    return
+  fi
+  if ! nginx -t >/dev/null 2>&1; then
+    restore
+    note "panel alan adı: nginx -t hata verdi; dosyalar geri alındı"
+    rm -f "${backups[@]}"
+    return
+  fi
+  systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null || true
+  if ! timeout 300 certbot --nginx --expand -d "$main" -d "$domain" --non-interactive --agree-tos --register-unsafely-without-email --redirect >/dev/null 2>&1; then
+    restore
+    note "panel alan adı: sertifika alınamadı; nginx dosyaları geri alındı"
+    rm -f "${backups[@]}"
+    return
+  fi
+  # Certbot must not bring back the rule that broke Livewire's script files, and its result must still parse.
+  if grep -q 'try_files \$uri =404' "${changed[@]}" 2>/dev/null || ! nginx -t >/dev/null 2>&1; then
+    restore
+    note "panel alan adı: certbot sonrası nginx dosyası bozuldu; geri alındı"
+    rm -f "${backups[@]}"
+    return
+  fi
+  systemctl reload nginx 2>/dev/null || service nginx reload 2>/dev/null || true
+  rm -f "${backups[@]}"
+  note "panel alan adı: ${domain} sunucu bloğuna eklendi ve sertifika genişletildi"
+}
+panel_domain_nginx
+
+# ---------------------------------------------------------------------------------------------------------------
 mkdir -p "$(dirname "$REPORT")"
 {
   printf '{"at":"%s","memory_mb":%s,"lines":[' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${MEM_MB}"

@@ -217,6 +217,8 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/system-health', SystemHealthPage::class)->name('operator.settings.system-health');
         Route::livewire('/settings/ai-operations', AiOperationsPage::class)->name('operator.settings.ai-operations');
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
+        Route::livewire('/settings/roles', \App\Livewire\Operator\Settings\RolesPage::class)->name('operator.settings.roles');
+        Route::livewire('/settings/panel-users', \App\Livewire\Operator\Settings\PanelUsersPage::class)->name('operator.settings.panel-users');
         Route::livewire('/settings/mcp', McpKeysPage::class)->name('operator.settings.mcp');
         Route::livewire('/settings/security', SecurityCardPage::class)->name('operator.settings.security');
         Route::livewire('/settings/jobs', ScheduledJobsPage::class)->name('operator.settings.jobs');

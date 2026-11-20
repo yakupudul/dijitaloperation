@@ -180,6 +180,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Connection::resolverFor('pgsql', static fn ($pdo, string $database, string $prefix, array $config): ViewAwarePostgresConnection => new ViewAwarePostgresConnection($pdo, $database, $prefix, $config));
 
+        // Müşteri paneli: one brand context per request (App\Panel\Http\Middleware\PanelHostBoundary fills it).
+        $this->app->scoped(\App\Panel\Support\PanelContext::class);
         $this->app->scoped(ServiceScope::class);
         $this->app->scoped(ExternalLinks::class);
         $this->app->scoped(AiLiveOperations::class);
@@ -310,7 +312,8 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(JobExceptionOccurred::class, fn (JobExceptionOccurred $event) => app(AiLiveOperations::class)->closeOpen($event->exception->getMessage()));
         Event::listen(JobProcessed::class, fn () => app(AiLiveOperations::class)->closeOpen());
         Event::listen(JobFailed::class, fn (JobFailed $event) => app(AiLiveOperations::class)->closeOpen(AiJobTracker::failureMessage($event->exception)));
-        Event::listen(Authenticated::class, fn (Authenticated $event) => Context::addHidden(AiLiveOperations::USER_CONTEXT, $event->user->getAuthIdentifier()));
+        // Operators only: a client panel user (guard "client") is not an operator and starts no AI work.
+        Event::listen(Authenticated::class, fn (Authenticated $event) => $event->guard === 'client' ? null : Context::addHidden(AiLiveOperations::USER_CONTEXT, $event->user->getAuthIdentifier()));
         $this->app->terminating(fn () => app(AiLiveOperations::class)->closeOpen());
 
         // AI işleri: queued AI jobs (Sırada → Çalışıyor → Bitti / Hata / Durduruldu); registered after the call listeners

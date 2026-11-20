@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Panel\Support\OperatorAccess;
 use App\Services\BrandSetup\BrandAutofill;
 use App\Support\Demo\DemoState;
 use App\Support\Permissions;
@@ -39,6 +40,14 @@ final class EnsureDemoAppAccess
             DemoState::flash('Yönetici hesapları için iki adımlı doğrulama zorunlu. Profil sayfasından etkinleştirin.');
 
             return redirect()->route('operator.profile');
+        }
+
+        // Merkezi roller: a user with a MoxDOP role opens only that role's menus (Ayarlar › Roller).
+        if (! OperatorAccess::allows($user, $request->route()?->getName())) {
+            $home = $request->routeIs('operator.dashboard') ? OperatorAccess::home($user) : null;
+            abort_if($home === null || $home === 'operator.dashboard', 403);
+
+            return redirect()->route($home);
         }
 
         return $next($request);
