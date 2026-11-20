@@ -3,6 +3,7 @@
 use App\Livewire\Panel\HomePage;
 use App\Livewire\Panel\LeadsPage;
 use App\Livewire\Panel\PersonPage;
+use App\Livewire\Panel\PresetsPage;
 use App\Livewire\Panel\SoonPage;
 use App\Livewire\Panel\UsersPage;
 use App\Panel\Http\Controllers\PanelAuthController;
@@ -27,6 +28,7 @@ Route::domain((string) config('panel.domain'))->name('panel.')->group(function (
 
         Route::livewire('/', HomePage::class)->name('home');
         Route::livewire('/adaylar', LeadsPage::class)->name('leads');
+        Route::livewire('/adaylar/hazir-listeler', PresetsPage::class)->name('presets');
         Route::livewire('/adaylar/{person}', PersonPage::class)->whereNumber('person')->name('person');
         Route::livewire('/gelen-kutusu', SoonPage::class)->name('inbox');
         Route::livewire('/performans', SoonPage::class)->name('performance');

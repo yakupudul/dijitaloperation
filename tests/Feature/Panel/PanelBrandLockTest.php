@@ -20,7 +20,7 @@ class PanelBrandLockTest extends PanelTestCase
     public function test_models_return_nothing_without_a_brand(): void
     {
         app(PanelContext::class)->leave();
-        foreach ([PanelPerson::class, PanelRequest::class, PanelEvent::class, PanelReminder::class, PanelFile::class] as $model) {
+        foreach ([PanelPerson::class, PanelRequest::class, PanelEvent::class, PanelReminder::class, PanelFile::class, \App\Panel\Models\PanelPreset::class] as $model) {
             $this->assertSame(0, $model::query()->count(), $model.' must fail closed');
         }
         $this->assertNull(PanelPerson::query()->find($this->personA->id));

@@ -32,6 +32,7 @@
             @if ($isManager)
                 <a href="{{ route('panel.export.leads', array_filter(['asama' => $stage])) }}" class="btn flex-1 sm:flex-none" data-panel-export>Excel'e aktar</a>
             @endif
+            <a href="{{ route('panel.presets') }}" wire:navigate class="btn flex-1 sm:flex-none">Hazır listeler</a>
             @if ($canAdd)
                 <button type="button" wire:click="$set('adding', true)" class="btn-primary flex-1 sm:flex-none">Aday ekle</button>
             @endif
@@ -53,14 +54,22 @@
                     @foreach (PanelSources::labels() as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
                 </select>
             </label>
-            <label class="block"><span class="mb-1.5 block text-[13px] font-medium text-gray-700">İlgilendiği konu</span>
-                <input type="text" wire:model="form.interest" class="{{ $input }}" autocomplete="off">
-            </label>
-            <label class="block sm:col-span-2 lg:col-span-4"><span class="mb-1.5 block text-[13px] font-medium text-gray-700">Not</span>
-                <textarea wire:model="form.message" rows="2" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 sm:text-sm" placeholder="Görüşmede ne konuşuldu, ne istedi"></textarea>
-            </label>
-            <div class="flex gap-2 sm:col-span-2 lg:col-span-4">
+            @include('panel.partials.interest', ['model' => 'form.interest', 'interests' => $interests, 'input' => $input])
+            <div class="sm:col-span-2 lg:col-span-4">
+                <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                    <label for="lead-note" class="text-[13px] font-medium text-gray-700">Not</label>
+                    @if ($templates->isNotEmpty())
+                        <select wire:change="useTemplate($event.target.value); $event.target.value = ''" class="h-8 max-w-full rounded-lg border border-gray-200 bg-white px-2 text-[13px] text-gray-700" aria-label="Şablondan seç" data-panel-template-pick>
+                            <option value="">Şablondan seç</option>
+                            @foreach ($templates as $template)<option value="{{ $template->id }}">{{ $template->label }}</option>@endforeach
+                        </select>
+                    @endif
+                </div>
+                <textarea id="lead-note" wire:model="form.message" rows="2" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 sm:text-sm" placeholder="Görüşmede ne konuşuldu, ne istedi"></textarea>
+            </div>
+            <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-4">
                 <button type="submit" class="btn-primary">Kaydet</button>
+                <button type="button" wire:click="add(true)" class="btn">Kaydet ve yenisini ekle</button>
                 <button type="button" wire:click="$set('adding', false)" class="btn-quiet">Vazgeç</button>
             </div>
         </form>

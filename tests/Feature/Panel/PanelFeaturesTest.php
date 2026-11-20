@@ -295,4 +295,49 @@ class PanelFeaturesTest extends PanelTestCase
         $this->actingAs($member)->get('http://localhost/integrations')->assertForbidden();
         $this->actingAs($member)->get('http://localhost/satis')->assertForbidden();
     }
+
+    public function test_ready_lists_are_written_once_picked_afterwards_and_stay_in_the_brand(): void
+    {
+        $this->enter($this->managerA, $this->brandA);
+        $presets = app(\App\Panel\Services\PanelPresets::class);
+
+        // A topic added from the form is on the list, next to the topics already written on people; no doubles.
+        \Livewire\Livewire::test(\App\Livewire\Panel\LeadsPage::class)->set('adding', true)->call('addInterest', '  Ücretsiz  ön görüşme ')
+            ->assertSet('form.interest', 'Ücretsiz ön görüşme')->call('addInterest', 'ücretsiz ön görüşme');
+        $this->assertSame(['Ücretsiz ön görüşme', 'Kontrol'], $presets->interests()->all());
+
+        // A note is kept as a template and comes back into the note box; a second save form stays open.
+        \Livewire\Livewire::test(\App\Livewire\Panel\PersonPage::class, ['person' => $this->personA->id])
+            ->set('note', "Arandı, ulaşılamadı.\nYarın tekrar aranacak.")->call('saveTemplate')
+            ->set('note', '')->call('useTemplate', (string) \App\Panel\Models\PanelPreset::query()->where('kind', 'note')->value('id'))
+            ->assertSet('note', "Arandı, ulaşılamadı.\nYarın tekrar aranacak.")
+            ->call('remindIn', 7)->assertSet('reminder.due', now('Europe/Istanbul')->addDays(7)->setTime(10, 0)->format('Y-m-d\TH:i'));
+        $this->assertSame('Arandı, ulaşılamadı.', \App\Panel\Models\PanelPreset::query()->where('kind', 'note')->value('label'));
+
+        // The ready message carries the person's first name; the lists page adds and the manager removes.
+        \Livewire\Livewire::test(\App\Livewire\Panel\PresetsPage::class)
+            ->set('draft.message.label', 'Teyit mesajı')->set('draft.message.body', 'Merhaba {ad}, yarın bekliyoruz.')->call('add', 'message')->assertHasNoErrors()
+            ->set('draft.note.label', 'Boş')->call('add', 'note')->assertHasErrors('draft.note.body');
+        $this->assertSame('Merhaba Ayşe, yarın bekliyoruz.', \App\Panel\Services\PanelPresets::fill('Merhaba {ad}, yarın bekliyoruz.', $this->personA->name));
+        $this->get($this->url('/adaylar/'.$this->personA->id))->assertOk();
+        \Livewire\Livewire::test(\App\Livewire\Panel\PersonPage::class, ['person' => $this->personA->id])->assertSee('Hazır mesaj')->assertSee('Merhaba%20Ay%C5%9Fe', false);
+
+        // "Kaydet ve yenisini ekle" keeps the form open for the next caller.
+        \Livewire\Livewire::test(\App\Livewire\Panel\LeadsPage::class)->set('adding', true)
+            ->set('form.name', 'Cem Akasya')->set('form.phone', '0535 777 88 99')->set('form.source', 'whatsapp')->call('add', true)
+            ->assertSet('adding', true)->assertSet('form.name', '')->assertSet('form.source', 'whatsapp');
+
+        // The other brand sees none of it, and a non-manager cannot remove.
+        $this->enter($this->managerB, $this->brandB);
+        $this->assertSame(['Bilgi'], $presets->interests()->all());
+        $this->assertSame(0, \App\Panel\Models\PanelPreset::query()->count());
+        \Livewire\Livewire::test(\App\Livewire\Panel\PresetsPage::class)->assertDontSee('Teyit mesajı');
+        $sales = $this->member($this->brandA, 'satis@example.test', role: 'Satış');
+        $this->enter($sales, $this->brandA);
+        $id = (int) \App\Panel\Models\PanelPreset::query()->where('kind', 'message')->value('id');
+        \Livewire\Livewire::test(\App\Livewire\Panel\PresetsPage::class)->assertSee('Teyit mesajı')->call('remove', $id)->assertForbidden();
+        $this->enter($this->managerA, $this->brandA);
+        \Livewire\Livewire::test(\App\Livewire\Panel\PresetsPage::class)->call('remove', $id);
+        $this->assertSame(0, \App\Panel\Models\PanelPreset::query()->where('kind', 'message')->count());
+    }
 }

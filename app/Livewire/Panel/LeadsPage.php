@@ -4,7 +4,9 @@ namespace App\Livewire\Panel;
 
 use App\Panel\Models\PanelMembership;
 use App\Panel\Models\PanelPerson;
+use App\Panel\Models\PanelPreset;
 use App\Panel\Services\PanelLeads;
+use App\Panel\Services\PanelPresets;
 use App\Panel\Support\PanelPage;
 use App\Panel\Support\PanelSources;
 use App\Panel\Support\PanelStages;
@@ -87,7 +89,27 @@ final class LeadsPage extends Component
         $membership->forceFill(['preferences' => ['lead_columns' => $this->columns] + (array) $membership->preferences])->save();
     }
 
-    public function add(PanelLeads $leads): void
+    /** Puts a topic on the brand's list so nobody types it again, and picks it on the open form. */
+    public function addInterest(string $label, PanelPresets $presets): void
+    {
+        abort_unless($this->may('leads.create'), 403);
+        if (trim($label) === '') {
+            return;
+        }
+        $this->form['interest'] = $presets->add(PanelPreset::INTEREST, $label, null, (int) $this->panelUser()->id)->label;
+        $this->notify('“'.$this->form['interest'].'” listeye eklendi.');
+    }
+
+    /** Writes a saved note template into the note of the open form. */
+    public function useTemplate(string $id): void
+    {
+        $template = ctype_digit($id) ? PanelPreset::query()->where('kind', PanelPreset::NOTE)->find((int) $id) : null;
+        if ($template !== null) {
+            $this->form['message'] = trim(trim((string) $this->form['message'])."\n".(string) ($template->body ?: $template->label));
+        }
+    }
+
+    public function add(PanelLeads $leads, bool $again = false): void
     {
         abort_unless($this->may('leads.create'), 403);
         $data = $this->validate([
@@ -99,8 +121,8 @@ final class LeadsPage extends Component
         ], [], ['form.name' => 'ad', 'form.phone' => 'telefon', 'form.source' => 'kaynak', 'form.interest' => 'ilgilendiği', 'form.message' => 'not'])['form'];
         $known = PanelPerson::query()->where('phone_key', PhoneKey::of($data['phone']))->exists();
         $person = $leads->record((int) $this->panel()->brandId(), $data + ['assigned_user_id' => $this->may('leads.all') ? null : $this->panelUser()->id], $data['source'], (int) $this->panelUser()->id);
-        $this->adding = false;
-        $this->form = ['name' => '', 'phone' => '', 'source' => 'call', 'interest' => '', 'message' => ''];
+        $this->adding = $again;
+        $this->form = ['name' => '', 'phone' => '', 'source' => $again ? $data['source'] : 'call', 'interest' => '', 'message' => ''];
         $this->notify($known ? 'Bu numara zaten kayıtlıydı; yeni talep '.$person->name.' kaydına eklendi.' : $person->name.' adaylara eklendi.');
     }
 
@@ -158,7 +180,7 @@ final class LeadsPage extends Component
         return $query;
     }
 
-    public function render(PanelLeads $leads): View
+    public function render(PanelLeads $leads, PanelPresets $presets): View
     {
         $board = $this->view === 'board';
         $counts = $leads->visible()->selectRaw('stage, count(*) as n')->groupBy('stage')->pluck('n', 'stage');
@@ -179,6 +201,8 @@ final class LeadsPage extends Component
             'canAdd' => $this->may('leads.create'),
             'canMove' => $this->may('leads.stage'),
             'isManager' => $this->panel()->isManager(),
+            'interests' => $this->adding ? $presets->interests() : collect(),
+            'templates' => $this->adding ? $presets->of(PanelPreset::NOTE) : collect(),
         ]);
     }
 }

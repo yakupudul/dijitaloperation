@@ -1,5 +1,6 @@
 @php
     use App\Panel\Models\PanelEvent;
+    use App\Panel\Services\PanelPresets;
     use App\Panel\Support\PanelSources;
     use App\Panel\Support\PanelStages;
     use App\Panel\Support\PhoneKey;
@@ -46,6 +47,17 @@
                 <div class="flex w-full gap-2 sm:w-auto">
                     <a href="tel:{{ $person->phone }}" class="btn-primary h-10! flex-1 px-4! sm:flex-none">Ara</a>
                     <a href="https://wa.me/{{ $wa }}" target="_blank" rel="noopener" class="btn h-10! flex-1 px-4! sm:flex-none">WhatsApp'tan yaz</a>
+                    @if ($messages->isNotEmpty())
+                        <div class="relative" x-data="{ open: false }" @click.outside="open = false" data-panel-messages>
+                            <button type="button" @click="open = ! open" class="btn h-10! px-4!" :aria-expanded="open">Hazır mesaj</button>
+                            <div x-show="open" x-cloak class="absolute right-0 top-full z-30 mt-1 w-64 rounded-xl bg-white p-1.5 shadow-theme-lg ring-1 ring-gray-200">
+                                @foreach ($messages as $message)
+                                    <a href="https://wa.me/{{ $wa }}?text={{ rawurlencode(PanelPresets::fill((string) ($message->body ?: $message->label), $person->name)) }}" target="_blank" rel="noopener" @click="open = false"
+                                        class="block truncate rounded-lg px-2.5 py-2 text-sm text-gray-800 hover:bg-gray-100">{{ $message->label }}</a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
             @endif
         </div>
@@ -84,13 +96,26 @@
                     <form wire:submit="addNote" class="space-y-2" data-panel-note-form>
                         <textarea wire:model="note" rows="3" class="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-base text-gray-900 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 sm:text-sm" placeholder="Ne konuşuldu, ne istedi, sırada ne var" aria-label="Not"></textarea>
                         @error('note')<span class="block text-[13px] text-error-600">{{ $message }}</span>@enderror
-                        <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2" x-data="{ naming: false }">
                             <select wire:model="noteType" class="h-8 rounded-lg border border-gray-200 bg-white px-2 text-[13px]" aria-label="Kayıt türü">
                                 <option value="note">Not</option>
                                 <option value="call">Arama kaydı</option>
                             </select>
                             <button type="submit" class="btn-primary">Kaydet</button>
+                            @if ($templates->isNotEmpty())
+                                <select wire:change="useTemplate($event.target.value); $event.target.value = ''" class="h-8 max-w-[11rem] rounded-lg border border-gray-200 bg-white px-2 text-[13px] text-gray-700" aria-label="Şablondan seç" data-panel-template-pick>
+                                    <option value="">Şablondan seç</option>
+                                    @foreach ($templates as $template)<option value="{{ $template->id }}">{{ $template->label }}</option>@endforeach
+                                </select>
+                            @endif
+                            <button type="button" x-show="! naming" @click="naming = true; $nextTick(() => $refs.templateName.focus())" class="btn-quiet" data-panel-template-save>Şablon olarak kaydet</button>
+                            <span x-show="naming" x-cloak class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                                <input type="text" x-ref="templateName" wire:model="templateName" @keydown.enter.prevent="$wire.saveTemplate(); naming = false" class="h-8 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2 text-[13px] text-gray-900 outline-none focus:border-gray-900 sm:w-48 sm:flex-none" placeholder="Şablon adı (boş kalabilir)" aria-label="Şablon adı" autocomplete="off">
+                                <button type="button" @click="$wire.saveTemplate(); naming = false" class="btn">Şablonu kaydet</button>
+                                <button type="button" @click="naming = false" class="btn-quiet">Vazgeç</button>
+                            </span>
                         </div>
+                        @error('templateName')<span class="block text-[13px] text-error-600">{{ $message }}</span>@enderror
                     </form>
                 @endif
                 <ol class="space-y-0" data-panel-history>
@@ -124,6 +149,11 @@
                             </select>
                         </label>
                         <button type="submit" class="btn-primary h-10! sm:h-9!">Hatırlatma kur</button>
+                        <div class="flex flex-wrap gap-1.5 sm:col-span-4" data-panel-remind-in>
+                            @foreach ([1 => 'Yarın', 3 => '3 gün sonra', 7 => '1 hafta sonra', 30 => '1 ay sonra'] as $days => $label)
+                                <button type="button" wire:click="remindIn({{ $days }})" class="seg">{{ $label }}</button>
+                            @endforeach
+                        </div>
                         @error('reminder.title')<span class="text-[13px] text-error-600 sm:col-span-4">{{ $message }}</span>@enderror
                         @error('reminder.due')<span class="text-[13px] text-error-600 sm:col-span-4">{{ $message }}</span>@enderror
                     </form>
@@ -172,6 +202,10 @@
             @if ($editing)
                 <form wire:submit="save" class="space-y-3">
                     @foreach (array_filter(['name' => ['Ad soyad', 'text'], 'phone' => $showPhone ? ['Telefon', 'tel'] : null, 'email' => $showPhone ? ['E-posta', 'email'] : null, 'interest' => ['İlgilendiği konu', 'text'], 'city' => ['Şehir', 'text'], 'district' => ['İlçe', 'text'], 'birth_year' => ['Doğum yılı', 'number'], 'appointment' => ['Randevu', 'datetime-local']]) as $field => [$label, $type])
+                        @if ($field === 'interest')
+                            @include('panel.partials.interest', ['model' => 'form.interest', 'interests' => $interests, 'input' => $input])
+                            @continue
+                        @endif
                         <label class="block"><span class="mb-1 block text-[13px] font-medium text-gray-700">{{ $label }}</span>
                             <input type="{{ $type }}" wire:model="form.{{ $field }}" class="{{ $input }}" autocomplete="off">
                             @error('form.'.$field)<span class="mt-1 block text-[13px] text-error-600">{{ $message }}</span>@enderror

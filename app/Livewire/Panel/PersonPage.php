@@ -6,8 +6,10 @@ use App\Panel\Models\PanelEvent;
 use App\Panel\Models\PanelFile;
 use App\Panel\Models\PanelMembership;
 use App\Panel\Models\PanelPerson;
+use App\Panel\Models\PanelPreset;
 use App\Panel\Models\PanelReminder;
 use App\Panel\Services\PanelLeads;
+use App\Panel\Services\PanelPresets;
 use App\Panel\Support\PanelPage;
 use App\Panel\Support\PanelStages;
 use App\Panel\Support\PhoneKey;
@@ -34,6 +36,8 @@ final class PersonPage extends Component
     public string $note = '';
 
     public string $noteType = 'note';
+
+    public string $templateName = '';
 
     public bool $editing = false;
 
@@ -103,6 +107,44 @@ final class PersonPage extends Component
         $leads->note($this->person(), $this->note, $this->actor(), $this->noteType === 'call' ? PanelEvent::CALL : PanelEvent::NOTE);
         $this->note = '';
         $this->notify($this->noteType === 'call' ? 'Arama kaydedildi.' : 'Not kaydedildi.');
+    }
+
+    /** Writes a saved template into the note box; the user finishes the sentence and saves. */
+    public function useTemplate(string $id): void
+    {
+        abort_unless($this->may('notes.write'), 403);
+        $template = ctype_digit($id) ? PanelPreset::query()->where('kind', PanelPreset::NOTE)->find((int) $id) : null;
+        if ($template !== null) {
+            $this->note = trim(trim($this->note)."\n".(string) ($template->body ?: $template->label));
+        }
+    }
+
+    /** Keeps the note in the box as a template of the brand, under the given name or its first words. */
+    public function saveTemplate(PanelPresets $presets): void
+    {
+        abort_unless($this->may('notes.write'), 403);
+        $this->validate(['note' => ['required', 'string', 'max:5000'], 'templateName' => ['nullable', 'string', 'max:80']], ['note.required' => 'Önce notu yazın, sonra şablon olarak kaydedin.'], ['note' => 'not', 'templateName' => 'şablon adı']);
+        $name = trim($this->templateName) !== '' ? trim($this->templateName) : mb_substr((string) strtok(trim($this->note), "\n"), 0, 60);
+        $presets->add(PanelPreset::NOTE, $name, $this->note, $this->actor());
+        $this->templateName = '';
+        $this->notify('“'.$name.'” şablonlara eklendi.');
+    }
+
+    public function addInterest(string $label, PanelPresets $presets): void
+    {
+        abort_unless($this->may('leads.edit'), 403);
+        if (trim($label) === '') {
+            return;
+        }
+        $this->form['interest'] = $presets->add(PanelPreset::INTEREST, $label, null, $this->actor())->label;
+        $this->notify('“'.$this->form['interest'].'” listeye eklendi.');
+    }
+
+    /** "Yarın", "3 gün sonra": sets the reminder's time without the date picker. */
+    public function remindIn(int $days): void
+    {
+        abort_unless(in_array($days, [1, 3, 7, 30], true), 422);
+        $this->reminder['due'] = now('Europe/Istanbul')->addDays($days)->setTime(10, 0)->format('Y-m-d\TH:i');
     }
 
     public function edit(): void
@@ -209,7 +251,7 @@ final class PersonPage extends Component
         $this->notify('Dosya yüklendi.');
     }
 
-    public function render(): View
+    public function render(PanelPresets $presets): View
     {
         $person = $this->person()->load('assignee:id,name');
         $tabs = array_filter([
@@ -232,6 +274,9 @@ final class PersonPage extends Component
             'requestCount' => $person->requests()->count(),
             'team' => PanelMembership::query()->with('user:id,name')->where('brand_id', $this->panel()->brandId())->where('is_active', true)->get()->pluck('user.name', 'panel_user_id'),
             'showPhone' => $this->may('leads.phone'),
+            'interests' => $this->editing ? $presets->interests() : collect(),
+            'templates' => $this->may('notes.write') ? $presets->of(PanelPreset::NOTE) : collect(),
+            'messages' => $this->may('leads.phone') ? $presets->of(PanelPreset::MESSAGE) : collect(),
             'can' => [
                 'stage' => $this->may('leads.stage'), 'edit' => $this->may('leads.edit'), 'assign' => $this->may('leads.assign'),
                 'note' => $this->may('notes.write'), 'reminder' => $this->may('reminders.write'), 'upload' => $this->may('files.upload'),
