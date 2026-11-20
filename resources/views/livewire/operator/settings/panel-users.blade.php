@@ -1,8 +1,11 @@
 @php($input = 'h-9 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 outline-none focus:border-gray-400 dark:border-gray-700 dark:bg-transparent dark:text-white')
 <div class="space-y-8">
-    <header>
+    <header class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
         <h1 class="page-title">Müşteri paneli</h1>
         <p class="page-sub">Markaların {{ config('panel.domain') }} adresindeki paneli: kim girer, hangi rolle. Burada yalnız sayılar görünür; adayların adı, telefonu ve notları markanın kendi panelinde kalır.</p>
+        </div>
+        <a href="{{ route('operator.settings.panel-support') }}" wire:navigate class="btn">Talepler ve duyurular{{ $waitingTickets ? ' ('.$waitingTickets.')' : '' }}</a>
     </header>
 
     <div class="grid gap-8 xl:grid-cols-[300px_minmax(0,1fr)]">

@@ -58,9 +58,10 @@ final class PersonPage extends Component
         return 'menu.leads';
     }
 
-    public function mount(int $person): void
+    public function mount(string $person): void
     {
-        $this->personId = $person;
+        abort_unless(strlen($person) <= 18, 404);
+        $this->personId = (int) $person;
         $this->person();
         $this->reminder['due'] = now('Europe/Istanbul')->addDay()->setTime(10, 0)->format('Y-m-d\TH:i');
         $this->reminder['user'] = (string) $this->panelUser()->id;
@@ -208,6 +209,9 @@ final class PersonPage extends Component
         }
         $person->forceFill(['assigned_user_id' => $id])->save();
         $leads->event($person, PanelEvent::ASSIGNED, null, ['to' => $id], $this->actor());
+        if ($id !== null && $id !== $this->actor()) {
+            app(\App\Panel\Services\PanelNotifier::class)->user((int) $person->brand_id, $id, 'assigned', 'Size atandı: '.$person->name, route('panel.person', $person->id));
+        }
         $this->notify($id ? 'İlgilenen kişi değişti.' : 'İlgilenen kişi kaldırıldı.');
     }
 

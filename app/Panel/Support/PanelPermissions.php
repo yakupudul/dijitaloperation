@@ -12,6 +12,12 @@ final class PanelPermissions
 
     public const string SCOPE_PANEL = 'panel';
 
+    /** The catalog as it stood when the first roles were made (2026-11-20); later keys reach those roles once. */
+    public const array FIRST_KEYS = [
+        self::SCOPE_MOXDOP => ['today', 'brands', 'agency', 'system', 'client_panel'],
+        self::SCOPE_PANEL => ['menu.home', 'menu.leads', 'menu.inbox', 'menu.performance', 'menu.support', 'menu.users', 'leads.all', 'leads.phone', 'leads.create', 'leads.edit', 'leads.stage', 'leads.assign', 'notes.write', 'reminders.write', 'files.view', 'files.upload'],
+    ];
+
     /** @return array<string, string> */
     public static function scopes(): array
     {
@@ -59,6 +65,18 @@ final class PanelPermissions
                 'reminders.write' => 'Hatırlatma kurar ve kapatır',
                 'files.view' => 'Dosyaları görür',
                 'files.upload' => 'Dosya yükler',
+                'import.leads' => 'Excel\'den aday ve çağrı içe aktarır',
+            ],
+            'Gelen kutusu kanalları' => [
+                'inbox.web_form' => 'Web formu',
+                'inbox.call' => 'Çağrı',
+                'inbox.whatsapp' => 'WhatsApp',
+                'inbox.instagram' => 'Instagram ve Facebook',
+                'inbox.meta_form' => 'Meta formu',
+            ],
+            'Destek ve rapor' => [
+                'support.write' => 'Destek talebi açar ve yanıtlar',
+                'performance.team' => 'Personel karşılaştırmasını görür',
             ],
         ];
     }
@@ -87,8 +105,8 @@ final class PanelPermissions
     {
         return [
             ['scope' => self::SCOPE_PANEL, 'name' => 'Yönetici', 'description' => 'Markanın sahibi ya da yöneticisi: her şeyi görür, kullanıcı ekler.', 'permissions' => self::keys(self::SCOPE_PANEL)],
-            ['scope' => self::SCOPE_PANEL, 'name' => 'Satış', 'description' => 'Adaylarla ilgilenir: arar, not yazar, aşamayı ilerletir.', 'permissions' => ['menu.home', 'menu.leads', 'menu.inbox', 'menu.support', 'leads.all', 'leads.phone', 'leads.create', 'leads.edit', 'leads.stage', 'notes.write', 'reminders.write', 'files.view', 'files.upload']],
-            ['scope' => self::SCOPE_PANEL, 'name' => 'İzleyici', 'description' => 'Yalnız görür, değiştirmez; telefonlar gizli.', 'permissions' => ['menu.home', 'menu.leads', 'menu.performance', 'leads.all']],
+            ['scope' => self::SCOPE_PANEL, 'name' => 'Satış', 'description' => 'Adaylarla ilgilenir: arar, not yazar, aşamayı ilerletir.', 'permissions' => ['menu.home', 'menu.leads', 'menu.inbox', 'menu.support', 'leads.all', 'leads.phone', 'leads.create', 'leads.edit', 'leads.stage', 'notes.write', 'reminders.write', 'files.view', 'files.upload', 'inbox.web_form', 'inbox.call', 'inbox.whatsapp', 'inbox.instagram', 'inbox.meta_form', 'support.write']],
+            ['scope' => self::SCOPE_PANEL, 'name' => 'İzleyici', 'description' => 'Yalnız görür, değiştirmez; telefonlar gizli.', 'permissions' => ['menu.home', 'menu.leads', 'menu.performance', 'menu.support', 'leads.all']],
             ['scope' => self::SCOPE_MOXDOP, 'name' => 'Ekip üyesi', 'description' => 'Marka işlerini yürütür; satış ve sistem ayarları kapalı.', 'permissions' => ['today', 'brands']],
         ];
     }

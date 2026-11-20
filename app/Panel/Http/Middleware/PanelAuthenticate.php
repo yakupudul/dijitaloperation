@@ -29,6 +29,12 @@ final class PanelAuthenticate
         if ($user->must_change_password && ! $request->session()->has('panel.viewer') && ! $request->routeIs('panel.password', 'panel.password.store', 'panel.logout')) {
             return redirect()->route('panel.password');
         }
+        // New permission keys reach the starting roles once per catalog version, without anyone opening a settings screen.
+        \Illuminate\Support\Facades\Cache::rememberForever('panel.roles.synced.'.md5(implode(',', \App\Panel\Support\PanelPermissions::keys('panel'))), function (): bool {
+            \App\Panel\Models\AccessRole::ensureDefaults();
+
+            return true;
+        });
         if ($permission === 'manager') {
             abort_unless($this->context->isManager(), 403);
         } elseif ($permission !== null) {

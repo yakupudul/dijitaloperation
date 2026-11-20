@@ -46,7 +46,7 @@ final class PanelLeads
         $key = PhoneKey::of($phone);
         $name = trim((string) ($data['name'] ?? '')) ?: ($phone !== '' ? $phone : 'İsimsiz');
 
-        return $this->context->system(fn (): PanelPerson => DB::transaction(function () use ($brandId, $data, $source, $phone, $key, $name, $actorId): PanelPerson {
+        $person = $this->context->system(fn (): PanelPerson => DB::transaction(function () use ($brandId, $data, $source, $phone, $key, $name, $actorId): PanelPerson {
             $person = $key !== null ? PanelPerson::query()->where('brand_id', $brandId)->where('phone_key', $key)->lockForUpdate()->first() : null;
             $isNew = $person === null;
             if ($isNew) {
@@ -82,6 +82,12 @@ final class PanelLeads
 
             return $person;
         }));
+        // Nobody typed this one in (site form, a connected channel): the brand's users hear the bell.
+        if ($actorId === null) {
+            app(PanelNotifier::class)->brand($brandId, 'lead', 'Yeni talep: '.$person->name.', '.PanelSources::label($source), route('panel.person', $person->id), 'menu.leads');
+        }
+
+        return $person;
     }
 
     public function setStage(PanelPerson $person, string $stage, ?string $reason = null, ?int $actorId = null): void

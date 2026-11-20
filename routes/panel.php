@@ -5,6 +5,7 @@ use App\Livewire\Panel\LeadsPage;
 use App\Livewire\Panel\PersonPage;
 use App\Livewire\Panel\PresetsPage;
 use App\Livewire\Panel\SoonPage;
+use App\Livewire\Panel\SupportPage;
 use App\Livewire\Panel\UsersPage;
 use App\Panel\Http\Controllers\PanelAuthController;
 use App\Panel\Http\Controllers\PanelDownloadController;
@@ -32,7 +33,8 @@ Route::domain((string) config('panel.domain'))->name('panel.')->group(function (
         Route::livewire('/adaylar/{person}', PersonPage::class)->whereNumber('person')->name('person');
         Route::livewire('/gelen-kutusu', SoonPage::class)->name('inbox');
         Route::livewire('/performans', SoonPage::class)->name('performance');
-        Route::livewire('/destek', SoonPage::class)->name('support');
+        Route::livewire('/destek', SupportPage::class)->name('support');
+        Route::get('/destek/dosya/{message}', [PanelDownloadController::class, 'ticketFile'])->whereNumber('message')->middleware(PanelAuthenticate::class.':menu.support')->name('support.file');
         Route::livewire('/kullanicilar', UsersPage::class)->name('users');
     });
 });

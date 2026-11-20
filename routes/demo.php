@@ -219,6 +219,15 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
         Route::livewire('/settings/roles', \App\Livewire\Operator\Settings\RolesPage::class)->name('operator.settings.roles');
         Route::livewire('/settings/panel-users', \App\Livewire\Operator\Settings\PanelUsersPage::class)->name('operator.settings.panel-users');
+        Route::livewire('/settings/panel-support', \App\Livewire\Operator\Settings\PanelSupportPage::class)->name('operator.settings.panel-support');
+        Route::get('/settings/panel-support/file/{message}', function (string $message) {
+            abort_unless(strlen($message) <= 18, 404);
+            $user = auth()->user();
+            abort_unless($user instanceof \App\Models\User && \App\Panel\Support\OperatorAccess::allowsSection($user, 'client_panel'), 403);
+            $row = app(\App\Panel\Support\PanelContext::class)->system(fn () => \App\Panel\Models\PanelTicketMessage::query()->whereNotNull('attachment_path')->findOrFail((int) $message));
+
+            return \Illuminate\Support\Facades\Storage::disk((string) config('panel.files_disk'))->download($row->attachment_path, $row->attachment_name);
+        })->whereNumber('message')->name('operator.settings.panel-support.file');
         Route::livewire('/settings/mcp', McpKeysPage::class)->name('operator.settings.mcp');
         Route::livewire('/settings/security', SecurityCardPage::class)->name('operator.settings.security');
         Route::livewire('/settings/jobs', ScheduledJobsPage::class)->name('operator.settings.jobs');

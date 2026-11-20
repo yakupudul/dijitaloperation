@@ -40,6 +40,7 @@
                     <span class="block truncate text-sm font-semibold text-gray-900">{{ $membership?->brand?->name }}</span>
                     <span class="block truncate text-xs text-gray-500">{{ config('panel.name') }}</span>
                 </span>
+                <span class="ml-auto hidden xl:block"><livewire:panel.bell side="left" /></span>
             </div>
             <nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto pb-3 pt-1" aria-label="Ana menü">
                 @foreach ($entries as [$label, $route, $icon, $permission, $routes])
@@ -83,7 +84,8 @@
                         <button type="button" @click="menu = true" class="btn h-9! w-9! px-0!" aria-label="Menüyü aç">
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
                         </button>
-                        <span class="truncate text-sm font-semibold text-gray-900">{{ $membership?->brand?->name }}</span>
+                        <span class="min-w-0 flex-1 truncate text-sm font-semibold text-gray-900">{{ $membership?->brand?->name }}</span>
+                        <livewire:panel.bell side="right" />
                     </header>
                     <main class="mx-auto min-w-0 max-w-[1520px] px-4 pb-16 pt-6 md:px-10 md:pt-8">
                         @if (session('status'))

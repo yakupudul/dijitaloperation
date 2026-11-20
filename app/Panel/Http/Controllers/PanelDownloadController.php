@@ -19,12 +19,21 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /** Files leaving the panel: a person's attachment, and the Excel list (the brand's manager only, always logged). */
 final class PanelDownloadController
 {
-    public function file(int $file, PanelLeads $leads): StreamedResponse
+    public function file(string $file, PanelLeads $leads): StreamedResponse
     {
-        $row = PanelFile::query()->findOrFail($file);
+        abort_unless(strlen($file) <= 18, 404);
+        $row = PanelFile::query()->findOrFail((int) $file);
         abort_unless($leads->visible()->whereKey($row->person_id)->exists(), 404);
 
         return Storage::disk((string) config('panel.files_disk'))->download($row->path, $row->name);
+    }
+
+    public function ticketFile(string $message): StreamedResponse
+    {
+        abort_unless(strlen($message) <= 18, 404);
+        $row = \App\Panel\Models\PanelTicketMessage::query()->whereNotNull('attachment_path')->findOrFail((int) $message);
+
+        return Storage::disk((string) config('panel.files_disk'))->download($row->attachment_path, $row->attachment_name);
     }
 
     public function export(Request $request, PanelContext $context): BinaryFileResponse

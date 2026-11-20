@@ -54,7 +54,7 @@ final class OperatorAccess
         if ($routeName === 'operator.settings.roles') {
             return 'roles';
         }
-        if (str_starts_with($routeName, 'operator.settings.panel-users') || str_starts_with($routeName, 'operator.panel.')) {
+        if (str_starts_with($routeName, 'operator.settings.panel-users') || str_starts_with($routeName, 'operator.settings.panel-support') || str_starts_with($routeName, 'operator.panel.')) {
             return 'client_panel';
         }
         foreach (DemoMenu::groups() as $group) {

@@ -171,6 +171,7 @@ final class PanelUsersPage extends Component
         $setting = $brand ? $settings->get($brand->id) : null;
 
         return view('livewire.operator.settings.panel-users', [
+            'waitingTickets' => app(PanelContext::class)->system(fn (): int => \App\Panel\Models\PanelTicket::query()->where('status', 'open')->count()),
             'brands' => $brands,
             'settings' => $settings,
             'members' => $members,
