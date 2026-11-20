@@ -313,6 +313,12 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(JobProcessed::class, fn () => app(AiLiveOperations::class)->closeOpen());
         Event::listen(JobFailed::class, fn (JobFailed $event) => app(AiLiveOperations::class)->closeOpen(AiJobTracker::failureMessage($event->exception)));
         // Operators only: a client panel user (guard "client") is not an operator and starts no AI work.
+        // The panel host answers only its own screens, whatever middleware group a route sits in (admin, MCP, API).
+        Event::listen(\Illuminate\Routing\Events\RouteMatched::class, function (\Illuminate\Routing\Events\RouteMatched $event): void {
+            if (\App\Panel\Http\Middleware\PanelHostBoundary::isPanelHost($event->request)) {
+                abort_unless(\App\Panel\Http\Middleware\PanelHostBoundary::opens($event->request, (string) $event->route->getName()), 404);
+            }
+        });
         Event::listen(Authenticated::class, fn (Authenticated $event) => $event->guard === 'client' ? null : Context::addHidden(AiLiveOperations::USER_CONTEXT, $event->user->getAuthIdentifier()));
         $this->app->terminating(fn () => app(AiLiveOperations::class)->closeOpen());
 

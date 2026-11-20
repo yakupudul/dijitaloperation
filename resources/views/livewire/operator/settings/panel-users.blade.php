@@ -21,7 +21,7 @@
 
         <div class="min-w-0 space-y-8">
             @if (! $brand)
-                <p class="text-sm text-gray-500">Soldan bir marka seçin. Paneli açtığınız markaya yönetici ve kullanıcı ekleyebilirsiniz.</p>
+                <p class="text-sm text-gray-500">Bir marka seçin. Paneli açtığınız markaya yönetici ve kullanıcı ekleyebilirsiniz.</p>
             @else
                 <section class="flex flex-wrap items-start justify-between gap-3" data-panel-brand>
                     <div class="min-w-0">

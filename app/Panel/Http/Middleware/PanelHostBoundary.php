@@ -29,9 +29,8 @@ final class PanelHostBoundary
 
         Auth::shouldUse('client');
         $name = (string) $request->route()?->getName();
-        $livewire = str_contains($name, 'livewire') || str_starts_with($request->path(), 'livewire');
-        abort_unless($livewire || str_starts_with($name, 'panel.'), 404);
-        if ($livewire) {
+        abort_unless(self::opens($request, $name), 404);
+        if (self::isLivewire($request, $name)) {
             $this->refuseForeignComponents($request);
         }
 
@@ -48,6 +47,17 @@ final class PanelHostBoundary
         }
 
         return $next($request);
+    }
+
+    /** Whether a route may answer on the panel host: the client screens and Livewire's own endpoints, nothing else. */
+    public static function opens(Request $request, string $routeName): bool
+    {
+        return self::isLivewire($request, $routeName) || str_starts_with($routeName, 'panel.');
+    }
+
+    private static function isLivewire(Request $request, string $routeName): bool
+    {
+        return str_contains($routeName, 'livewire') || str_starts_with($request->path(), 'livewire');
     }
 
     public static function isPanelHost(Request $request): bool

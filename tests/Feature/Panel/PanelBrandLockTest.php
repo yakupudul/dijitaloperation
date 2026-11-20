@@ -124,4 +124,13 @@ class PanelBrandLockTest extends PanelTestCase
         $this->post($this->url('/giris'), ['email' => 'a@example.test', 'password' => 'secret-pass-1'])->assertSessionHasErrors('email');
         $this->post($this->url('/giris'), ['email' => 'a@example.test', 'password' => 'wrong'])->assertSessionHasErrors('email');
     }
+
+    public function test_the_panel_host_answers_nothing_but_the_panel(): void
+    {
+        foreach (['/admin/login', '/admin', '/settings/roles', '/onay', '/up', '/login'] as $path) {
+            $this->get($this->url($path))->assertNotFound();
+        }
+        $this->postJson($this->url('/'.config('moxdop-mcp.path', 'mcp/moxdop')), [])->assertNotFound();
+        $this->get($this->url('/giris'))->assertOk();
+    }
 }
