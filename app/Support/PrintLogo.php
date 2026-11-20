@@ -22,7 +22,8 @@ use Throwable;
  *
  * Most client hosts refuse the MoxDOP server (yakup 2026-11-20 "logolar görünmüyor": every card fell back to the
  * name). So the home page falls back to MoxDOP's own stored copy of it (the crawl / connector export), and an image
- * the host refuses is fetched through the public image proxy wsrv.nl (vectors come back as a 1200 px PNG).
+ * the host refuses is fetched through the public image proxy wsrv.nl (vectors come back as a 1200 px PNG). A site
+ * with no stored copy yet (a new one) is read through r.jina.ai.
  */
 final class PrintLogo
 {
@@ -31,6 +32,8 @@ final class PrintLogo
     private const TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml'];
 
     private const PROXY = 'https://wsrv.nl/';
+
+    private const READER = 'https://r.jina.ai/';
 
     /** Set once the host refused the home page: its images go straight through the proxy. */
     private static bool $hostRefuses = false;
@@ -64,6 +67,7 @@ final class PrintLogo
         $html = self::fetch($origin.'/')['body'] ?? '';
         self::$hostRefuses = $html === '';
         $html = $html !== '' ? $html : (string) $storedHtml;
+        $html = $html !== '' ? $html : self::pageViaReader($origin);
         if ($html === '') {
             return null;
         }
@@ -252,6 +256,19 @@ final class PrintLogo
 
             return null;
         }
+    }
+
+    /** The home page rendered by r.jina.ai (its own servers fetch it), for a host that refuses us with no stored copy. */
+    private static function pageViaReader(string $origin): string
+    {
+        try {
+            $response = Http::timeout(20)->connectTimeout(5)->withHeaders(['X-Return-Format' => 'html'])->get(self::READER.$origin.'/');
+        } catch (Throwable) {
+            return '';
+        }
+        $body = (string) $response->body();
+
+        return $response->successful() && strlen($body) <= 3_000_000 && stripos($body, '<html') !== false ? $body : '';
     }
 
     /** An image through wsrv.nl (its own servers fetch it); a vector is rasterised 1200 px wide. */
