@@ -16,6 +16,7 @@ final class PanelSources
             'facebook' => 'Facebook',
             'google_ads' => 'Google Ads',
             'meta_ads' => 'Meta reklamı',
+            'meta_form' => 'Meta formu',
             'google_profile' => 'Google işletme profili',
             'referral' => 'Tavsiye',
             'walk_in' => 'Kapıdan gelen',

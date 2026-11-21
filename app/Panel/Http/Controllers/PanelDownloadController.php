@@ -60,4 +60,15 @@ final class PanelDownloadController
 
         return response()->download($path, 'adaylar-'.now()->timezone('Europe/Istanbul')->format('Y-m-d').'.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])->deleteFileAfterSend(true);
     }
+
+    /** An empty list with the right column titles, so the first upload matches without any mapping. */
+    public function sample(Request $request): BinaryFileResponse
+    {
+        $calls = $request->query('tur') === 'calls';
+        $path = tempnam(sys_get_temp_dir(), 'panel-xlsx-');
+        Xlsx::write($path, $calls ? ['Telefon', 'Ad soyad', 'Tarih', 'Not'] : ['Ad soyad', 'Telefon', 'E-posta', 'İlgilendiği konu', 'Kaynak', 'Şehir', 'İlçe', 'Not', 'Tarih'],
+            [$calls ? ['0532 000 00 00', 'Örnek Kişi', now()->timezone('Europe/Istanbul')->format('d.m.Y H:i'), 'Fiyat sordu'] : ['Örnek Kişi', '0532 000 00 00', '', 'Bilgi', 'Tavsiye', 'Manisa', 'Yunusemre', 'Eski listemizden', now()->timezone('Europe/Istanbul')->format('d.m.Y')]], $calls ? 'Çağrılar' : 'Adaylar');
+
+        return response()->download($path, ($calls ? 'cagri' : 'aday').'-listesi-ornek.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])->deleteFileAfterSend(true);
+    }
 }

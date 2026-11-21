@@ -62,6 +62,10 @@ abstract class PanelTestCase extends TestCase
 
     protected function asPanel(PanelUser $user): static
     {
+        // One browser, one user: the brand a previous user chose in this test's session is not carried over.
+        $this->flushSession();
+        app(PanelContext::class)->leave();
+
         return $this->actingAs($user, 'client');
     }
 

@@ -199,6 +199,7 @@ final class LeadsPage extends Component
             'team' => $this->may('leads.all') ? PanelMembership::query()->with('user:id,name')->where('brand_id', $this->panel()->brandId())->where('is_active', true)->get()->pluck('user.name', 'panel_user_id') : collect(),
             'showPhone' => $this->may('leads.phone'),
             'canAdd' => $this->may('leads.create'),
+            'canImport' => $this->may('import.leads'),
             'canMove' => $this->may('leads.stage'),
             'isManager' => $this->panel()->isManager(),
             'interests' => $this->adding ? $presets->interests() : collect(),

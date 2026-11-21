@@ -32,6 +32,9 @@
             @if ($isManager)
                 <a href="{{ route('panel.export.leads', array_filter(['asama' => $stage])) }}" class="btn flex-1 sm:flex-none" data-panel-export>Excel'e aktar</a>
             @endif
+            @if ($canImport)
+                <a href="{{ route('panel.import') }}" wire:navigate class="btn flex-1 sm:flex-none">Excel'den yükle</a>
+            @endif
             <a href="{{ route('panel.presets') }}" wire:navigate class="btn flex-1 sm:flex-none">Hazır listeler</a>
             @if ($canAdd)
                 <button type="button" wire:click="$set('adding', true)" class="btn-primary flex-1 sm:flex-none">Aday ekle</button>

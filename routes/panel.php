@@ -1,6 +1,8 @@
 <?php
 
 use App\Livewire\Panel\HomePage;
+use App\Livewire\Panel\ImportPage;
+use App\Livewire\Panel\InboxPage;
 use App\Livewire\Panel\LeadsPage;
 use App\Livewire\Panel\PersonPage;
 use App\Livewire\Panel\PresetsPage;
@@ -9,6 +11,7 @@ use App\Livewire\Panel\SupportPage;
 use App\Livewire\Panel\UsersPage;
 use App\Panel\Http\Controllers\PanelAuthController;
 use App\Panel\Http\Controllers\PanelDownloadController;
+use App\Panel\Http\Controllers\PanelImportController;
 use App\Panel\Http\Middleware\PanelAuthenticate;
 use Illuminate\Support\Facades\Route;
 
@@ -30,8 +33,11 @@ Route::domain((string) config('panel.domain'))->name('panel.')->group(function (
         Route::livewire('/', HomePage::class)->name('home');
         Route::livewire('/adaylar', LeadsPage::class)->name('leads');
         Route::livewire('/adaylar/hazir-listeler', PresetsPage::class)->name('presets');
+        Route::livewire('/adaylar/ice-aktar', ImportPage::class)->name('import');
+        Route::get('/adaylar/ice-aktar/ornek', [PanelDownloadController::class, 'sample'])->middleware(PanelAuthenticate::class.':import.leads')->name('import.sample');
         Route::livewire('/adaylar/{person}', PersonPage::class)->whereNumber('person')->name('person');
-        Route::livewire('/gelen-kutusu', SoonPage::class)->name('inbox');
+        Route::livewire('/gelen-kutusu', InboxPage::class)->name('inbox');
+        Route::post('/gelen-kutusu/yedek/{import}/parca', [PanelImportController::class, 'chunk'])->middleware(PanelAuthenticate::class.':manager')->name('inbox.backup.chunk');
         Route::livewire('/performans', SoonPage::class)->name('performance');
         Route::livewire('/destek', SupportPage::class)->name('support');
         Route::get('/destek/dosya/{message}', [PanelDownloadController::class, 'ticketFile'])->whereNumber('message')->middleware(PanelAuthenticate::class.':menu.support')->name('support.file');

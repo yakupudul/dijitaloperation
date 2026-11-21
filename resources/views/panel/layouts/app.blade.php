@@ -9,7 +9,7 @@
     $current = (string) request()->route()?->getName();
     $entries = array_values(array_filter([
         ['Ana sayfa', 'panel.home', 'dashboard', 'menu.home', ['panel.home']],
-        ['Adaylar', 'panel.leads', 'customers', 'menu.leads', ['panel.leads', 'panel.person', 'panel.presets']],
+        ['Adaylar', 'panel.leads', 'customers', 'menu.leads', ['panel.leads', 'panel.person', 'panel.presets', 'panel.import']],
         ['Gelen kutusu', 'panel.inbox', 'inbox', 'menu.inbox', ['panel.inbox']],
         ['Performans', 'panel.performance', 'report', 'menu.performance', ['panel.performance']],
         ['Destek', 'panel.support', 'chat', 'menu.support', ['panel.support']],
