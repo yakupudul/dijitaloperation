@@ -37,7 +37,7 @@ return new class extends Migration
             $table->id();
             $table->string('object', 32);
             $table->string('payload_hash', 64)->unique();
-            $table->json('payload')->nullable();
+            $table->longText('payload')->nullable();
             $table->string('status', 16)->default('pending');
             $table->unsignedInteger('accepted_count')->default(0);
             $table->unsignedInteger('ignored_count')->default(0);
