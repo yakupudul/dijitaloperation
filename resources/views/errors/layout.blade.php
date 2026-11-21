@@ -1,10 +1,24 @@
 {{-- Türkçe hata sayfaları (Aşama 11, 2026-10-22): one plain page, no app assets, so it renders even when the app is broken. --}}
+@php
+    // The client panel speaks to a brand's staff: formal wording, its own name, no operator terms.
+    $onPanel = strcasecmp(request()->getHost(), (string) config('panel.domain')) === 0;
+    $panelText = [
+        '401' => ['Önce <mark>giriş</mark> yapın', 'Bu sayfayı görmek için oturum açmanız gerekiyor.'],
+        '403' => ['Bu sayfaya <mark>yetkiniz</mark> yok', 'Hesabınızın bu ekranı açma izni yok. Gerekirse yöneticinizden yetki isteyin.'],
+        '404' => ['Bu sayfa <mark>bulunamadı</mark>', 'Adres yanlış yazılmış ya da sayfa kaldırılmış olabilir.'],
+        '419' => ['Sayfanın <mark>süresi doldu</mark>', 'Sayfa uzun süre açık kaldı. Sayfayı yenileyip yeniden deneyin.'],
+        '429' => ['Biraz <mark>bekleyin</mark>', 'Kısa sürede çok fazla istek geldi. Bir dakika bekleyip yeniden deneyin.'],
+        '500' => ['Bir şeyler <mark>ters gitti</mark>', 'Hata kaydedildi. Biraz sonra yeniden deneyin.'],
+        '503' => ['Panel kısa bir <mark>bakımda</mark>', 'Yeni sürüm yükleniyor. Birkaç dakika sonra yeniden deneyin.'],
+    ][trim($__env->yieldContent('code'))] ?? null;
+    $onPanel = $onPanel && $panelText !== null;
+@endphp
 <!doctype html>
 <html lang="tr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title') · MoxDOP</title>
+    <title>@yield('title') · {{ $onPanel ? 'Moximu Panel' : 'MoxDOP' }}</title>
     <style>
         :root { --bg: #f7f6f1; --fg: #1d1c18; --muted: #6b685e; --accent: #f5c400; --card: #ffffff; --line: #e6e3d8; }
         @media (prefers-color-scheme: dark) { :root { --bg: #15140f; --fg: #f2f0e8; --muted: #a29f93; --card: #1f1e18; --line: #2f2d25; color-scheme: dark; } }
@@ -19,15 +33,19 @@
         a { display: inline-flex; align-items: center; height: 38px; padding: 0 16px; border-radius: 999px; font-weight: 600; text-decoration: none; }
         .main { background: var(--fg); color: var(--bg); }
         .quiet { color: var(--fg); border: 1px solid var(--line); }
+        @if ($onPanel)
+        :root { --bg: #f4f4f5; --fg: #18181b; --muted: #6b7280; --accent: #fdcf3c; --card: #ffffff; --line: #e5e7eb; color-scheme: light; }
+        .main { background: #fdcf3c; color: #18181b; }
+        @endif
     </style>
 </head>
 <body>
     <main class="card">
         <div class="code">@yield('code')</div>
-        <h1>@yield('heading')</h1>
-        <p>@yield('message')</p>
+        <h1>@if ($onPanel){!! $panelText[0] !!}@else @yield('heading') @endif</h1>
+        <p>@if ($onPanel){{ $panelText[1] }}@else @yield('message') @endif</p>
         <div class="actions">
-            <a class="main" href="{{ url('/') }}">Komuta'ya dön</a>
+            <a class="main" href="{{ url('/') }}">{{ $onPanel ? 'Ana sayfaya dön' : "Komuta'ya dön" }}</a>
             <a class="quiet" href="javascript:history.back()">Geri git</a>
         </div>
     </main>

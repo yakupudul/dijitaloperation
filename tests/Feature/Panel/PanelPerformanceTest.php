@@ -47,4 +47,15 @@ class PanelPerformanceTest extends PanelTestCase
         $sales = $this->member($this->brandA, 'satis@example.test', role: 'Satış');
         $this->asPanel($sales)->get($this->url('/performans'))->assertForbidden();
     }
+
+    public function test_error_pages_speak_to_the_brand_on_the_panel_and_to_the_operator_elsewhere(): void
+    {
+        foreach (['401', '403'] as $code) {
+            $html = view('errors.'.$code)->render();
+            $this->assertStringNotContainsString('@endsection', $html);
+            $this->assertStringContainsString('Komuta', $html);
+        }
+        $this->asPanel($this->managerA)->get($this->url('/adaylar/999999'))->assertNotFound()
+            ->assertSee('Ana sayfaya dön')->assertSee('Moximu Panel')->assertDontSee('Komuta')->assertDontSee('@endsection');
+    }
 }
