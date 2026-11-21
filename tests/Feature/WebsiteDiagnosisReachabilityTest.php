@@ -48,7 +48,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
 
         $this->assertSame('completed', $run->status);
 
-        $evidence = Evidence::query()->where('run_id', $run->id)->where('type', 'http_fetch')->first();
+        $evidence = Evidence::query()->where('run_id', $run->id)->where('type', 'http_fetch')->where('title', 'Primary URL HTTP fetch')->first();
         $this->assertNotNull($evidence);
         $this->assertNull($evidence->payload['status_code']);
         $this->assertFalse($evidence->payload['response_is_ok']);
@@ -77,7 +77,7 @@ class WebsiteDiagnosisReachabilityTest extends TestCase
 
         $run = app(WebsiteDiagnosisService::class)->diagnose($asset);
 
-        $evidence = Evidence::query()->where('run_id', $run->id)->where('type', 'http_fetch')->first();
+        $evidence = Evidence::query()->where('run_id', $run->id)->where('type', 'http_fetch')->where('title', 'Primary URL HTTP fetch')->first();
         $this->assertSame(404, $evidence->payload['status_code']);
         $this->assertFalse($evidence->payload['response_is_ok']);
         $this->assertSame(0, Finding::query()->where('category', 'availability')->count());
