@@ -7,10 +7,12 @@ use App\Models\User;
 use App\Panel\Models\AccessRole;
 use App\Panel\Models\PanelAudit;
 use App\Panel\Models\PanelBrandSetting;
+use App\Panel\Models\PanelChannel;
 use App\Panel\Models\PanelMembership;
 use App\Panel\Models\PanelPerson;
 use App\Panel\Models\PanelTicket;
 use App\Panel\Services\PanelAccounts;
+use App\Panel\Services\PanelChannels;
 use App\Panel\Services\PanelWatch;
 use App\Panel\Support\OperatorAccess;
 use App\Panel\Support\PanelContext;
@@ -18,6 +20,8 @@ use App\Panel\Support\PanelPermissions;
 use App\Support\Roles;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -41,6 +45,9 @@ final class PanelUsersPage extends Component
     public string $roleId = '';
 
     public bool $asManager = false;
+
+    /** The channel being connected for the open brand: kind, the id Meta's events carry, account id, label, token. */
+    public array $channelForm = ['channel' => '', 'external_id' => '', 'account_id' => '', 'label' => '', 'token' => ''];
 
     public ?array $handover = null;
 
@@ -121,6 +128,43 @@ final class PanelUsersPage extends Component
         $this->say($setting->is_read_only ? 'Marka salt okunur: kullanıcıları görür ve indirir, değiştiremez.' : 'Marka yeniden kayıt girebilir.');
     }
 
+    public function startChannel(string $channel): void
+    {
+        abort_unless(isset(PanelChannel::KINDS[$channel]), 422);
+        $this->channelForm = ['channel' => $channel, 'external_id' => '', 'account_id' => '', 'label' => '', 'token' => ''];
+        $this->resetValidation();
+    }
+
+    /** Binds a number, account or page to this brand; from then on Meta's events for it land in the brand's inbox. */
+    public function connectChannel(PanelChannels $channels): void
+    {
+        $data = $this->validate([
+            'channelForm.channel' => ['required', Rule::in(array_keys(PanelChannel::KINDS))],
+            'channelForm.external_id' => ['required', 'string', 'max:40'],
+            'channelForm.account_id' => ['nullable', 'string', 'max:40'],
+            'channelForm.label' => ['nullable', 'string', 'max:120'],
+            'channelForm.token' => [$this->channelForm['channel'] === 'meta_form' ? 'required' : 'nullable', 'string', 'max:1000'],
+        ], ['channelForm.token.required' => 'Form cevaplarını okumak için sayfanın erişim anahtarı gerekir.'], ['channelForm.external_id' => 'kimlik', 'channelForm.token' => 'erişim anahtarı'])['channelForm'];
+        try {
+            $channels->connect((int) $this->brand()->id, $data['channel'], $data['external_id'], $data['account_id'] ?? null, $data['label'] ?? null, $data['token'] ?? null, $this->actor());
+        } catch (ValidationException $exception) {
+            $this->addError('channelForm.external_id', collect($exception->errors())->flatten()->first());
+
+            return;
+        }
+        $this->log('brand.channel.connected.'.$data['channel']);
+        $this->channelForm = ['channel' => '', 'external_id' => '', 'account_id' => '', 'label' => '', 'token' => ''];
+        $this->say(PanelChannel::KINDS[$data['channel']][0].' bağlandı.');
+    }
+
+    public function disconnectChannel(int $id, PanelChannels $channels): void
+    {
+        $channel = app(PanelContext::class)->system(fn () => PanelChannel::query()->where('brand_id', (int) $this->brand()->id)->findOrFail($id));
+        $channels->disconnect($channel, 'Moximu bağlantıyı kapattı.');
+        $this->log('brand.channel.disconnected.'.$channel->channel);
+        $this->say(PanelChannel::KINDS[$channel->channel][0].' bağlantısı kesildi. Yazışmalar duruyor.');
+    }
+
     public function renewFormAddress(): void
     {
         PanelBrandSetting::forBrand((int) $this->brand()->id)->update(['form_token' => Str::random(48)]);
@@ -196,6 +240,7 @@ final class PanelUsersPage extends Component
         return view('livewire.operator.settings.panel-users', [
             'waitingTickets' => app(PanelContext::class)->system(fn (): int => PanelTicket::query()->where('status', 'open')->count()),
             'brands' => $brands,
+            'channels' => $brand ? app(PanelContext::class)->system(fn () => PanelChannel::query()->where('brand_id', $brand->id)->get()->keyBy('channel')) : collect(),
             'idle' => app(PanelWatch::class)->idleBrands(),
             'settings' => $settings,
             'members' => $members,

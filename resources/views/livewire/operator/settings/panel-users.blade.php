@@ -132,6 +132,57 @@
                         <button type="button" wire:click="renewFormAddress" wire:confirm="Form adresi yenilensin mi? Eski adres çalışmaz olur." class="btn mt-3">Adresi yenile</button>
                     </section>
 
+                    <section data-panel-channels>
+                        <div class="section-head"><h3 class="section-title">Mesaj kanalları</h3></div>
+                        <p class="max-w-[75ch] text-sm text-gray-600 dark:text-gray-400">Markanın kendi WhatsApp numarası, Instagram hesabı, Facebook sayfası ve Meta formları. Bağlanan kanala gelen her mesaj markanın Gelen kutusu'na düşer, ilk kez yazan kişi aday olur. Panelden mesaj gönderilmez. Burada yalnız bağlantı durumu görünür, yazışmalar görünmez.</p>
+                        <div class="card mt-3">
+                            @foreach (\App\Panel\Models\PanelChannel::KINDS as $key => [$label, $idLabel])
+                                @php($row = $channels->get($key))
+                                <div class="card-row flex-wrap" wire:key="channel-{{ $key }}">
+                                    <span class="min-w-0 flex-1">
+                                        <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ $label }}{{ $row?->label ? ', '.$row->label : '' }}</span>
+                                        <span class="block text-[13px] text-gray-500">
+                                            @if (! $row) Bağlı değil.
+                                            @elseif (! $row->isConnected()) {{ $row->last_error ?: 'Bağlantı kesildi.' }}
+                                            @else Kimlik {{ $row->external_id }}. {{ $row->last_event_at ? 'Son olay '.$row->last_event_at->timezone('Europe/Istanbul')->diffForHumans().'.' : 'Henüz olay gelmedi.' }} @endif
+                                        </span>
+                                    </span>
+                                    <x-ta.pill :tone="! $row ? 'info' : ($row->isConnected() ? 'ok' : 'critical')">{{ ! $row ? 'Bağlı değil' : ($row->isConnected() ? 'Bağlı' : 'Kesildi') }}</x-ta.pill>
+                                    @if ($row?->isConnected())
+                                        <button type="button" wire:click="disconnectChannel({{ $row->id }})" wire:confirm="{{ $label }} bağlantısı kesilsin mi? Markanın eski yazışmaları durur, yenileri düşmez." class="btn">Bağlantıyı kes</button>
+                                    @else
+                                        <button type="button" wire:click="startChannel('{{ $key }}')" class="btn">{{ $row ? 'Yeniden bağla' : 'Bağla' }}</button>
+                                    @endif
+                                </div>
+                                @if ($channelForm['channel'] === $key)
+                                    <form wire:submit="connectChannel" class="grid gap-3 border-b border-gray-100 bg-gray-50 px-4 py-4 sm:grid-cols-2 dark:border-gray-800 dark:bg-white/[0.03]" data-panel-channel-form>
+                                        <label class="block"><span class="mb-1 block text-[13px] font-medium text-gray-700 dark:text-gray-300">{{ $idLabel }}</span>
+                                            <input type="text" wire:model="channelForm.external_id" class="{{ $input }}" autocomplete="off" inputmode="numeric">
+                                            @error('channelForm.external_id')<span class="mt-1 block text-[13px] text-error-600">{{ $message }}</span>@enderror
+                                        </label>
+                                        <label class="block"><span class="mb-1 block text-[13px] font-medium text-gray-700 dark:text-gray-300">{{ $key === 'whatsapp' ? 'Görünen numara' : 'Görünen ad' }}</span>
+                                            <input type="text" wire:model="channelForm.label" class="{{ $input }}" autocomplete="off" placeholder="{{ $key === 'whatsapp' ? '+90 5xx xxx xx xx' : '@hesap ya da sayfa adı' }}">
+                                        </label>
+                                        @if ($key === 'whatsapp')
+                                            <label class="block"><span class="mb-1 block text-[13px] font-medium text-gray-700 dark:text-gray-300">WhatsApp Business hesap kimliği (WABA ID)</span>
+                                                <input type="text" wire:model="channelForm.account_id" class="{{ $input }}" autocomplete="off" inputmode="numeric">
+                                            </label>
+                                        @endif
+                                        <label class="block"><span class="mb-1 block text-[13px] font-medium text-gray-700 dark:text-gray-300">Erişim anahtarı{{ $key === 'meta_form' ? '' : ' (isteğe bağlı)' }}</span>
+                                            <input type="password" wire:model="channelForm.token" class="{{ $input }}" autocomplete="new-password">
+                                            @error('channelForm.token')<span class="mt-1 block text-[13px] text-error-600">{{ $message }}</span>@enderror
+                                        </label>
+                                        <div class="flex gap-2 sm:col-span-2">
+                                            <button type="submit" class="btn-primary">Bağla</button>
+                                            <button type="button" wire:click="$set('channelForm.channel', '')" class="btn-quiet">Vazgeç</button>
+                                        </div>
+                                    </form>
+                                @endif
+                            @endforeach
+                        </div>
+                        <p class="mt-2 max-w-[75ch] break-all text-[13px] text-gray-500">Meta uygulamasında Instagram ve Sayfa olaylarının gideceği adres: <span class="font-mono">{{ route('api.panel.channels.webhook') }}</span>. Doğrulama anahtarı WhatsApp bağlantısındakiyle aynıdır. WhatsApp numaraları için ek adres gerekmez.</p>
+                    </section>
+
                     <section data-panel-modules>
                         <div class="section-head"><h3 class="section-title">Bu markada neler açık</h3></div>
                         <p class="max-w-[75ch] text-sm text-gray-600 dark:text-gray-400">Kapattığınız bölüm, markanın yöneticisi dahil bütün kullanıcılarında menüden kalkar. Kayıtlar silinmez.</p>

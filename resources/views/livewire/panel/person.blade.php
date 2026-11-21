@@ -225,6 +225,9 @@
                         <div class="flex gap-4 py-2.5"><dt class="w-28 shrink-0 text-gray-500">{{ $label }}</dt><dd class="min-w-0 text-gray-900">{{ $value }}</dd></div>
                     @endforeach
                 </dl>
+                @foreach ($chats as $chat)
+                    <a href="{{ route('panel.inbox', ['kanal' => $chat->channel, 'kayit' => $chat->id]) }}" wire:navigate class="mt-3 block text-sm font-medium text-gray-900 underline" data-panel-chat-link>{{ \App\Panel\Models\PanelChannel::KINDS[$chat->channel][0] ?? 'Yazışma' }} yazışmasını aç ({{ $chat->message_count }} mesaj)</a>
+                @endforeach
                 @if ($can['assign'])
                     <label class="mt-4 block"><span class="mb-1.5 block text-[13px] font-medium text-gray-700">İlgilenen kişi</span>
                         <select wire:change="assign($event.target.value)" class="{{ $input }}">

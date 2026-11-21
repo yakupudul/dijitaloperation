@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Panel;
 
+use App\Panel\Models\PanelConversation;
 use App\Panel\Models\PanelEvent;
 use App\Panel\Models\PanelFile;
 use App\Panel\Models\PanelMembership;
@@ -9,6 +10,7 @@ use App\Panel\Models\PanelPerson;
 use App\Panel\Models\PanelPreset;
 use App\Panel\Models\PanelReminder;
 use App\Panel\Services\PanelLeads;
+use App\Panel\Services\PanelNotifier;
 use App\Panel\Services\PanelPresets;
 use App\Panel\Support\PanelPage;
 use App\Panel\Support\PanelStages;
@@ -210,7 +212,7 @@ final class PersonPage extends Component
         $person->forceFill(['assigned_user_id' => $id])->save();
         $leads->event($person, PanelEvent::ASSIGNED, null, ['to' => $id], $this->actor());
         if ($id !== null && $id !== $this->actor()) {
-            app(\App\Panel\Services\PanelNotifier::class)->user((int) $person->brand_id, $id, 'assigned', 'Size atandı: '.$person->name, route('panel.person', $person->id));
+            app(PanelNotifier::class)->user((int) $person->brand_id, $id, 'assigned', 'Size atandı: '.$person->name, route('panel.person', $person->id));
         }
         $this->notify($id ? 'İlgilenen kişi değişti.' : 'İlgilenen kişi kaldırıldı.');
     }
@@ -276,6 +278,8 @@ final class PersonPage extends Component
             'reminders' => $this->tab === 'reminders' ? PanelReminder::query()->with('user:id,name')->where('person_id', $person->id)->orderByRaw('done_at is not null')->orderBy('due_at')->get() : collect(),
             'files' => $this->tab === 'files' && $this->may('files.view') ? PanelFile::query()->with('user:id,name')->where('person_id', $person->id)->latest()->get() : collect(),
             'requestCount' => $person->requests()->count(),
+            'chats' => $this->may('menu.inbox') ? PanelConversation::query()->where('person_id', $person->id)->get(['id', 'channel', 'message_count'])
+                ->filter(fn ($chat): bool => $this->may('inbox.'.($chat->channel === 'facebook' ? 'instagram' : $chat->channel)))->values() : collect(),
             'team' => PanelMembership::query()->with('user:id,name')->where('brand_id', $this->panel()->brandId())->where('is_active', true)->get()->pluck('user.name', 'panel_user_id'),
             'showPhone' => $this->may('leads.phone'),
             'interests' => $this->editing ? $presets->interests() : collect(),

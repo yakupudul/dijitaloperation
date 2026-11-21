@@ -34,7 +34,7 @@ final class PanelLeads
      * A request arrived (site form, a call written by hand, a walk-in). The phone number decides whether this is a
      * known person of the brand; a known person gets a new request on the same record.
      *
-     * @param  array{name?: ?string, phone?: ?string, email?: ?string, interest?: ?string, message?: ?string, city?: ?string, district?: ?string, gender?: ?string, birth_year?: ?int, meta?: array<string, mixed>, assigned_user_id?: ?int}  $data
+     * @param  array{name?: ?string, phone?: ?string, email?: ?string, interest?: ?string, message?: ?string, city?: ?string, district?: ?string, gender?: ?string, birth_year?: ?int, meta?: array<string, mixed>, assigned_user_id?: ?int, person_id?: ?int}  $data
      */
     public function record(int $brandId, array $data, string $source, ?int $actorId = null): PanelPerson
     {
@@ -47,7 +47,9 @@ final class PanelLeads
         $name = trim((string) ($data['name'] ?? '')) ?: ($phone !== '' ? $phone : 'İsimsiz');
 
         $person = $this->context->system(fn (): PanelPerson => DB::transaction(function () use ($brandId, $data, $source, $phone, $key, $name, $actorId): PanelPerson {
-            $person = $key !== null ? PanelPerson::query()->where('brand_id', $brandId)->where('phone_key', $key)->lockForUpdate()->first() : null;
+            // A channel that knows the person already (a chat without a phone number) names them itself.
+            $person = ! empty($data['person_id']) ? PanelPerson::query()->where('brand_id', $brandId)->lockForUpdate()->find((int) $data['person_id']) : null;
+            $person ??= $key !== null ? PanelPerson::query()->where('brand_id', $brandId)->where('phone_key', $key)->lockForUpdate()->first() : null;
             $isNew = $person === null;
             if ($isNew) {
                 $person = new PanelPerson;

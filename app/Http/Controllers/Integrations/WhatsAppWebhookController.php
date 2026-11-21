@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Integrations;
 use App\Jobs\WhatsApp\ProcessWhatsAppReceipt;
 use App\Models\CoreIntegration;
 use App\Models\WhatsAppWebhookReceipt;
+use App\Panel\Services\PanelChannels;
 use App\Services\WhatsApp\WhatsAppConnection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +58,14 @@ final class WhatsAppWebhookController
                 'payload_hash' => hash('sha256', $raw),
             ], ['payload' => $payload, 'status' => 'pending']);
         });
+
+        // A brand's own number, subscribed to the same Meta app, reports here too: its events go to that brand's panel
+        // (the agency inbox below ignores every WABA but its own).
+        try {
+            app(PanelChannels::class)->accept((array) json_decode($raw, true), $raw);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
 
         // Durable receipt first, then process it right away; the scheduler dispatches it if Redis is down.
         if ($receipt->status === 'pending') {

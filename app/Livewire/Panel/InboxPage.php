@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Panel;
 
+use App\Panel\Models\PanelChannel;
 use App\Panel\Models\PanelConversation;
 use App\Panel\Models\PanelEvent;
 use App\Panel\Models\PanelImport;
@@ -338,6 +339,7 @@ final class InboxPage extends Component
             'lastNotes' => $person ? PanelEvent::query()->with('user:id,name')->where('person_id', $person->id)->whereIn('type', [PanelEvent::NOTE, PanelEvent::CALL])->orderByDesc('occurred_at')->limit(3)->get() : collect(),
             'team' => $person && $this->may('leads.assign') ? PanelMembership::query()->with('user:id,name')->where('brand_id', $this->panel()->brandId())->where('is_active', true)->get()->pluck('user.name', 'panel_user_id') : collect(),
             'showPhone' => $showPhone,
+            'link' => in_array($this->channel, array_keys(PanelChannel::KINDS), true) ? PanelChannel::query()->where('channel', $this->channel)->first() : null,
             'manager' => $manager,
             'imports' => $manager && $this->channel === 'whatsapp' ? PanelImport::query()->where('kind', PanelImport::BACKUP)->latest('id')->limit(5)->get() : collect(),
             'can' => [

@@ -2,14 +2,16 @@
 
 use App\Http\Controllers\Calendar\QuickCaptureController;
 use App\Http\Controllers\Integrations\WhatsAppWebhookController;
-use App\Http\Controllers\Operator\FinanceFilesController;
 use App\Http\Controllers\Integrations\WordPressConnectorCommandsController;
 use App\Http\Controllers\Integrations\WordPressConnectorEventsController;
 use App\Http\Controllers\Integrations\WordPressConnectorPairController;
 use App\Http\Controllers\Integrations\WordPressConnectorReleaseController;
 use App\Http\Controllers\Integrations\WordPressThemeReleaseController;
+use App\Http\Controllers\Operator\FinanceFilesController;
 use App\Http\Controllers\Sales\LeadFormController;
 use App\Http\Controllers\Sales\PhoneBackupController;
+use App\Panel\Http\Controllers\PanelChannelWebhookController;
+use App\Panel\Http\Controllers\PanelIntakeController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/connectors/wordpress/pair', WordPressConnectorPairController::class)
@@ -49,6 +51,12 @@ Route::get('/whatsapp/webhook', [WhatsAppWebhookController::class, 'verify'])
 Route::post('/whatsapp/webhook', [WhatsAppWebhookController::class, 'receive'])
     ->middleware('throttle:300,1')->name('api.whatsapp.receive');
 
+// Müşteri paneli, Sürüm 3: Meta's events for the brands' own channels (WhatsApp, Instagram, Messenger, lead forms).
+Route::get('/panel/kanal/webhook', [PanelChannelWebhookController::class, 'verify'])
+    ->middleware('throttle:30,1')->name('api.panel.channels.webhook');
+Route::post('/panel/kanal/webhook', [PanelChannelWebhookController::class, 'receive'])
+    ->middleware('throttle:600,1')->name('api.panel.channels.receive');
+
 // Telefon bağlantısı (2026-11-04): a tiny WebDAV folder the phone (FolderSync) puts its WhatsApp backup on every morning.
 Route::match(['OPTIONS', 'GET', 'HEAD', 'PUT', 'PROPFIND', 'PROPPATCH', 'MKCOL', 'DELETE', 'MOVE', 'COPY', 'LOCK', 'UNLOCK'], '/telefon-yedek/{path?}', PhoneBackupController::class)
     ->where('path', '.*')->middleware('throttle:120,1,phone-backup')->name('api.phone-backup');
@@ -63,6 +71,6 @@ Route::post('/hizli-not/{reminder}/tik', [QuickCaptureController::class, 'toggle
 
 // Müşteri paneli: a brand's site form posts here (no session, no CSRF); the secret token in the address names the brand.
 Route::domain((string) config('panel.domain'))->group(function (): void {
-    Route::post('/f/{token}', \App\Panel\Http\Controllers\PanelIntakeController::class)->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:30,1')->name('panel.intake');
-    Route::options('/f/{token}', [\App\Panel\Http\Controllers\PanelIntakeController::class, 'options'])->where('token', '[A-Za-z0-9]{32,64}')->name('panel.intake.options');
+    Route::post('/f/{token}', PanelIntakeController::class)->where('token', '[A-Za-z0-9]{32,64}')->middleware('throttle:30,1')->name('panel.intake');
+    Route::options('/f/{token}', [PanelIntakeController::class, 'options'])->where('token', '[A-Za-z0-9]{32,64}')->name('panel.intake.options');
 });

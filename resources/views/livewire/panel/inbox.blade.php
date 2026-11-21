@@ -40,6 +40,18 @@
         <x-ta.empty-state size="sm" icon="none" title="Size açık bir kanal yok." message="Hangi kanalları göreceğinizi markanızın yöneticisi Kullanıcılar ekranından belirler." />
     @endif
 
+    @if ($link)
+        <p @class(['flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-4 py-2.5 text-sm', 'border-gray-200 text-gray-700' => $link->isConnected(), 'border-error-200 bg-error-50 text-error-700' => ! $link->isConnected()]) data-panel-channel-state>
+            @if ($link->isConnected())
+                <span class="inline-flex items-center gap-1.5 font-medium text-gray-900"><span class="h-2 w-2 rounded-full bg-success-500" aria-hidden="true"></span>{{ $label }} bağlı{{ $link->label ? ', '.$link->label : '' }}</span>
+                <span>{{ $link->last_event_at ? 'Son mesaj '.$link->last_event_at->timezone($tz)->diffForHumans().' geldi.' : 'İlk mesaj gelince burada görünür.' }} Yeni yazan kişi kendiliğinden aday olur.</span>
+            @else
+                <span class="font-medium">{{ $label }} bağlantısı kesildi.</span>
+                <span>Yeni mesajlar şimdilik buraya düşmüyor; eski yazışmalarınız yerinde. Moximu ilgileniyor.</span>
+            @endif
+        </p>
+    @endif
+
     @if ($backupOpen && $manager && $channel === 'whatsapp')
         <section class="card max-w-3xl space-y-4 p-5" data-panel-backup
             x-data="{
@@ -133,14 +145,14 @@
 
     @if ($channel !== '' && $total === 0)
         <section class="max-w-2xl" data-panel-inbox-empty>
-            <x-ta.empty-state size="sm" icon="none" :title="$empty[$channel][0]" :message="$empty[$channel][1]">
+            <x-ta.empty-state size="sm" icon="none" :title="$link?->isConnected() ? 'Henüz mesaj gelmedi.' : $empty[$channel][0]" :message="$link?->isConnected() ? 'Bağlantı kuruldu. İlk mesaj geldiğinde burada görünür ve zil haber verir.' : $empty[$channel][1]">
                 <div class="flex flex-wrap gap-2">
                     @if ($channel === 'whatsapp' && $manager && ! $backupOpen)
                         <button type="button" wire:click="$set('backupOpen', true)" class="btn-primary">Yedek yükle</button>
                     @endif
                     @if ($channel === 'call')
                         <a href="{{ route('panel.leads') }}" wire:navigate class="btn">Adaylar'a git</a>
-                    @elseif ($can['support'])
+                    @elseif ($can['support'] && ! $link?->isConnected())
                         <button type="button" wire:click="requestConnection" class="btn" data-panel-connect>Bağlantı iste</button>
                     @endif
                 </div>

@@ -99,8 +99,8 @@ class PanelControlTest extends PanelTestCase
         DB::table('panel_people')->where('id', $this->personA->id)->update(['last_activity_at' => now()->subDays(20)]);
         DB::table('panel_brand_settings')->update(['created_at' => now()->subDays(40)]);
 
-        $this->assertSame(['idle_users' => 1, 'summaries' => 2, 'idle_brands' => 1], app(PanelWatch::class)->run());
-        $this->assertSame(['idle_users' => 0, 'summaries' => 0, 'idle_brands' => 0], app(PanelWatch::class)->run(), 'the same warning is not repeated the next day');
+        $this->assertSame(['idle_users' => 1, 'summaries' => 2, 'idle_brands' => 1, 'silent_channels' => 0], app(PanelWatch::class)->run());
+        $this->assertSame(['idle_users' => 0, 'summaries' => 0, 'idle_brands' => 0, 'silent_channels' => 0], app(PanelWatch::class)->run(), 'the same warning is not repeated the next day');
         $this->assertSame([$this->brandB->id], app(PanelWatch::class)->idleBrands());
         $this->assertTrue(Reminder::query()->where('user_id', $admin->id)->where('title', 'like', '%Begonya%giren yok%')->exists());
 

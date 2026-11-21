@@ -1982,7 +1982,7 @@ Schedule::command('moxdop:finance:tick')
 // staff member who stopped signing in, the Monday summary, a brand nobody opened for two weeks. Bell lines only.
 Artisan::command('moxdop:panel:watch', function () {
     $done = app(PanelWatch::class)->run();
-    $this->info('Panel: '.$done['idle_users'].' girmeyen kullanıcı, '.$done['summaries'].' haftalık özet, '.$done['idle_brands'].' sessiz marka');
+    $this->info('Panel: '.$done['idle_users'].' girmeyen kullanıcı, '.$done['summaries'].' haftalık özet, '.$done['idle_brands'].' sessiz marka, '.$done['silent_channels'].' sessiz kanal');
 })->purpose('Müşteri paneli: warn a brand\'s manager about idle staff, send the Monday summary, flag silent brands.');
 
 Schedule::command('moxdop:panel:watch')

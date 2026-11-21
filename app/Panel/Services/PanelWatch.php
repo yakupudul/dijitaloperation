@@ -6,6 +6,7 @@ use App\Models\Brand;
 use App\Models\Reminder;
 use App\Models\User;
 use App\Panel\Models\PanelBrandSetting;
+use App\Panel\Models\PanelChannel;
 use App\Panel\Models\PanelMembership;
 use App\Panel\Models\PanelNotification;
 use App\Panel\Models\PanelPerson;
@@ -27,6 +28,8 @@ final class PanelWatch
     public const int STALE_DAYS = 14;
 
     public const int IDLE_WORKDAYS = 3;
+
+    public const int SILENT_DAYS = 3;
 
     public function __construct(private readonly PanelContext $context, private readonly PanelNotifier $notifier) {}
 
@@ -71,11 +74,11 @@ final class PanelWatch
     /**
      * The daily look. Each warning is told once per stretch, never repeated day after day.
      *
-     * @return array{idle_users: int, summaries: int, idle_brands: int}
+     * @return array{idle_users: int, summaries: int, idle_brands: int, silent_channels: int}
      */
     public function run(): array
     {
-        $done = ['idle_users' => 0, 'summaries' => 0, 'idle_brands' => 0];
+        $done = ['idle_users' => 0, 'summaries' => 0, 'idle_brands' => 0, 'silent_channels' => 0];
         $limit = $this->workdaysAgo(self::IDLE_WORKDAYS);
         $monday = now('Europe/Istanbul')->isMonday();
         $brands = PanelBrandSetting::query()->where('is_enabled', true)->where('is_read_only', false)->pluck('brand_id');
@@ -108,6 +111,17 @@ final class PanelWatch
                 }
             }
         }
+        // A connected channel that used to speak and has been silent for days is more often a broken link than a quiet week.
+        $silent = $this->context->system(fn () => PanelChannel::query()->where('status', PanelChannel::CONNECTED)->whereIn('channel', ['whatsapp', 'instagram', 'facebook'])
+            ->whereNotNull('last_event_at')->where('last_event_at', '<', now()->subDays(self::SILENT_DAYS))->get());
+        foreach ($silent as $channel) {
+            if (Cache::add('panel.watch.silent.'.$channel->id, true, now()->addDays(14))) {
+                $label = PanelChannel::KINDS[$channel->channel][0];
+                $this->notifier->brand((int) $channel->brand_id, 'channel', $label.' kanalından '.self::SILENT_DAYS.' gündür mesaj gelmiyor. Bağlantıyı kontrol ediyoruz.', route('panel.inbox', ['kanal' => $channel->channel]), 'menu.users');
+                $this->tellOperator((int) $channel->brand_id, $label.' kanalı '.self::SILENT_DAYS.' gündür sessiz, bağlantıyı kontrol et');
+                $done['silent_channels']++;
+            }
+        }
         foreach ($this->idleBrands() as $brandId) {
             if (Cache::add('panel.watch.brand.'.$brandId, true, now()->addDays(30))) {
                 $this->tellOperator($brandId);
@@ -119,7 +133,7 @@ final class PanelWatch
     }
 
     /** A brand that went silent is the agency's call to make: it lands on the operator's Yapılacaklar once a month. */
-    private function tellOperator(int $brandId): void
+    private function tellOperator(int $brandId, ?string $what = null): void
     {
         try {
             $operator = User::query()->role(Roles::ADMIN)->where('is_active', true)->orderBy('id')->first();
@@ -127,7 +141,7 @@ final class PanelWatch
             if ($operator === null || $brand === null) {
                 return;
             }
-            $row = app(QuickCapture::class)->capture($operator, $brand->name.' paneline '.self::STALE_DAYS.' gündür giren yok, arayıp sor', route('operator.settings.panel-users'));
+            $row = app(QuickCapture::class)->capture($operator, $brand->name.': '.($what ?? 'panele '.self::STALE_DAYS.' gündür giren yok, arayıp sor'), route('operator.settings.panel-users'));
             if ($row instanceof Reminder && (int) $row->brand_id !== (int) $brand->id) {
                 $row->forceFill(['brand_id' => $brand->id, 'customer_id' => $brand->customer_id])->save();
             }
