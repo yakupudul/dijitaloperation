@@ -33,7 +33,7 @@
                     </div>
                     <x-ta.pill :tone="PanelTicket::tone($ticket->status)">{{ PanelTicket::STATUSES[$ticket->status] ?? '' }}</x-ta.pill>
                 </div>
-                <ol class="space-y-3">
+                <ol class="space-y-3" wire:poll.4s.visible data-ticket-live>
                     @foreach ($messages as $message)
                         <li @class(['rounded-xl border p-4', 'border-gray-200 bg-white' => ! $message->operator_id, 'border-gray-200 bg-gray-50' => $message->operator_id]) wire:key="tm-{{ $message->id }}">
                             <p class="flex flex-wrap items-baseline gap-x-2 text-[13px] text-gray-500">
@@ -90,7 +90,7 @@
                     @error('upload')<span class="block text-[13px] text-error-600">{{ $message }}</span>@enderror
                 </form>
             @endif
-            <section class="card" data-panel-tickets>
+            <section class="card" wire:poll.15s.visible data-panel-tickets>
                 @forelse ($tickets as $row)
                     <button type="button" wire:click="$set('ticketId', {{ $row->id }})" class="card-row w-full text-left hover:bg-gray-50" wire:key="ticket-{{ $row->id }}">
                         <span class="min-w-0 flex-1">

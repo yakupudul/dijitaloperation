@@ -14,6 +14,9 @@ final class Bell extends Component
 {
     public string $side = 'left';
 
+    /** The newest notification this browser tab has already announced. */
+    public ?int $announced = null;
+
     public function boot(): void
     {
         abort_if(app(PanelContext::class)->membership() === null, 403);
@@ -42,8 +45,18 @@ final class Bell extends Component
         $mine = PanelNotification::query()->where('panel_user_id', $this->userId());
         $due = PanelReminder::query()->with('person:id,name')->where('panel_user_id', $this->userId())->whereNull('done_at')->where('due_at', '<=', now())->orderBy('due_at')->limit(10)->get();
 
+        $rows = (clone $mine)->orderByDesc('id')->limit(15)->get();
+        $newest = (int) ($rows->first()?->id ?? 0);
+        if ($this->announced !== null && $newest > $this->announced) {
+            $fresh = $rows->first();
+            if ($fresh->read_at === null && $this->side === 'left') {
+                $this->dispatch('operator-notice', message: (string) $fresh->title, tone: 'ok');
+            }
+        }
+        $this->announced = $newest;
+
         return view('livewire.panel.bell', [
-            'rows' => (clone $mine)->orderByDesc('id')->limit(15)->get(),
+            'rows' => $rows,
             'unread' => (clone $mine)->whereNull('read_at')->count() + $due->count(),
             'due' => $due,
         ]);

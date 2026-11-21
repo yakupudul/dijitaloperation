@@ -1,4 +1,4 @@
-<div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false" wire:poll.90s data-panel-bell>
+<div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false" wire:poll.20s data-panel-bell>
     <button type="button" @click="open = ! open" :aria-expanded="open" class="relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 hover:bg-black/[0.05]" aria-label="Bildirimler{{ $unread ? ', '.$unread.' yeni' : '' }}">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 14 6 8Z"/><path d="M10 19.5a2 2 0 0 0 4 0"/></svg>
         @if ($unread)

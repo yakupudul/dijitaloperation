@@ -30,7 +30,7 @@
                     </div>
                     <x-ta.pill :tone="PanelTicket::tone($ticket->status)">{{ PanelTicket::STATUSES[$ticket->status] ?? '' }}</x-ta.pill>
                 </div>
-                <ol class="space-y-3">
+                <ol class="space-y-3" wire:poll.4s.visible data-ticket-live>
                     @foreach ($messages as $message)
                         <li @class(['rounded-xl border border-gray-200 p-4 dark:border-gray-800', 'bg-gray-50 dark:bg-white/[0.03]' => $message->operator_id]) wire:key="tm-{{ $message->id }}">
                             <p class="flex flex-wrap items-baseline gap-x-2 text-[13px] text-gray-500">
@@ -63,7 +63,7 @@
                     <button type="button" wire:click="$set('status', '{{ $key }}')" @class(['seg', 'seg-active' => $status === $key])>{{ $label }}</button>
                 @endforeach
             </div>
-            <section class="card" data-support-tickets>
+            <section class="card" wire:poll.15s.visible data-support-tickets>
                 @forelse ($tickets as $row)
                     <button type="button" wire:click="$set('ticketId', {{ $row->id }})" class="card-row w-full text-left hover:bg-gray-50 dark:hover:bg-white/[0.03]" wire:key="ticket-{{ $row->id }}">
                         <span class="min-w-0 flex-1">

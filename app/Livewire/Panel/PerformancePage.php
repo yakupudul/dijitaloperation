@@ -12,19 +12,14 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-/** Performans: what became of the people who arrived. Satış is counted from the brand's own records. */
+/** Performans: what became of the people who arrived, counted from the brand's own records. */
 #[Layout('panel.layouts.app')]
 #[Title('Performans')]
 final class PerformancePage extends Component
 {
     use PanelPage;
 
-    public const array TABS = ['satis' => 'Satış', 'web' => 'Web sitesi', 'google' => 'Google Ads', 'meta' => 'Meta reklamları'];
-
     public const array PERIODS = ['7' => 'Son 7 gün', '30' => 'Son 30 gün', '90' => 'Son 90 gün', 'ay' => 'Bu ay', 'gecen' => 'Geçen ay'];
-
-    #[Url(as: 'sekme')]
-    public string $tab = 'satis';
 
     #[Url(as: 'donem')]
     public string $period = '30';
@@ -36,9 +31,6 @@ final class PerformancePage extends Component
 
     public function render(PanelLeads $leads, PanelPerformance $performance): View
     {
-        if (! isset(self::TABS[$this->tab])) {
-            $this->tab = 'satis';
-        }
         if (! isset(self::PERIODS[$this->period])) {
             $this->period = '30';
         }
@@ -51,7 +43,7 @@ final class PerformancePage extends Component
         $team = $this->may('performance.team') && $this->may('leads.all');
 
         return view('livewire.panel.performance', [
-            'data' => $this->tab === 'satis' ? $performance->sales($leads->visible(), $from->copy()->utc(), $to->copy()->utc()) : null,
+            'data' => $performance->sales($leads->visible(), $from->copy()->utc(), $to->copy()->utc()),
             'from' => $from,
             'to' => $to->copy()->subSecond(),
             'showTeam' => $team,

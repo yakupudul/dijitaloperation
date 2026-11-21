@@ -34,8 +34,7 @@ class PanelPerformanceTest extends PanelTestCase
         $this->assertSame([2, 1, 1, 50], [$web['leads'], $web['appointments'], $web['customers'], $web['rate']]);
         $this->assertSame('1 sa 30 dk', PanelPerformance::duration(90));
 
-        Livewire::test(PerformancePage::class)->assertSee('Adaydan müşteriye')->assertSee('Kim ne kadar ilgilendi')->assertSee('Fiyat')->assertDontSee('Bilgi')
-            ->set('tab', 'google')->assertSee('henüz açık değil');
+        Livewire::test(PerformancePage::class)->assertSee('Adaydan müşteriye')->assertSee('Kim ne kadar ilgilendi')->assertSee('Fiyat')->assertDontSee('Bilgi')->assertDontSee('Google Ads')->assertDontSee('Web sitesi');
         $this->enter($this->managerB, $this->brandB);
         Livewire::test(PerformancePage::class)->assertDontSee('Kontrol')->assertSee('Bilgi');
     }
