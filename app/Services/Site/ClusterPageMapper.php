@@ -12,6 +12,7 @@ use App\Models\OfferingPage;
 use App\Models\Page;
 use App\Services\Queries\QueryPipeline;
 use App\Services\SeoTasks\SeoText;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 
 /**
@@ -167,8 +168,15 @@ final class ClusterPageMapper
                 continue;
             }
             $values += ['page_id' => $decision['page_id'], 'state' => $decision['state'], 'reason' => mb_substr($decision['reason'], 0, 300), 'decided_by' => 'rule'];
-            $row ??= new BrandClusterPage(['brand_id' => $brand->id, 'cluster_id' => $cluster->id, 'website_asset_id' => $site->id, 'language' => $language]);
-            $row->forceFill($values)->save();
+            $key = ['brand_id' => $brand->id, 'cluster_id' => $cluster->id, 'website_asset_id' => $site->id, 'language' => $language];
+            $row ??= new BrandClusterPage($key);
+            try {
+                $row->forceFill($values)->save();
+            } catch (UniqueConstraintViolationException) {
+                // Two runs for the same site met: the other one wrote this row a moment ago, so update that one.
+                $row = BrandClusterPage::query()->where($key)->firstOrFail();
+                $row->forceFill($values)->save();
+            }
             $keep[] = $row->id;
             if ($decision['candidates'] !== []) {
                 $ambiguous[(int) $cluster->service_id][] = ['row' => $row, 'cluster' => $cluster, 'candidates' => $decision['candidates'], 'facts' => $clusterFacts];

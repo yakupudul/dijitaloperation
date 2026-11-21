@@ -208,8 +208,12 @@ trait InteractsWithBrandForm
         $brand->forceFill(['sector_id' => $id])->save();
     }
 
-    public function updatedServiceAreas(mixed $value, string $key): void
+    public function updatedServiceAreas(mixed $value, ?string $key = null): void
     {
+        // The whole list replaced at once (a row added or removed) arrives without a key: nothing to reset.
+        if ($key === null) {
+            return;
+        }
         [$index, $field] = array_pad(explode('.', $key, 2), 2, '');
         if (! isset($this->service_areas[$index])) {
             return;
