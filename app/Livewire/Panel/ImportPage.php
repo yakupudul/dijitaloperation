@@ -88,7 +88,8 @@ final class ImportPage extends Component
 
     public function undo(int $id, PanelSheets $sheets): void
     {
-        $import = PanelImport::query()->whereIn('kind', [PanelImport::LEADS, PanelImport::CALLS])->findOrFail($id);
+        $import = PanelImport::query()->whereIn('kind', [PanelImport::LEADS, PanelImport::CALLS])->find($id);
+        abort_if($import === null, 404);
         abort_unless($sheets->canUndo($import), 422);
         $sheets->undo($import);
         $this->notify('Bu dosyanın eklediği kayıtlar geri alındı.');

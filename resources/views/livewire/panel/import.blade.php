@@ -73,9 +73,9 @@
                 </label>
             @endif
 
-            <div class="metric-strip max-w-3xl" data-panel-import-preview>
+            <div class="metric-strip max-w-3xl grid-cols-2 sm:grid-cols-4" data-panel-import-preview>
                 @foreach ([['Dosyadaki satır', $count], ['Yeni kişi', $preview['new']], ['Güncellenecek kayıt', $preview['updated']], ['Alınmayacak satır', $preview['bad']]] as [$name, $value])
-                    <div class="px-4 py-3"><p class="text-[13px] text-gray-500">{{ $name }}</p><p class="mt-0.5 text-xl font-semibold tabular-nums text-gray-900">{{ number_format($value, 0, ',', '.') }}</p></div>
+                    <div class="bg-white px-4 py-3"><p class="text-[13px] text-gray-500">{{ $name }}</p><p class="mt-0.5 text-xl font-semibold tabular-nums text-gray-900">{{ number_format($value, 0, ',', '.') }}</p></div>
                 @endforeach
             </div>
             @if ($preview['badRows'] !== [])

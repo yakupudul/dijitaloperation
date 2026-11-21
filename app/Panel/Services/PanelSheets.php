@@ -126,8 +126,9 @@ final class PanelSheets
                 return CarbonImmutable::create(1899, 12, 30, 0, 0, 0, 'Europe/Istanbul')->addSeconds((int) round((float) $value * 86400))->utc();
             }
             foreach (['d.m.Y H:i:s', 'd.m.Y H:i', 'd.m.Y', 'd/m/Y H:i', 'd/m/Y', 'Y-m-d H:i:s', 'Y-m-d H:i', 'Y-m-d'] as $format) {
-                $date = CarbonImmutable::createFromFormat($format, $value, 'Europe/Istanbul');
-                if ($date !== false && $date->format($format) === $value) {
+                if (CarbonImmutable::hasFormat($value, $format)) {
+                    $date = CarbonImmutable::createFromFormat($format, $value, 'Europe/Istanbul');
+
                     return (str_contains($format, 'H') ? $date : $date->setTime(12, 0))->utc();
                 }
             }

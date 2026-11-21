@@ -274,7 +274,9 @@ final class InboxPage extends Component
     public function undoBackup(int $id, PanelBackups $backups): void
     {
         abort_unless($this->panel()->isManager(), 403);
-        $backups->undo(PanelImport::query()->where('kind', PanelImport::BACKUP)->findOrFail($id));
+        $import = PanelImport::query()->where('kind', PanelImport::BACKUP)->find($id);
+        abort_if($import === null, 404);
+        $backups->undo($import);
         $this->open = null;
         $this->notify('Bu yedeğin eklediği mesajlar geri alındı. Adaylar yerinde duruyor.');
     }
