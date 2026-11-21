@@ -49,6 +49,48 @@
         </form>
     @endif
 
+    @if ($closing)
+        <form wire:submit="close" class="card -mt-4 space-y-3 p-5" data-panel-user-close>
+            <h2 class="text-sm font-semibold text-gray-900">{{ $closing->user->name }} kapatılırken işleri kime geçsin?</h2>
+            <p class="max-w-[70ch] text-sm text-gray-600">Üzerinde {{ $left[0] }} açık aday ve {{ $left[1] }} bekleyen hatırlatma var. Sahipsiz kalmasınlar diye bir kişiye devredin.</p>
+            <div class="flex flex-wrap items-center gap-2">
+                <select wire:model="handTo" class="h-10 min-w-56 rounded-lg border border-gray-200 bg-white px-3 text-base text-gray-900 sm:h-9 sm:text-sm" aria-label="Devralacak kişi">
+                    <option value="">Kimseye atama, hatırlatmalar bana gelsin</option>
+                    @foreach ($rows->where('is_active', true)->where('id', '!=', $closing->id) as $other)<option value="{{ $other->panel_user_id }}">{{ $other->user->name }}</option>@endforeach
+                </select>
+                <button type="submit" class="btn-primary">Devret ve girişi kapat</button>
+                <button type="button" wire:click="$set('closingId', null)" class="btn-quiet">Vazgeç</button>
+            </div>
+        </form>
+    @endif
+
+    @if ($editingId && ($edited = $rows->firstWhere('id', $editingId)))
+        <form wire:submit="savePermissions" class="card -mt-4 space-y-4 p-5" data-panel-user-permissions>
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900">{{ $edited->user->name }} için özel yetkiler</h2>
+                <p class="mt-1 max-w-[70ch] text-sm text-gray-600">Kutular bu kişinin bugün yapabildiklerini gösterir. Rolü {{ $edited->role?->name ?? 'yok' }}; işaretini değiştirdiğiniz yetki yalnız bu kişi için açılır ya da kapanır, roldeki diğer kişiler etkilenmez.</p>
+            </div>
+            <div class="grid gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
+                @foreach ($catalog as $group => $items)
+                    <fieldset>
+                        <legend class="mb-1.5 text-[13px] font-medium text-gray-500">{{ $group }}</legend>
+                        @foreach ($items as $key => $label)
+                            <label class="flex items-start gap-2 py-1 text-sm text-gray-800">
+                                <input type="checkbox" wire:model="boxes.{{ str_replace('.', '__', $key) }}" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-gray-900">
+                                <span>{{ $label }}</span>
+                            </label>
+                        @endforeach
+                    </fieldset>
+                @endforeach
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button type="submit" class="btn-primary">Kaydet</button>
+                @if ($edited->overrides)<button type="button" wire:click="resetPermissions" class="btn">Role geri döndür</button>@endif
+                <button type="button" wire:click="$set('editingId', null)" class="btn-quiet">Vazgeç</button>
+            </div>
+        </form>
+    @endif
+
     <section class="card -mt-4 overflow-x-auto" data-panel-users>
         <table class="data-table table-stack">
             <thead><tr><th>Ad</th><th>Rol</th><th>Durum</th><th>Son giriş</th><th></th></tr></thead>
@@ -74,6 +116,9 @@
                         <td>
                             <div class="flex justify-end gap-1.5">
                                 <button type="button" wire:click="renew({{ $row->id }})" wire:confirm="{{ $row->user->name }} için yeni bir geçici şifre verilsin mi? Eski şifresi çalışmaz olur." class="btn">Şifre ver</button>
+                                @if ($isManager && ! $row->is_manager)
+                                    <button type="button" wire:click="editPermissions({{ $row->id }})" class="btn">Özel yetki{{ $row->overrides ? ' ('.(count($row->overrides['allow'] ?? []) + count($row->overrides['deny'] ?? [])).')' : '' }}</button>
+                                @endif
                                 @unless ($row->is_manager || $row->panel_user_id === $me)
                                     <button type="button" wire:click="toggle({{ $row->id }})" class="btn">{{ $row->is_active ? 'Girişi kapat' : 'Girişi aç' }}</button>
                                 @endunless

@@ -17,6 +17,13 @@
         @endforeach
     </section>
 
+    @if ($stale > 0)
+        <p class="-mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800" data-panel-stale>
+            <span class="min-w-0 flex-1">{{ $stale }} aday {{ \App\Panel\Services\PanelWatch::STALE_DAYS }} gündür aranmadı, not da yazılmadı.</span>
+            @if ($canOpenLeads)<a href="{{ route('panel.leads', ['durgun' => 1]) }}" wire:navigate class="font-medium text-gray-900 underline">Listeyi aç</a>@endif
+        </p>
+    @endif
+
     <div class="grid gap-10 xl:grid-cols-2">
         <section data-panel-reminders>
             <div class="section-head">

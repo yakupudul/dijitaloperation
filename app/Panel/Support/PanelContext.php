@@ -2,6 +2,7 @@
 
 namespace App\Panel\Support;
 
+use App\Panel\Models\PanelBrandSetting;
 use App\Panel\Models\PanelMembership;
 use Closure;
 
@@ -17,16 +18,20 @@ final class PanelContext
 
     private int $systemDepth = 0;
 
+    private ?PanelBrandSetting $setting = null;
+
     public function enter(PanelMembership $membership): void
     {
         $this->membership = $membership;
         $this->brandId = (int) $membership->brand_id;
+        $this->setting = null;
     }
 
     public function leave(): void
     {
         $this->membership = null;
         $this->brandId = null;
+        $this->setting = null;
     }
 
     public function brandId(): ?int
@@ -64,7 +69,22 @@ final class PanelContext
 
     public function can(string $permission): bool
     {
-        return $this->membership !== null && $this->membership->allows($permission);
+        return $this->membership !== null && $this->membership->allows($permission) && ($this->setting()?->permits($permission) ?? true);
+    }
+
+    /** The brand's own switches (modules, read only), read once per request. */
+    public function setting(): ?PanelBrandSetting
+    {
+        if ($this->brandId === null) {
+            return null;
+        }
+
+        return $this->setting ??= PanelBrandSetting::query()->where('brand_id', $this->brandId)->first();
+    }
+
+    public function readOnly(): bool
+    {
+        return (bool) $this->setting()?->is_read_only;
     }
 
     public function isManager(): bool

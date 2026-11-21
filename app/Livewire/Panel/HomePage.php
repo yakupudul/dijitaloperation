@@ -4,6 +4,7 @@ namespace App\Livewire\Panel;
 
 use App\Panel\Models\PanelReminder;
 use App\Panel\Services\PanelLeads;
+use App\Panel\Services\PanelWatch;
 use App\Panel\Support\PanelPage;
 use App\Panel\Support\PanelStages;
 use Illuminate\Contracts\View\View;
@@ -55,6 +56,7 @@ final class HomePage extends Component
                 ['Bu ay müşteri olan', $leads->visible()->where('stage', PanelStages::CUSTOMER)->where('updated_at', '>=', $monthStart)->count(), PanelStages::CUSTOMER],
             ],
             'reminders' => $this->reminders()->with(['person:id,name', 'user:id,name'])->where('due_at', '<=', $todayEnd)->orderBy('due_at')->limit(30)->get(),
+            'stale' => PanelWatch::stale($leads->visible())->count(),
             'later' => $this->reminders()->where('due_at', '>', $todayEnd)->count(),
             'waiting' => $leads->visible()->where('stage', PanelStages::NEW)->orderByDesc('created_at')->limit(8)->get(),
             'appointments' => $leads->visible()->whereNotNull('appointment_at')->where('appointment_at', '>=', now()->subHours(2))->whereIn('stage', PanelStages::open())->orderBy('appointment_at')->limit(8)->get(),

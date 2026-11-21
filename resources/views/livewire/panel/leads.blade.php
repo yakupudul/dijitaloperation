@@ -92,6 +92,13 @@
         </form>
     @endif
 
+    @if ($stale)
+        <p class="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800" data-panel-stale-filter>
+            <span class="min-w-0 flex-1">Yalnız {{ \App\Panel\Services\PanelWatch::STALE_DAYS }} gündür dokunulmayan açık adaylar gösteriliyor.</span>
+            <button type="button" wire:click="$set('stale', false)" class="font-medium text-gray-900 underline">Hepsini göster</button>
+        </p>
+    @endif
+
     <div class="flex flex-wrap items-center gap-2">
         <div class="flex gap-1 rounded-full border border-gray-200 p-0.5">
             <button type="button" wire:click="$set('view', 'table')" @class(['h-8 rounded-full px-3 text-[13px] font-medium', 'bg-gray-900 text-white' => $view !== 'board', 'text-gray-600' => $view === 'board'])>Liste</button>

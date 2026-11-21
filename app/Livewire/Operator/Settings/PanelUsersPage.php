@@ -9,7 +9,9 @@ use App\Panel\Models\PanelAudit;
 use App\Panel\Models\PanelBrandSetting;
 use App\Panel\Models\PanelMembership;
 use App\Panel\Models\PanelPerson;
+use App\Panel\Models\PanelTicket;
 use App\Panel\Services\PanelAccounts;
+use App\Panel\Services\PanelWatch;
 use App\Panel\Support\OperatorAccess;
 use App\Panel\Support\PanelContext;
 use App\Panel\Support\PanelPermissions;
@@ -98,6 +100,27 @@ final class PanelUsersPage extends Component
         $this->say($existing->is_enabled ? 'Panel bu marka için yeniden açıldı.' : 'Panel bu marka için kapatıldı; kullanıcıları giremez, kayıtları durur.');
     }
 
+    /** Switches one part of the panel on or off for this brand; it disappears for all of its users at once. */
+    public function toggleModule(string $module): void
+    {
+        abort_unless(isset(PanelBrandSetting::MODULES[$module]), 422);
+        $setting = PanelBrandSetting::forBrand((int) $this->brand()->id);
+        $modules = (array) $setting->modules;
+        $modules[$module] = ! $setting->moduleOn($module);
+        $setting->update(['modules' => $modules]);
+        $this->log('brand.module.'.$module.($modules[$module] ? '.on' : '.off'));
+        $this->say(PanelBrandSetting::MODULES[$module][0].($modules[$module] ? ' açıldı.' : ' kapatıldı.'));
+    }
+
+    /** Read only: the brand's users still see and export everything, nobody adds or changes. */
+    public function toggleReadOnly(): void
+    {
+        $setting = PanelBrandSetting::forBrand((int) $this->brand()->id);
+        $setting->update(['is_read_only' => ! $setting->is_read_only]);
+        $this->log($setting->is_read_only ? 'brand.read_only.on' : 'brand.read_only.off');
+        $this->say($setting->is_read_only ? 'Marka salt okunur: kullanıcıları görür ve indirir, değiştiremez.' : 'Marka yeniden kayıt girebilir.');
+    }
+
     public function renewFormAddress(): void
     {
         PanelBrandSetting::forBrand((int) $this->brand()->id)->update(['form_token' => Str::random(48)]);
@@ -171,8 +194,9 @@ final class PanelUsersPage extends Component
         $setting = $brand ? $settings->get($brand->id) : null;
 
         return view('livewire.operator.settings.panel-users', [
-            'waitingTickets' => app(PanelContext::class)->system(fn (): int => \App\Panel\Models\PanelTicket::query()->where('status', 'open')->count()),
+            'waitingTickets' => app(PanelContext::class)->system(fn (): int => PanelTicket::query()->where('status', 'open')->count()),
             'brands' => $brands,
+            'idle' => app(PanelWatch::class)->idleBrands(),
             'settings' => $settings,
             'members' => $members,
             'brand' => $brand,

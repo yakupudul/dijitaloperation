@@ -40,6 +40,7 @@ use App\Models\DigitalAsset;
 use App\Models\ScreenCheck;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Panel\Services\PanelWatch;
 use App\Services\Ads\AdsCatchUp;
 use App\Services\Ads\DormantAdWork;
 use App\Services\Ads\Winners;
@@ -123,7 +124,9 @@ use App\Services\Site\SiteFlow;
 use App\Services\Site\SiteMetrics;
 use App\Services\Site\SiteOperations;
 use App\Services\Site\SiteSuggestionTypes;
+use App\Services\Social\ClientPosts;
 use App\Services\Social\SocialInbox;
+use App\Services\Social\SocialInsights;
 use App\Services\Social\SocialPublisher;
 use App\Services\Website\Pages\RedirectedAddresses;
 use App\Services\Website\SitemapChangeWatcher;
@@ -1427,7 +1430,7 @@ Artisan::command('moxdop:content:autopilot {--site= : One website asset id}', fu
     $daily = $this->option('site') === null ? app(DailyBlog::class)->run($actor) : ['started' => 0, 'sent' => 0];
     // Hekim yorumu (yakup 2026-11-13): a hekim's new Google review on Moximu's own profile becomes a post for his approval.
     if ($this->option('site') === null) {
-        app(\App\Services\Social\ClientPosts::class)->reviews();
+        app(ClientPosts::class)->reviews();
     }
     $this->info($planned.' yeni tarih planlandı. Günlük blog: '.$daily['started'].' yazı başladı, '.$daily['sent'].' yazı yayına planlandı.');
 })->purpose('Date every site\'s next articles (one every two days), write them and AI-check them for the daily send');
@@ -1928,7 +1931,7 @@ Schedule::command('moxdop:social:publish')
 // Instagram ölçümü (büyüme yol haritası, yakup 2026-11-13): reach, saves, sends, likes, comments and views of every
 // published Instagram post, every 3 hours in its first two days, then daily up to 30 days.
 Artisan::command('moxdop:social:insights', function (): void {
-    $stats = app(\App\Services\Social\SocialInsights::class)->run();
+    $stats = app(SocialInsights::class)->run();
     $this->info('Okunan: '.$stats['read'].' · okunamayan: '.$stats['failed']);
 })->purpose('Read reach, saves, sends, likes, comments and views of published Instagram posts.');
 
@@ -1974,6 +1977,20 @@ Schedule::command('moxdop:finance:tick')
     ->withoutOverlapping(30)
     ->runInBackground()
     ->name('finance-tick');
+
+// Müşteri paneli, Sürüm 2 (approved roadmap, yakup 2026-11-21): the daily look for brands letting the panel go: a
+// staff member who stopped signing in, the Monday summary, a brand nobody opened for two weeks. Bell lines only.
+Artisan::command('moxdop:panel:watch', function () {
+    $done = app(PanelWatch::class)->run();
+    $this->info('Panel: '.$done['idle_users'].' girmeyen kullanıcı, '.$done['summaries'].' haftalık özet, '.$done['idle_brands'].' sessiz marka');
+})->purpose('Müşteri paneli: warn a brand\'s manager about idle staff, send the Monday summary, flag silent brands.');
+
+Schedule::command('moxdop:panel:watch')
+    ->dailyAt('09:20')
+    ->timezone('Europe/Istanbul')
+    ->withoutOverlapping(30)
+    ->runInBackground()
+    ->name('panel-watch');
 
 // Bağlantı Düzeni 2.4: a job the operator switched off on Ayarlar › Zamanlanmış işler is skipped (it stays on the
 // schedule, so switching it on again needs no deploy). Keep this block at the end of the file: it covers every job above.

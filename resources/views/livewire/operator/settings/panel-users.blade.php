@@ -16,7 +16,11 @@
                     <x-ta.brand-avatar :name="$item->name" :logo="$item->logo_url" size="sm" />
                     <span class="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-white">{{ $item->name }}</span>
                     @if ($on)
-                        <x-ta.pill :tone="$on->is_enabled ? 'ok' : 'info'">{{ $on->is_enabled ? ((int) ($members[$item->id] ?? 0)).' kişi' : 'Kapalı' }}</x-ta.pill>
+                        @if ($on->is_enabled && in_array($item->id, $idle, true))
+                            <x-ta.pill tone="look">14 gündür giren yok</x-ta.pill>
+                        @else
+                            <x-ta.pill :tone="$on->is_enabled ? 'ok' : 'info'">{{ $on->is_enabled ? ((int) ($members[$item->id] ?? 0)).' kişi' : 'Kapalı' }}</x-ta.pill>
+                        @endif
                     @endif
                 </button>
             @endforeach
@@ -126,6 +130,28 @@
                         <p class="max-w-[75ch] text-sm text-gray-600 dark:text-gray-400">Markanın sitesindeki form bu adrese gönderdiğinde talep panele aday olarak düşer. Adres gizlidir; markayı adresin kendisi belirler.</p>
                         <p class="mt-2 break-all rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-[13px] text-gray-800 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-200" data-panel-form-url>{{ $formUrl }}</p>
                         <button type="button" wire:click="renewFormAddress" wire:confirm="Form adresi yenilensin mi? Eski adres çalışmaz olur." class="btn mt-3">Adresi yenile</button>
+                    </section>
+
+                    <section data-panel-modules>
+                        <div class="section-head"><h3 class="section-title">Bu markada neler açık</h3></div>
+                        <p class="max-w-[75ch] text-sm text-gray-600 dark:text-gray-400">Kapattığınız bölüm, markanın yöneticisi dahil bütün kullanıcılarında menüden kalkar. Kayıtlar silinmez.</p>
+                        <div class="card mt-3">
+                            @foreach (\App\Panel\Models\PanelBrandSetting::MODULES as $key => [$label])
+                                <div class="card-row" wire:key="module-{{ $key }}">
+                                    <span class="min-w-0 flex-1 text-sm font-medium text-gray-900 dark:text-white">{{ $label }}</span>
+                                    <x-ta.pill :tone="$setting->moduleOn($key) ? 'ok' : 'info'">{{ $setting->moduleOn($key) ? 'Açık' : 'Kapalı' }}</x-ta.pill>
+                                    <button type="button" wire:click="toggleModule('{{ $key }}')" class="btn">{{ $setting->moduleOn($key) ? 'Kapat' : 'Aç' }}</button>
+                                </div>
+                            @endforeach
+                            <div class="card-row">
+                                <span class="min-w-0 flex-1">
+                                    <span class="block text-sm font-medium text-gray-900 dark:text-white">Salt okunur</span>
+                                    <span class="block text-[13px] text-gray-500">Kullanıcılar her şeyi görür ve indirir; kayıt ekleyemez, değiştiremez. Ayrılan marka için.</span>
+                                </span>
+                                <x-ta.pill :tone="$setting->is_read_only ? 'look' : 'info'">{{ $setting->is_read_only ? 'Açık' : 'Kapalı' }}</x-ta.pill>
+                                <button type="button" wire:click="toggleReadOnly" class="btn">{{ $setting->is_read_only ? 'Kaldır' : 'Salt okunur yap' }}</button>
+                            </div>
+                        </div>
                     </section>
                 @endif
             @endif

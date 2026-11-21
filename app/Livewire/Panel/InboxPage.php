@@ -246,7 +246,7 @@ final class InboxPage extends Component
     /** @return array{id: int, chunk: int} */
     public function beginBackup(string $name, int $size, PanelBackups $backups): array
     {
-        abort_unless($this->panel()->isManager(), 403);
+        abort_unless($this->panel()->isManager() && ! $this->panel()->readOnly(), 403);
         $import = $backups->begin((int) $this->panel()->brandId(), $this->actor(), $name, $size);
 
         return ['id' => $import->id, 'chunk' => PanelBackups::CHUNK_BYTES];
@@ -322,7 +322,7 @@ final class InboxPage extends Component
             $older = $messages->count() > $this->limit;
             $messages = $messages->take($this->limit)->reverse()->values();
         }
-        $manager = $this->panel()->isManager();
+        $manager = $this->panel()->isManager() && ! $this->panel()->readOnly();
 
         return view('livewire.panel.inbox', [
             'tabs' => $tabs,

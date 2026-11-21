@@ -7,6 +7,7 @@ use App\Panel\Models\PanelPerson;
 use App\Panel\Models\PanelPreset;
 use App\Panel\Services\PanelLeads;
 use App\Panel\Services\PanelPresets;
+use App\Panel\Services\PanelWatch;
 use App\Panel\Support\PanelPage;
 use App\Panel\Support\PanelSources;
 use App\Panel\Support\PanelStages;
@@ -50,6 +51,10 @@ final class LeadsPage extends Component
 
     #[Url(as: 'kisi')]
     public string $assignee = '';
+
+    /** Only open leads nobody touched for two weeks (the link on Ana sayfa). */
+    #[Url(as: 'durgun')]
+    public bool $stale = false;
 
     /** @var list<string> */
     public array $columns = [];
@@ -167,6 +172,9 @@ final class LeadsPage extends Component
         }
         if (array_key_exists($this->stage, PanelStages::labels())) {
             $query->where('stage', $this->stage);
+        }
+        if ($this->stale) {
+            PanelWatch::stale($query);
         }
         if (array_key_exists($this->source, PanelSources::labels())) {
             $query->where('source', $this->source);
