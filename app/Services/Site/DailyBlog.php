@@ -134,6 +134,18 @@ final class DailyBlog
         'estetik klinik reklam kuralları',
         'sağlık turizmi tanıtım kuralları',
         'Google Ads sağlık reklamı politikası',
+        'Meta reklamlarında sağlık reklamı kuralları',
+        'klinik Google işletme profili kuralları',
+        'hekim adına açılan sosyal medya hesabı kuralları',
+        'klinik tabelası ve web sitesi unvan kullanımı',
+        'sağlık kuruluşu web sitesinde bulunması gereken bilgiler',
+        'klinik web sitesinde hekim özgeçmişi nasıl yazılır',
+        'hasta mahremiyeti ve KVKK klinik web sitesi',
+        'klinik reklamında indirim ve kampanya duyurusu',
+        'diş kliniği reklamında kullanılmaması gereken kelimeler',
+        'estetik operasyon tanıtımında görsel kullanımı',
+        'sağlık turizmi aracı kuruluş tanıtım kuralları',
+        'klinik reklam şikayeti ve savunma süreci',
     ];
 
     public static function on(?Brand $brand): bool
@@ -291,7 +303,7 @@ final class DailyBlog
             }
         }
         if ($started < $need) {
-            $this->askForTitles($site);
+            $this->askForTitles($site, $need - $started);
         }
 
         return $started;
@@ -305,15 +317,25 @@ final class DailyBlog
             && CarbonImmutable::parse((string) ($status['at'] ?? now()->toIso8601String()))->gt(now()->subHours(ContentAutopilot::BUSY_HOURS));
     }
 
-    /** The pool ran low: the site's idea run is asked for fresh titles, at most once a day. */
-    private function askForTitles(DigitalAsset $site): void
+    /**
+     * The pool ran low: the site's idea run is asked for fresh titles, at most every TITLES_EVERY_HOURS. The run reads
+     * the site's topic map first (konu haritası: the waiting questions of its active services, which keeps growing as a
+     * service is finished and the next one is mapped), then Search Console, the clusters and the positioning topics.
+     * Without the map the line ran dry on moximu.com (2026-11-21/22: "0 aday · yeni konu yok", no post for two days):
+     * every search query, cluster and positioning topic had been used once and nothing else was asked.
+     */
+    private function askForTitles(DigitalAsset $site, int $need): void
     {
-        if (! Cache::add('daily-blog:titles:'.$site->id, now()->toIso8601String(), now()->addHours(20))) {
+        if (! Cache::add('daily-blog:titles-run:'.$site->id, now()->toIso8601String(), now()->addHours(self::TITLES_EVERY_HOURS))) {
             return;
         }
         $main = ContentPlanner::siteLanguages($site)[0];
-        SiteOperations::dispatch((int) $site->id, SiteOperations::WEEKLY_CONTENT, ['wants' => [$main => 10]]);
+        $new = max(self::BUFFER, $need);
+        SiteOperations::dispatch((int) $site->id, SiteOperations::WEEKLY_CONTENT, ['wants' => [$main => $new], 'cycle' => ['new' => $new, 'update' => 0]]);
     }
+
+    /** Hours between two idea runs of the line (two posts a day need about one run a day; a failed run retries sooner). */
+    public const int TITLES_EVERY_HOURS = 8;
 
     /**
      * The slots of the next AHEAD_HOURS (Istanbul time) that no sent article holds yet.

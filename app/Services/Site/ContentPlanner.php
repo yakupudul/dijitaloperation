@@ -449,7 +449,8 @@ final class ContentPlanner
             foreach ($this->candidates($brand, $site, null, $previous, $sitePages, $main) as $candidate) {
                 $kind = $candidate['kind'];
                 $service = $candidate['row']?->cluster?->service_id;
-                if ($short[$kind] <= 0 || ($kind === 'new' && ($service === null || ! in_array((int) $service, $active, true)))
+                // The positioning topics of a daily-blog brand (source direction) have no service: they fill the line too.
+                if ($short[$kind] <= 0 || ($kind === 'new' && $candidate['source'] !== 'direction' && ($service === null || ! in_array((int) $service, $active, true)))
                     || ($candidate['page'] !== null && isset($taken[(int) $candidate['page']->id]))) {
                     continue;
                 }

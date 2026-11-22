@@ -103,6 +103,18 @@ final class DailyBlogTest extends SiteTestCase
         $this->assertSame(0, app(DailyBlog::class)->produce($this->site, $this->admin), 'the line is full');
     }
 
+    public function test_an_empty_pool_asks_the_idea_run_with_the_topic_map_and_not_again_for_hours(): void
+    {
+        Queue::fake();
+
+        $this->assertSame(0, app(DailyBlog::class)->produce($this->site, $this->admin));
+
+        Queue::assertPushed(\App\Jobs\Site\RunSiteOperationJob::class, fn ($job): bool => $job->operation === \App\Services\Site\SiteOperations::WEEKLY_CONTENT
+            && ($job->params['cycle']['new'] ?? 0) >= DailyBlog::BUFFER && ($job->params['cycle']['update'] ?? null) === 0);
+        app(DailyBlog::class)->produce($this->site, $this->admin);
+        Queue::assertPushed(\App\Jobs\Site\RunSiteOperationJob::class, 1);
+    }
+
     public function test_checked_articles_go_scheduled_to_the_morning_and_afternoon_slots_with_the_sales_paragraph(): void
     {
         Queue::fake();
