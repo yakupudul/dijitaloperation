@@ -17,7 +17,7 @@
   - Markalar (`operator.brands`) — sekmeler: Portföy (`operator.portfolio`), Web siteleri (`operator.websites`), Onarım masası (`operator.repair`), İçerik (`operator.content`), Bağlantılar (`operator.links`), İşletme profilleri (`operator.gbp-desk`), Google Ads (`operator.google-ads-desk`), Meta reklamları (`operator.meta-desk`)
   - Moximu (`operator.sales`) — sekmeler: Pazarlama (`operator.marketing`), Sosyal medya (`operator.social`)
 - **Sistem**
-  - Sistem (`operator.integrations`) — sekmeler: Hesaplar (`operator.integrations.accounts`), Bağlantı sağlığı (`operator.integrations.connection-health`), Dijital varlıklar (`operator.assets`), Genel ayarlar (`operator.settings`), Kullanıcılar (`operator.settings.users`), Standartlar (`operator.library.website-standards`), Sektör ve hizmet kataloğu (`operator.library.services`), Sorgu kuralları (`operator.settings.query-rules`), Kitaplar (`operator.settings.books`), AI sağlayıcıları (`operator.settings.ai-workers`), AI işlemleri ve promptlar (`operator.settings.ai-operations`), MCP anahtarları (`operator.settings.mcp`), Güvenlik karnesi (`operator.settings.security`), Sistem (`operator.settings.system-health`), Zamanlanmış işler (`operator.settings.jobs`), Değişiklik kaydı (`operator.settings.changes`), Geliştirme havuzu (`operator.settings.improvements`), Sürümler (`operator.settings.releases`)
+  - Sistem (`operator.integrations`) — sekmeler: Hesaplar (`operator.integrations.accounts`), Bağlantı sağlığı (`operator.integrations.connection-health`), Dijital varlıklar (`operator.assets`), Genel ayarlar (`operator.settings`), Kullanıcılar (`operator.settings.users`), Müşteri paneli (`operator.settings.panel-users`), Standartlar (`operator.library.website-standards`), Sektör ve hizmet kataloğu (`operator.library.services`), Sorgu kuralları (`operator.settings.query-rules`), Kitaplar (`operator.settings.books`), AI sağlayıcıları (`operator.settings.ai-workers`), AI işlemleri ve promptlar (`operator.settings.ai-operations`), MCP anahtarları (`operator.settings.mcp`), Güvenlik karnesi (`operator.settings.security`), Sistem (`operator.settings.system-health`), Zamanlanmış işler (`operator.settings.jobs`), Değişiklik kaydı (`operator.settings.changes`), Geliştirme havuzu (`operator.settings.improvements`), Sürümler (`operator.settings.releases`)
 
 ## Onaylı dış yazmalar
 
@@ -108,6 +108,7 @@ Google Ads kampanya / bütçe / durum değişikliği **yoktur**; öneriler Googl
 | `*/5 * * * * (Europe/Istanbul)` | `moxdop:ops:evaluate-alerts` |
 | `13 7 * * * (Europe/Istanbul)` | `moxdop:outcomes:measure` |
 | `20 1-6 * * * (Europe/Istanbul)` | `moxdop:overlaps:check` |
+| `20 9 * * * (Europe/Istanbul)` | `moxdop:panel:watch` |
 | `*/15 * * * * (Europe/Istanbul)` | `moxdop:queries:autopilot` |
 | `5 * * * * (Europe/Istanbul)` | `moxdop:queries:autopilot` |
 | `47 5 * * * (Europe/Istanbul)` | `moxdop:queries:keyword-planner` |

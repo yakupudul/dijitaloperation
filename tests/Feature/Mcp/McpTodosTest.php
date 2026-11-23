@@ -61,6 +61,20 @@ final class McpTodosTest extends TestCase
         $this->assertNotNull($rows[0]->refresh()->done_at);
     }
 
+    public function test_an_open_job_written_without_a_brand_is_tied_to_its_brand_later(): void
+    {
+        $brand = Brand::factory()->create(['customer_id' => Customer::factory()->create()->id, 'name' => 'Atlas Diş']);
+        MoxdopServer::tool(Todos::class, ['action' => 'add', 'text' => 'Harita kaydını bağla'])->assertOk();
+        $row = Reminder::query()->firstOrFail();
+        $this->assertNull($row->brand_id);
+
+        MoxdopServer::tool(Todos::class, ['action' => 'brand', 'id' => $row->id, 'brand_id' => $brand->id])->assertOk()->assertSee('Atlas Diş');
+        $row->refresh();
+        $this->assertSame([$brand->id, $brand->customer_id, 'Harita kaydını bağla'], [(int) $row->brand_id, (int) $row->customer_id, $row->title]);
+
+        MoxdopServer::tool(Todos::class, ['action' => 'brand', 'id' => $row->id])->assertHasErrors();
+    }
+
     public function test_a_dated_job_keeps_its_date_and_notes_are_refused(): void
     {
         MoxdopServer::tool(Todos::class, ['action' => 'add', 'text' => '15 aralık Serap Hanım ile devam kararını konuş'])->assertOk();

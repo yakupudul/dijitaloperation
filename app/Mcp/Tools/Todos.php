@@ -20,17 +20,17 @@ use Laravel\Mcp\Server\Tool;
  * Yapılacaklar, the same list the panel, Moxi and the browser extension use. An open item with the same title is not
  * written twice, so several Claude sessions can add the same ask safely.
  */
-#[Description('Yapılacaklar: the operator\'s own to-do list (Takvim › Yapılacaklar). action=add: a job only the operator can do with his own hands (give an access, upload a prepared file, tell a fact, a date or an amount, press a connect button, talk to a client): text = one plain Turkish sentence starting with the verb ("Serap Korkmaz\'ı panele marka olarak ekle"), the second line and on = details; "yarın 10" / "15 aralık" in the text sets a date, without one it stays undated until ticked; brand_id ties it to a brand; url = where to do it. action=ask: YOUR OWN work that needs his yes before you do it (delete pages, write to a Google profile, send something, change a package, pick between plans): text first line = the question as he would answer it ("Avrupadent\'ten ayrılan 3 hekimin İngilizce sayfalarını kaldırayım mı?"), the rest = exactly what will be done, where, ids and how it can be undone, written so another Claude can do it from that text alone. He sees Onayla / Reddet; Onayla comes back to Claude as a Moxi işi (moxi-requests), Reddet closes it. Never put your own work in add and never ask him to "say yap" in an add. An open item with the same title is not added twice. action=list shows asks, open, late and today\'s items plus asks answered in the last 14 days; action=done (id) ticks one you saw finished or closes an ask that is no longer needed.')]
+#[Description('Yapılacaklar: the operator\'s own to-do list (Takvim › Yapılacaklar). action=add: a job only the operator can do with his own hands (give an access, upload a prepared file, tell a fact, a date or an amount, press a connect button, talk to a client): text = one plain Turkish sentence starting with the verb ("Serap Korkmaz\'ı panele marka olarak ekle"), the second line and on = details; "yarın 10" / "15 aralık" in the text sets a date, without one it stays undated until ticked; brand_id ties it to a brand; url = where to do it. action=ask: YOUR OWN work that needs his yes before you do it (delete pages, write to a Google profile, send something, change a package, pick between plans): text first line = the question as he would answer it ("Avrupadent\'ten ayrılan 3 hekimin İngilizce sayfalarını kaldırayım mı?"), the rest = exactly what will be done, where, ids and how it can be undone, written so another Claude can do it from that text alone. He sees Onayla / Reddet; Onayla comes back to Claude as a Moxi işi (moxi-requests), Reddet closes it. Never put your own work in add and never ask him to "say yap" in an add. An open item with the same title is not added twice. action=list shows asks, open, late and today\'s items plus asks answered in the last 14 days; action=done (id) ticks one you saw finished or closes an ask that is no longer needed; action=brand (id, brand_id) ties an open item to its brand without changing its text.')]
 class Todos extends Tool
 {
     public function handle(Request $request, QuickCapture $capture): Response
     {
         $validated = $request->validate([
-            'action' => ['required', Rule::in(['add', 'ask', 'list', 'done'])],
+            'action' => ['required', Rule::in(['add', 'ask', 'list', 'done', 'brand'])],
             'text' => ['required_if:action,add', 'required_if:action,ask', 'nullable', 'string', 'min:5', 'max:4000'],
             'brand_id' => ['nullable', 'integer'],
             'url' => ['nullable', 'string', 'max:500'],
-            'id' => ['required_if:action,done', 'nullable', 'integer'],
+            'id' => ['required_if:action,done', 'required_if:action,brand', 'nullable', 'integer'],
         ]);
         $user = self::operator();
         if ($user === null) {
@@ -68,6 +68,17 @@ class Todos extends Tool
         $brand = $brandId !== null ? Brand::query()->find($brandId) : null;
         if ($brandId !== null && $brand === null) {
             return Response::error('Marka bulunamadı.');
+        }
+
+        if ($validated['action'] === 'brand') {
+            // Ties an open item that was written without a brand to its brand, so Bugün sorts it under that brand.
+            $row = Reminder::query()->where('user_id', $user->id)->where('kind', 'task')->whereNull('done_at')->find((int) $validated['id']);
+            if ($row === null || $brand === null) {
+                return Response::error($row === null ? 'Açık iş #'.$validated['id'].' bulunamadı.' : 'brand_id gerekli.');
+            }
+            $row->forceFill(['brand_id' => $brand->id, 'customer_id' => $brand->customer_id])->save();
+
+            return Response::text('İş #'.$row->id.' '.$brand->name.' markasına bağlandı.');
         }
         $text = trim((string) $validated['text']);
         if (preg_match('/^\s*(not|toplant[ıi])\s*:/iu', $text) === 1) {
@@ -113,11 +124,11 @@ class Todos extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'action' => $schema->string()->enum(['add', 'ask', 'list', 'done'])->description('add | ask | list | done')->required(),
+            'action' => $schema->string()->enum(['add', 'ask', 'list', 'done', 'brand'])->description('add | ask | list | done | brand')->required(),
             'text' => $schema->string()->description('add: the job in plain Turkish, verb first; first line = title, the rest = details. ask: first line = the yes/no question about your own work, the rest = exactly what will be done.'),
-            'brand_id' => $schema->integer()->description('add / ask: the brand it belongs to.'),
+            'brand_id' => $schema->integer()->description('add / ask: the brand it belongs to. brand: the brand to tie the item to.'),
             'url' => $schema->string()->description('add: where the operator does it (panel page, account page). ask: the page the work is about.'),
-            'id' => $schema->integer()->description('done: the item id.'),
+            'id' => $schema->integer()->description('done / brand: the item id.'),
         ];
     }
 }
