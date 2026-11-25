@@ -8,7 +8,7 @@ if (! defined('ABSPATH')) {
 	exit;
 }
 
-define('MXP_VER', '1.5.0');
+define('MXP_VER', '1.5.1');
 define('MXP_DIR', get_template_directory());
 define('MXP_URI', get_template_directory_uri());
 
