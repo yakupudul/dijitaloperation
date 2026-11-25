@@ -1,0 +1,38 @@
+<footer>
+  <div class="wrap f-grid">
+    <div>
+      <img src="{{T}}/img/logo-white.svg" alt="Ali Akbulut Klinik Psikolog" width="399" height="101">
+      <p>{{FOOT}}</p>
+      <div class="social">
+        <a href="{{IG}}" aria-label="Instagram"><svg class="ico"><use href="#i-ig"/></svg></a>
+        <a href="{{YT}}" aria-label="YouTube"><svg class="ico"><use href="#i-yt"/></svg></a>
+        <a href="{{TT}}" aria-label="TikTok"><svg class="ico"><use href="#i-tt"/></svg></a>
+      </div>
+    </div>
+    <div><h5>Çalışma alanları</h5><ul>{{FM:alanlar}}</ul></div>
+    <div><h5>Yöntemler</h5><ul>{{FM:yontemler}}</ul></div>
+    <div><h5>Kurumsal</h5><ul>{{FM:kurumsal}}</ul></div>
+    <div><h5>İletişim</h5><ul><li><a href="{{TELL}}">{{TEL}}</a></li><li><a href="{{WA}}">WhatsApp</a></li><li>{{SOKAK}}<br>{{ILCE}} / {{IL}}</li>{{SAAT_F}}</ul></div>
+  </div>
+  <div class="wrap f-bottom">
+    <span>© {{YIL}} Ali Akbulut. Sitedeki bilgiler bilgilendirme amaçlıdır, tanı ve tedavi yerine geçmez. <a href="{{H}}/kvkk/">KVKK</a></span>
+    <span>Tasarım ve SEO: <a href="https://www.moximu.com">Moximu</a></span>
+  </div>
+</footer>
+<div class="mbar">
+  <a class="w" href="{{WA}}"><svg class="ico"><use href="#i-wa"/></svg>WhatsApp</a>
+  <a class="c" href="{{TELL}}"><svg class="ico"><use href="#i-phone"/></svg>Hemen arayın</a>
+</div>
+{{BUB}}
+<div class="pop" role="dialog" aria-modal="true" aria-label="Ali Akbulut video" hidden>
+  <div class="pop-box">
+    <button class="pop-x" type="button" aria-label="Kapat"><svg class="ico"><use href="#i-plus" transform="rotate(45 12 12)"/></svg></button>
+    <video playsinline controls preload="none"></video>
+    <div class="pop-foot"><a class="btn btn-green" href="{{WA}}"><svg class="ico"><use href="#i-wa"/></svg>WhatsApp'tan yazın</a></div>
+  </div>
+</div>
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-label="Video">
+  <button class="modal-x" id="mx" aria-label="Kapat"><svg class="ico"><use href="#i-plus" transform="rotate(45 12 12)"/></svg></button>
+  <div class="modal-box" id="mbox"></div>
+  <div class="modal-bar" id="mbar" hidden><b></b><a class="m-page" href="#modal">Videonun sayfası</a><button class="m-share" type="button" data-share><svg class="ico"><use href="#i-share"/></svg>Paylaş</button></div>
+</div>
