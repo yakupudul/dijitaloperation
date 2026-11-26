@@ -52,6 +52,7 @@ final class FinanceDesk
             'late_from_earlier_months' => $data['late']->map($row)->all(),
             'spend' => collect($data['spend'])->except(['docs'])->all(),
             'upcoming' => collect($data['upcoming'])->map(fn (array $u): array => ['kind' => $u['kind'], 'title' => $u['title'], 'detail' => $u['detail']])->all(),
+            'brands_without_agreement' => app(MissingAgreements::class)->brands()->map(fn ($b): array => ['brand_id' => (int) $b->id, 'name' => (string) $b->name])->all(),
             'documents_waiting' => $data['fresh'], 'receipts_waiting' => $data['receipts']->count(),
             'url' => route('operator.finance'),
         ];

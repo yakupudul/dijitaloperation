@@ -5,6 +5,7 @@ namespace App\Services\Operator;
 use App\Models\Brand;
 use App\Models\ClaudeNote;
 use App\Models\Reminder;
+use App\Services\Finance\MissingAgreements;
 use App\Support\AssetIntent;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
@@ -13,6 +14,7 @@ use Throwable;
  * Bugün (arayüz kararı 2026-11-17): every served brand in one list, the one that needs the operator most on top.
  * Urgency comes from two sides and both are shown as their own number:
  *  - what the system found: a channel losing money or data (bad), a channel to look at (look), an expected asset missing,
+ *  - a served brand with no running agreement in Finans (MissingAgreements): money nobody follows,
  *  - what the operator wrote himself: his open to-dos of that brand, late ones first.
  * One sentence per brand says why it is where it is. A known intent on an asset (AssetIntent) is never a gap.
  */
@@ -35,14 +37,17 @@ final class BrandToday
         $todos = $this->safely(fn () => BrandWorkplace::openReminders()->get()) ?? collect();
         $byBrand = $todos->whereNotNull('brand_id')->groupBy('brand_id');
         $start = now()->timezone('Europe/Istanbul')->startOfDay();
+        $noDeal = $this->safely(fn (): array => app(MissingAgreements::class)->ids()) ?? [];
 
         $rows = [];
         foreach ($brands as $brand) {
             $gaps = $system[(int) $brand->id] ?? ['bad' => [], 'look' => [], 'missing' => []];
             $own = BrandWorkplace::sortReminders($byBrand->get($brand->id, collect()));
             $late = $own->filter(fn (Reminder $r): bool => $r->remind_at !== null && $r->remind_at->timezone('Europe/Istanbul')->lessThan($start))->count();
-            $gapCount = count($gaps['bad']) + count($gaps['look']) + count($gaps['missing']);
+            $unpaid = isset($noDeal[(int) $brand->id]);
+            $gapCount = count($gaps['bad']) + count($gaps['look']) + count($gaps['missing']) + ($unpaid ? 1 : 0);
             $parts = array_values(array_filter([
+                $unpaid ? 'Finans\'ta anlaşması yok, ödemesi takip edilmiyor' : null,
                 $gaps['bad'] !== [] ? implode(', ', $gaps['bad']).' kayıpta' : null,
                 $gaps['look'] !== [] ? implode(', ', $gaps['look']).' bakılmalı' : null,
                 $gaps['missing'] !== [] ? implode(', ', $gaps['missing']).' bağlı değil' : null,
@@ -56,8 +61,8 @@ final class BrandToday
                 'todos' => $own->count(),
                 'late' => $late,
                 'line' => $parts !== [] ? implode('. ', $parts).'.' : ($own->isNotEmpty() ? 'Sistem tarafı yolunda, sırada senin işin var.' : 'Yolunda, senden bir şey beklemiyor.'),
-                'tone' => $gaps['bad'] !== [] || $late > 0 ? 'bad' : ($gapCount > 0 || $own->isNotEmpty() ? 'warn' : 'ok'),
-                'score' => 100 * $late + 40 * count($gaps['bad']) + 12 * count($gaps['look']) + 10 * count($gaps['missing']) + 8 * $own->count(),
+                'tone' => $gaps['bad'] !== [] || $late > 0 || $unpaid ? 'bad' : ($gapCount > 0 || $own->isNotEmpty() ? 'warn' : 'ok'),
+                'score' => 100 * $late + 40 * count($gaps['bad']) + 12 * count($gaps['look']) + 10 * count($gaps['missing']) + 8 * $own->count() + ($unpaid ? 60 : 0),
                 'next' => $own->first()?->title,
                 // The doors change only when an account is bound: kept ten minutes so the list costs no query per brand.
                 'doors' => $this->safely(fn (): array => Cache::remember('brand-today.doors.'.$brand->id, 600, fn (): array => $this->shortcuts->doors($brand))) ?? [],

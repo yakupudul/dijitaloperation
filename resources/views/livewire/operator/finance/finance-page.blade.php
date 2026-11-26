@@ -37,6 +37,25 @@
         @endforeach
     </nav>
 
+    {{-- Anlaşması olmayan marka (yakup 2026-11-26): a served brand whose money nobody follows is said here, never silently. --}}
+    @if ($missingAgreements->isNotEmpty())
+        <section class="card mt-4 border-warning-300 dark:border-warning-500/40" data-finance-missing>
+            <div class="card-row">
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $missingAgreements->count() }} markanın anlaşması girilmemiş</p>
+                    <p class="text-[13px] text-gray-500">Hizmet alıyorlar ama ödemeleri takip edilmiyor. Ücreti gir, her ay kendiliğinden sıraya girsin.</p>
+                </div>
+            </div>
+            @foreach ($missingAgreements as $mb)
+                <div class="card-row" wire:key="finance-missing-{{ $mb->id }}" data-finance-missing-row="{{ $mb->id }}">
+                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
+                    <a href="{{ route('operator.brand', ['brand' => $mb->id]) }}" wire:navigate class="min-w-0 flex-1 truncate text-sm text-gray-900 hover:underline dark:text-white">{{ $mb->name }}</a>
+                    <button type="button" wire:click="newJob({{ $mb->id }})" class="btn shrink-0">Anlaşmayı gir</button>
+                </div>
+            @endforeach
+        </section>
+    @endif
+
     {{-- ───────────── Özet ───────────── --}}
     @if ($tab === 'bu-ay')
         @php

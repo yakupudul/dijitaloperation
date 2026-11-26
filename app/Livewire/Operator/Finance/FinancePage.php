@@ -13,6 +13,7 @@ use App\Services\Finance\FinanceBoard;
 use App\Services\Finance\FinanceDocuments;
 use App\Services\Finance\FinanceSettings;
 use App\Services\Finance\GmailInvoices;
+use App\Services\Finance\MissingAgreements;
 use App\Services\Sales\Agreements;
 use App\Services\Site\Analysis\SiteRange;
 use App\Support\Roles;
@@ -441,6 +442,7 @@ final class FinancePage extends Component
         $data = ['tabs' => self::TABS, 'monthDate' => $month, 'isThisMonth' => $this->month === '', 'tlf' => fn (int|float $v): string => $this->tl($v)];
         $data['maxDay'] = CarbonImmutable::now(Agreements::TZ)->addYear()->endOfYear()->toDateString();
         $data['fresh'] = FinanceDocument::query()->where('status', 'new')->where('direction', '!=', FinanceDocument::RECEIPT)->count();
+        $data['missingAgreements'] = in_array($this->tab, ['bu-ay', 'anlasmalar'], true) ? app(MissingAgreements::class)->brands() : collect();
         if ($this->tab === 'bu-ay') {
             [$from, $to] = $this->overviewDays();
             $data['board'] = $board->period($from, $to);

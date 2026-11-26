@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Finance\MissingAgreements;
 use App\Services\Social\ClientPosts;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -37,6 +38,7 @@ class Agreement extends Model
         static::created(function (Agreement $agreement): void {
             DB::afterCommit(fn () => app(ClientPosts::class)->welcome($agreement));
         });
+        static::saved(fn (Agreement $agreement) => MissingAgreements::settled($agreement));
     }
 
     protected function casts(): array
