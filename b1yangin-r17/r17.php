@@ -91,32 +91,6 @@ function b1r17_txt( $h ) {
 	return trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( $h ), ENT_QUOTES, 'UTF-8' ) ) );
 }
 
-function b1r17_alias( $label ) {
-	$k = mb_strtolower( $label, 'UTF-8' );
-	$m = array(
-		'drive'                => 'Drive Train',
-		'drive train'          => 'Drive Train',
-		'water tank'           => 'Water Tank Capacity',
-		'tank capacity'        => 'Water Tank Capacity',
-		'water tank capacity'  => 'Water Tank Capacity',
-		'foam tank'            => 'Foam Tank Capacity',
-		'foam tank capacity'   => 'Foam Tank Capacity',
-		'material / finish'    => 'Material',
-		'tahrik'               => 'Tahrik Sistemi',
-		'tahrik sistemi'       => 'Tahrik Sistemi',
-		'su tankı'             => 'Su Tankı Kapasitesi',
-		'tank kapasitesi'      => 'Su Tankı Kapasitesi',
-		'su tankı kapasitesi'  => 'Su Tankı Kapasitesi',
-		'köpük tankı'          => 'Köpük Tankı Kapasitesi',
-		'köpük tankı kapasitesi' => 'Köpük Tankı Kapasitesi',
-		'maks. debi'           => 'Azami Debi',
-		'maks. basınç'         => 'Azami Basınç',
-		'malzeme / yüzey'      => 'Malzeme',
-		'köpük dozajlama sistemi' => 'Köpük Dozajlama',
-	);
-	return $m[ $k ] ?? $label;
-}
-
 /* Reads a vehicle page: intro text, specification rows, option rows, lists. */
 function b1r17_parse( $pid, $tr ) {
 	$c   = (string) get_post_field( 'post_content', $pid );
@@ -132,7 +106,7 @@ function b1r17_parse( $pid, $tr ) {
 		$key  = preg_match( '/option|opsiyon|seçenek/iu', $head ) ? 'opt' : 'spec';
 		if ( preg_match_all( '#<tr[^>]*>\s*<th[^>]*>(.*?)</th>\s*<td[^>]*>(.*?)</td>#is', $body, $m, PREG_SET_ORDER ) ) {
 			foreach ( $m as $r ) {
-				$l = b1r17_alias( b1r17_txt( $r[1] ) );
+				$l = b1r17_txt( $r[1] );
 				if ( ! isset( $out[ $key ][ $l ] ) ) {
 					$out[ $key ][ $l ] = b1r17_txt( $r[2] );
 				}
