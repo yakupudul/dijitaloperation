@@ -216,6 +216,7 @@ function b1r17_specs() {
 	);
 	/* Fire Tankers */
 	$s[129] = array(
+		'extra'  => array( 390, 146, 147, 148, 149 ),
 		'sub'    => 'High-capacity water tankers for urban, industrial and large-scale firefighting operations.',
 		'tables' => array(
 			array(
@@ -235,6 +236,7 @@ function b1r17_specs() {
 		),
 	);
 	$s[131] = array(
+		'extra'  => array( 390, 146, 147, 148, 149 ),
 		'sub'    => 'Şehir içi, endüstriyel ve büyük ölçekli yangın müdahaleleri için yüksek kapasiteli su tankerleri.',
 		'tables' => array(
 			array(
@@ -288,7 +290,7 @@ function b1r17_specs() {
 }
 
 /* Photos for the slider: every product in the category (sub-groups too), round-robin so each vehicle shows early. */
-function b1r17_slides( $term ) {
+function b1r17_slides( $term, $extra = array() ) {
 	$posts = get_posts(
 		array(
 			'post_type'        => 'product',
@@ -328,9 +330,13 @@ function b1r17_slides( $term ) {
 		}
 		$lists[] = array( 'p' => $p, 'ids' => array_values( array_unique( $ids ) ) );
 	}
+	if ( $extra && $lists ) {
+		$lists[0]['ids'] = array_values( array_unique( array_merge( $lists[0]['ids'], array_map( 'intval', $extra ) ) ) );
+		$lists[0]['solo'] = true;
+	}
 	$out  = array();
 	$seen = array();
-	for ( $round = 0; $round < 12 && count( $out ) < 16; $round++ ) {
+	for ( $round = 0; $round < 16 && count( $out ) < 16; $round++ ) {
 		foreach ( $lists as $l ) {
 			if ( isset( $l['ids'][ $round ] ) && empty( $seen[ $l['ids'][ $round ] ] ) && count( $out ) < 16 ) {
 				$id          = $l['ids'][ $round ];
@@ -388,7 +394,7 @@ function b1r17_block( $term, $cfg ) {
 		}
 		$h .= '</div>';
 	}
-	$slides = b1r17_slides( $term );
+	$slides = b1r17_slides( $term, $cfg['extra'] ?? array() );
 	if ( $slides ) {
 		$h .= '<div class="b1x-car" data-b1x-car><div class="b1x-track" tabindex="0" aria-label="' . esc_attr( ( $tr ? 'Fotoğraflar: ' : 'Photos: ' ) . $term->name ) . '">';
 		foreach ( $slides as $sl ) {
