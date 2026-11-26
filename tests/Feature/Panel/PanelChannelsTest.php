@@ -99,7 +99,7 @@ class PanelChannelsTest extends PanelTestCase
         $this->assertTrue((bool) PanelMessage::query()->where('external_id', 'wamid.3')->firstOrFail()->outgoing);
 
         $this->enter($this->managerB, $this->brandB);
-        Livewire::test(InboxPage::class)->set('channel', 'whatsapp')->assertDontSee('Zehra Yazan')->assertDontSee('WhatsApp bağlı');
+        Livewire::test(InboxPage::class)->set('channel', 'whatsapp')->assertDontSee('Zehra Yazan')->assertSee('WhatsApp bağlı değil');
     }
 
     public function test_an_ad_message_writes_its_source_and_a_returning_person_is_a_new_request(): void

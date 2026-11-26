@@ -78,14 +78,16 @@ final class PanelChannels
     }
 
     /** The channel stops feeding the brand; its conversations stay. The brand's users are told. */
-    public function disconnect(PanelChannel $channel, ?string $why = null): void
+    public function disconnect(PanelChannel $channel, ?string $why = null, bool $byBrand = false): void
     {
-        $this->context->system(function () use ($channel, $why): void {
+        $this->context->system(function () use ($channel, $why, $byBrand): void {
             if (! $channel->isConnected()) {
                 return;
             }
-            $channel->forceFill(['status' => PanelChannel::DISCONNECTED, 'disconnected_at' => now(), 'last_error' => $why])->save();
-            $this->notifier->brand((int) $channel->brand_id, 'channel', PanelChannel::KINDS[$channel->channel][0].' bağlantısı kesildi. Moximu ilgileniyor; yeni mesajlar şimdilik buraya düşmez.', route('panel.inbox', ['kanal' => $channel->channel]), 'menu.inbox');
+            $channel->forceFill(['status' => PanelChannel::DISCONNECTED, 'disconnected_at' => now(), 'last_error' => $why, 'meta' => array_merge((array) $channel->meta, ['closed_by_brand' => $byBrand])])->save();
+            $this->notifier->brand((int) $channel->brand_id, 'channel', PanelChannel::KINDS[$channel->channel][0].($byBrand
+                ? ' bağlantısı kapatıldı. Yeni mesajlar buraya düşmez; yeniden bağlamak için Gelen kutusu\'nda "Bağla"ya basın.'
+                : ' bağlantısı kesildi. Yeni mesajlar şimdilik buraya düşmez; Gelen kutusu\'nda "Yeniden bağla" ile hemen bağlayabilirsiniz.'), route('panel.inbox', ['kanal' => $channel->channel]), 'menu.inbox');
         });
     }
 

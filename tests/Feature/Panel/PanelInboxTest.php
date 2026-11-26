@@ -9,7 +9,6 @@ use App\Panel\Models\PanelImport;
 use App\Panel\Models\PanelMessage;
 use App\Panel\Models\PanelPerson;
 use App\Panel\Models\PanelRequest;
-use App\Panel\Models\PanelTicket;
 use App\Panel\Services\PanelBackups;
 use App\Panel\Support\PanelContext;
 use App\Panel\Support\PanelStages;
@@ -121,11 +120,10 @@ class PanelInboxTest extends PanelTestCase
         Livewire::test(InboxPage::class)->set('channel', 'web_form')->assertSee('Ayşe Akasya');
     }
 
-    public function test_an_unconnected_channel_asks_the_agency_once(): void
+    public function test_an_unconnected_channel_offers_connect_instead_of_asking_the_agency(): void
     {
         $this->enter($this->managerA, $this->brandA);
-        Livewire::test(InboxPage::class)->set('channel', 'instagram')->assertSee('Instagram henüz bağlı değil')->call('requestConnection')->call('requestConnection');
-        $this->assertSame(1, PanelTicket::query()->where('subject', 'Instagram bağlantısı')->count());
+        Livewire::test(InboxPage::class)->set('channel', 'instagram')->assertSee('Instagram henüz bağlı değil')->assertDontSee('Bağlantı iste');
     }
 
     public function test_a_backup_brings_chats_without_making_leads_and_a_second_one_adds_only_what_is_missing(): void

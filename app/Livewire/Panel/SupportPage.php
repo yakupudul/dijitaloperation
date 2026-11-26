@@ -26,7 +26,7 @@ final class SupportPage extends Component
 
     public const array HELP = [
         ['Yeni bir aday nasıl eklenir?', 'Adaylar ekranında “Aday ekle” ile ad ve telefonu yazın. Aynı telefon daha önce kayıtlıysa yeni kayıt açılmaz, talep o kişinin geçmişine eklenir.'],
-        ['Sitemdeki form buraya nasıl düşer?', 'Formu sizin adınıza biz bağlarız. Destek ekranından “Bağlantı isteği” kategorisinde bir talep açmanız yeterli.'],
+        ['Sitemdeki form buraya nasıl düşer?', 'Gelen kutusu › Web formu sekmesinde “Bağla”ya basın; çıkan adresi formunuzun webhook ayarına yapıştırın. Sitenizi biz yönetiyorsak bu adımı biz yaparız.'],
         ['Aynı şeyi her seferinde yazmamak için ne yapabilirim?', 'Adaylar ekranındaki “Hazır listeler” ile konuları, not şablonlarını ve hazır WhatsApp mesajlarını bir kez yazın, sonra seçin.'],
         ['Bir adayı neden “Olumsuz” kapatmalıyım?', 'Neden seçtiğinizde ay sonunda hangi konuda kaç kişinin neden gittiğini görürsünüz. Kapatılan kişi yeniden yazarsa kaydı kendiliğinden “Yeni” olur.'],
         ['Personelim hangi bilgileri görür?', 'Kullanıcılar ekranında her kişiye bir rol verirsiniz. İsterseniz o kişiye özel bir yetkiyi açıp kapatabilirsiniz, örneğin telefon numaraları gizli kalsın.'],

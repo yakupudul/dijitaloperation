@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Panel;
 
+use App\Panel\Models\PanelBrandSetting;
 use App\Panel\Models\PanelChannel;
 use App\Panel\Models\PanelConversation;
 use App\Panel\Models\PanelEvent;
@@ -11,11 +12,11 @@ use App\Panel\Models\PanelMessage;
 use App\Panel\Models\PanelPerson;
 use App\Panel\Models\PanelReminder;
 use App\Panel\Models\PanelRequest;
-use App\Panel\Models\PanelTicket;
 use App\Panel\Services\PanelBackups;
 use App\Panel\Services\PanelLeads;
 use App\Panel\Services\PanelNotifier;
-use App\Panel\Services\PanelSupport;
+use App\Panel\Services\PanelChannelLinks;
+use App\Panel\Services\PanelChannels;
 use App\Panel\Support\PanelPage;
 use App\Panel\Support\PanelStages;
 use Carbon\CarbonImmutable;
@@ -66,6 +67,9 @@ final class InboxPage extends Component
 
     public bool $backupOpen = false;
 
+    /** @var list<array{id: string, label: string}> numbers or pages to pick from after Meta's window */
+    public array $choices = [];
+
     protected function permission(): string
     {
         return 'menu.inbox';
@@ -89,6 +93,7 @@ final class InboxPage extends Component
 
     public function updatedChannel(): void
     {
+        $this->choices = [];
         $this->open = null;
         $this->search = '';
         $this->limit = 200;
@@ -230,18 +235,88 @@ final class InboxPage extends Component
         $this->notify($id ? 'İlgilenen kişi değişti.' : 'İlgilenen kişi kaldırıldı.');
     }
 
-    /** A channel that is not connected yet: one click asks the agency to connect it. */
-    public function requestConnection(PanelSupport $support): void
+    /** Only the brand's manager connects or closes a channel, and never on a read-only brand. */
+    private function linker(): bool
     {
-        abort_unless($this->may('support.write') && isset($this->tabs()[$this->channel]), 403);
-        $subject = self::CHANNELS[$this->channel][0].' bağlantısı';
-        if (PanelTicket::query()->where('subject', $subject)->where('status', '!=', PanelTicket::SOLVED)->exists()) {
-            $this->notify('Bu bağlantıyı zaten istediniz; Destek ekranında bekliyor.');
+        return $this->panel()->isManager() && ! $this->panel()->readOnly();
+    }
+
+    private function linkable(): bool
+    {
+        return $this->linker() && isset($this->tabs()[$this->channel]) && isset(PanelChannel::KINDS[$this->channel]);
+    }
+
+    /**
+     * Meta's WhatsApp window finished: the code (and, when Meta said so, the account and number) comes here.
+     *
+     * @param  array<string, mixed>  $result
+     */
+    public function linkWhatsApp(array $result, PanelChannelLinks $links): void
+    {
+        abort_unless($this->linkable() && $this->channel === 'whatsapp', 403);
+        $code = is_string($result['code'] ?? null) ? mb_substr($result['code'], 0, 4096) : '';
+        if ($code === '') {
+            $this->notify('Meta onay vermedi. Penceredeki adımları bitirip son ekranda "Bitti" deyin.', 'error');
 
             return;
         }
-        $support->open((int) $this->panel()->brandId(), $this->actor(), $subject, 'connection', self::CHANNELS[$this->channel][0].' kanalının panele bağlanmasını istiyoruz.');
-        $this->notify('İsteğiniz Moximu\'ya ulaştı. Bağlanınca zil haber verir.');
+        $this->finishLink(fn () => $links->whatsapp((int) $this->panel()->brandId(), $this->actor(), $code, is_string($result['waba_id'] ?? null) ? $result['waba_id'] : null, is_string($result['phone_number_id'] ?? null) ? $result['phone_number_id'] : null));
+    }
+
+    /** Meta's Facebook window finished for Instagram, Facebook or Meta formu: its token comes here. */
+    public function linkMeta(string $token, PanelChannelLinks $links): void
+    {
+        abort_unless($this->linkable() && $this->channel !== 'whatsapp', 403);
+        if (trim($token) === '' || strlen($token) > 4096) {
+            $this->notify('Meta onay vermedi. Yeniden "Bağla"ya basıp izinleri onaylayın.', 'error');
+
+            return;
+        }
+        $this->finishLink(fn () => $links->meta((int) $this->panel()->brandId(), $this->actor(), $this->channel, trim($token)));
+    }
+
+    /** The number or page picked when Meta shared several. */
+    public function chooseLink(string $id, PanelChannelLinks $links): void
+    {
+        abort_unless($this->linkable() && $this->choices !== [], 403);
+        $this->finishLink(fn () => ['channel' => $this->channel === 'whatsapp'
+            ? $links->chooseWhatsApp((int) $this->panel()->brandId(), $this->actor(), $id)
+            : $links->choosePage((int) $this->panel()->brandId(), $this->actor(), $this->channel, $id)]);
+    }
+
+    public function cancelChoice(): void
+    {
+        $this->choices = [];
+    }
+
+    /** The manager closes the channel; its conversations stay. */
+    public function unlink(PanelChannels $channels): void
+    {
+        abort_unless($this->linkable(), 403);
+        $link = PanelChannel::query()->where('channel', $this->channel)->first();
+        abort_if($link === null, 404);
+        $channels->disconnect($link, 'Marka bağlantıyı kapattı.', byBrand: true);
+        $this->notify(self::CHANNELS[$this->channel][0].' bağlantısı kapatıldı. Yazışmalarınız yerinde duruyor.');
+    }
+
+    private function finishLink(callable $step): void
+    {
+        try {
+            $result = $step();
+        } catch (ValidationException $exception) {
+            $this->choices = [];
+            $this->notify((string) collect($exception->errors())->flatten()->first(), 'error');
+
+            return;
+        }
+        if (isset($result['choose'])) {
+            $this->choices = $result['choose'];
+            $this->notify($this->channel === 'whatsapp' ? 'Meta birden fazla numara paylaştı. Bağlanacak numarayı seçin.' : 'Birden fazla hesap geldi. Bağlanacak olanı seçin.');
+
+            return;
+        }
+        $this->choices = [];
+        $this->notify(self::CHANNELS[$this->channel][0].' bağlandı: '.($result['channel']->label ?: 'hazır').'. Yeni gelenler buraya düşecek.');
     }
 
     /** @return array{id: int, chunk: int} */
@@ -341,6 +416,9 @@ final class InboxPage extends Component
             'showPhone' => $showPhone,
             'link' => in_array($this->channel, array_keys(PanelChannel::KINDS), true) ? PanelChannel::query()->where('channel', $this->channel)->first() : null,
             'manager' => $manager,
+            'meta' => $manager ? app(PanelChannelLinks::class)->settings() : null,
+            'scopes' => PanelChannelLinks::SCOPES,
+            'formUrl' => $manager && $this->channel === 'web_form' ? route('panel.intake', ['token' => PanelBrandSetting::forBrand((int) $this->panel()->brandId())->form_token]) : null,
             'imports' => $manager && $this->channel === 'whatsapp' ? PanelImport::query()->where('kind', PanelImport::BACKUP)->latest('id')->limit(5)->get() : collect(),
             'can' => [
                 'stage' => $this->may('leads.stage'), 'note' => $this->may('notes.write'), 'reminder' => $this->may('reminders.write'), 'assign' => $this->may('leads.assign'),

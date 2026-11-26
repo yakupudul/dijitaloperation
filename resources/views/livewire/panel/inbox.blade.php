@@ -11,10 +11,10 @@
     $label = InboxPage::CHANNELS[$channel][0] ?? '';
     $when = fn ($time) => $time === null ? '' : ($time->timezone($tz)->isToday() ? $time->timezone($tz)->format('H:i') : ($time->timezone($tz)->isCurrentYear() ? $time->timezone($tz)->translatedFormat('j M') : $time->timezone($tz)->format('d.m.Y')));
     $empty = [
-        'whatsapp' => ['WhatsApp henüz bağlı değil.', 'Geçmiş yazışmalarınızı telefonunuzdaki yedekten buraya alabilir, yeni mesajların kendiliğinden düşmesi için bağlantı isteyebilirsiniz.'],
+        'whatsapp' => ['WhatsApp henüz bağlı değil.', 'Yukarıdaki “Bağla” ile numaranızı bağlayınca yeni mesajlar kendiliğinden düşer. Geçmiş yazışmalarınızı telefonunuzdaki yedekten de alabilirsiniz.'],
         'instagram' => ['Instagram henüz bağlı değil.', 'Bağlandığında Instagram mesajlarınız burada görünür ve yazan kişi tek tıkla adaya dönüşür.'],
         'facebook' => ['Facebook henüz bağlı değil.', 'Bağlandığında sayfanıza gelen mesajlar burada görünür.'],
-        'web_form' => ['Sitenizdeki formdan henüz talep düşmedi.', 'Form bağlı değilse biz bağlarız; bağlandıktan sonra her talep burada ve Adaylar ekranında görünür.'],
+        'web_form' => ['Sitenizdeki formdan henüz talep düşmedi.', 'Formunuzu yukarıdaki “Bağla” ile bağlayın; bağlandıktan sonra her talep burada ve Adaylar ekranında görünür.'],
         'meta_form' => ['Meta formu henüz bağlı değil.', 'Bağlandığında Facebook ve Instagram reklam formlarını dolduranlar kendiliğinden aday olur.'],
         'call' => ['Henüz çağrı kaydı yok.', 'Adaylar ekranında kaynağı “Çağrı” seçerek ekleyebilir ya da çağrı listenizi Excel ile yükleyebilirsiniz.'],
     ];
@@ -40,16 +40,95 @@
         <x-ta.empty-state size="sm" icon="none" title="Size açık bir kanal yok." message="Hangi kanalları göreceğinizi markanızın yöneticisi Kullanıcılar ekranından belirler." />
     @endif
 
-    @if ($link)
-        <p @class(['flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-4 py-2.5 text-sm', 'border-gray-200 text-gray-700' => $link->isConnected(), 'border-error-200 bg-error-50 text-error-700' => ! $link->isConnected()]) data-panel-channel-state>
-            @if ($link->isConnected())
-                <span class="inline-flex items-center gap-1.5 font-medium text-gray-900"><span class="h-2 w-2 rounded-full bg-success-500" aria-hidden="true"></span>{{ $label }} bağlı{{ $link->label ? ', '.$link->label : '' }}</span>
-                <span>{{ $link->last_event_at ? 'Son mesaj '.$link->last_event_at->timezone($tz)->diffForHumans().' geldi.' : 'İlk mesaj gelince burada görünür.' }} Yeni yazan kişi kendiliğinden aday olur.</span>
-            @else
-                <span class="font-medium">{{ $label }} bağlantısı kesildi.</span>
-                <span>Yeni mesajlar şimdilik buraya düşmüyor; eski yazışmalarınız yerinde. Moximu ilgileniyor.</span>
+    @if (isset(\App\Panel\Models\PanelChannel::KINDS[$channel]))
+        @php
+            $connected = $link?->isConnected() ?? false;
+            $closedByBrand = (bool) data_get($link?->meta, 'closed_by_brand', false);
+        @endphp
+        <section @class(['rounded-xl border px-4 py-3 text-sm', 'border-gray-200 text-gray-700' => $connected || ! $link || $closedByBrand, 'border-error-200 bg-error-50 text-error-700' => $link && ! $connected && ! $closedByBrand]) data-panel-channel-state
+            @if ($manager && $meta)
+                x-data="panelConnect(@js(['channel' => $channel, 'appId' => $meta['appId'], 'config' => $meta['whatsappConfig'], 'version' => $meta['version'], 'scopes' => $scopes[$channel] ?? []]))"
             @endif
-        </p>
+            wire:key="link-{{ $channel }}">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <p class="min-w-0 flex-1">
+                    @if ($connected)
+                        <span class="inline-flex items-center gap-1.5 font-medium text-gray-900"><span class="h-2 w-2 rounded-full bg-success-500" aria-hidden="true"></span>{{ $label }} bağlı{{ $link->label ? ', '.$link->label : '' }}</span>
+                        <span class="block sm:inline">{{ $link->last_event_at ? 'Son mesaj '.$link->last_event_at->timezone($tz)->diffForHumans().' geldi.' : 'İlk mesaj gelince burada görünür.' }} Yeni yazan kişi kendiliğinden aday olur.</span>
+                    @elseif ($link && ! $closedByBrand)
+                        <span class="font-medium">{{ $label }} bağlantısı kesildi.</span>
+                        <span class="block sm:inline">Yeni mesajlar şimdilik buraya düşmüyor; eski yazışmalarınız yerinde. {{ $manager ? '“Yeniden bağla” ile hemen bağlayabilirsiniz.' : 'Markanızın yöneticisi yeniden bağlayabilir.' }}</span>
+                    @else
+                        <span class="font-medium text-gray-900">{{ $label }} bağlı değil.</span>
+                        <span class="block sm:inline">{{ $manager ? match ($channel) {
+                            'whatsapp' => 'Bağlayınca telefonunuzdaki WhatsApp Business çalışmaya devam eder, yeni mesajlar buraya da düşer.',
+                            'instagram' => 'Facebook hesabınızla girip Instagram işletme hesabınızı seçmeniz yeterli.',
+                            'facebook' => 'Facebook hesabınızla girip sayfanızı seçmeniz yeterli.',
+                            default => 'Facebook hesabınızla girip formlarınızın bağlı olduğu sayfayı seçmeniz yeterli.',
+                        } : 'Bağlamak için markanızın yöneticisine söyleyin; Gelen kutusu’ndaki “Bağla” düğmesi yalnız onda görünür.' }}</span>
+                    @endif
+                </p>
+                @if ($manager)
+                    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+                        @if ($meta)
+                            @if ($channel === 'whatsapp')
+                                <button type="button" x-on:click="whatsapp(true)" x-bind:disabled="!ready || busy" class="{{ $connected ? 'btn' : 'btn-primary' }} w-full sm:w-auto" data-panel-connect>
+                                    <span x-text="busy ? 'Bağlanıyor…' : @js($connected ? 'Numarayı değiştir' : ($link ? 'Yeniden bağla' : 'Bağla'))">{{ $connected ? 'Numarayı değiştir' : ($link ? 'Yeniden bağla' : 'Bağla') }}</span>
+                                </button>
+                            @else
+                                <button type="button" x-on:click="facebook()" x-bind:disabled="!ready || busy" class="{{ $connected ? 'btn' : 'btn-primary' }} w-full sm:w-auto" data-panel-connect>
+                                    <span x-text="busy ? 'Bağlanıyor…' : @js($connected ? 'Hesabı değiştir' : ($link ? 'Yeniden bağla' : 'Bağla'))">{{ $connected ? 'Hesabı değiştir' : ($link ? 'Yeniden bağla' : 'Bağla') }}</span>
+                                </button>
+                            @endif
+                        @endif
+                        @if ($connected)
+                            <button type="button" wire:click="unlink" wire:confirm="{{ $label }} bağlantısı kapatılsın mı? Yeni mesajlar buraya düşmez, eski yazışmalarınız yerinde kalır." class="btn-quiet w-full sm:w-auto" data-panel-unlink>Bağlantıyı kapat</button>
+                        @endif
+                    </div>
+                @endif
+            </div>
+            @if ($manager && $meta && $channel === 'whatsapp' && ! $connected)
+                <p class="mt-2 text-[13px] text-gray-500">Numaranız telefonda WhatsApp Business uygulamasında değilse <button type="button" x-on:click="whatsapp(false)" x-bind:disabled="!ready || busy" class="link-neutral">uygulamasız numara bağlayın</button>.</p>
+            @endif
+            @if ($manager && ! $meta)
+                <p class="mt-2 text-[13px] text-gray-500">Bağlantı şu an açılamıyor; Moximu'ya haber verildi. Acelesi varsa Destek'ten yazın.</p>
+            @endif
+            <p x-cloak x-show="message" x-text="message" class="mt-2 text-[13px] text-error-700" role="status"></p>
+            @if ($choices !== [])
+                <div class="mt-3 border-t border-gray-200 pt-3" data-panel-link-choices>
+                    <p class="font-medium text-gray-900">{{ $channel === 'whatsapp' ? 'Hangi numara bağlansın?' : 'Hangisi bağlansın?' }}</p>
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        @foreach ($choices as $choice)
+                            <button type="button" wire:click="chooseLink('{{ $choice['id'] }}')" wire:key="choice-{{ $choice['id'] }}" class="btn">{{ $choice['label'] }}</button>
+                        @endforeach
+                        <button type="button" wire:click="cancelChoice" class="btn-quiet">Vazgeç</button>
+                    </div>
+                </div>
+            @endif
+        </section>
+    @elseif ($channel === 'web_form' && $manager && $formUrl)
+        <section class="rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-700" data-panel-form-link
+            x-data="{ open: false, copied: '', copy(text, what) { navigator.clipboard?.writeText(text).then(() => { this.copied = what; setTimeout(() => this.copied = '', 2500); }); } }">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                <p class="min-w-0 flex-1"><span class="font-medium text-gray-900">Sitenizdeki formu bağlayın.</span> <span class="block sm:inline">Formunuz bu adrese gönderdiğinde her talep burada ve Adaylar'da görünür.</span></p>
+                <button type="button" x-on:click="open = !open" class="btn-primary w-full sm:w-auto" data-panel-connect x-text="open ? 'Kapat' : 'Bağla'">Bağla</button>
+            </div>
+            <div x-cloak x-show="open" class="mt-3 space-y-3 border-t border-gray-200 pt-3">
+                <div>
+                    <p class="text-[13px] text-gray-500">Form gönderim adresi (webhook)</p>
+                    <div class="mt-1 flex flex-wrap gap-2">
+                        <code class="min-w-0 flex-1 break-all rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-[13px] text-gray-900">{{ $formUrl }}</code>
+                        <button type="button" x-on:click="copy(@js($formUrl), 'url')" class="btn w-full sm:w-auto" x-text="copied === 'url' ? 'Kopyalandı' : 'Kopyala'">Kopyala</button>
+                    </div>
+                </div>
+                <ul class="list-disc space-y-1 pl-5 text-[13px] text-gray-600">
+                    <li><span class="font-medium text-gray-800">Elementor formu:</span> Form › Gönderimden sonra yapılacaklar › Webhook ekleyin, adresi yapıştırın.</li>
+                    <li><span class="font-medium text-gray-800">Contact Form 7, WPForms ve diğerleri:</span> eklentinin webhook ayarına aynı adresi yazın.</li>
+                    <li>Alan adları: ad için <code>name</code>, telefon için <code>phone</code>, e-posta için <code>email</code>, mesaj için <code>message</code>. Türkçe adlar da (ad, telefon, mesaj) tanınır. Telefon ya da e-postadan biri yeterli.</li>
+                </ul>
+                <p class="text-[13px] text-gray-500">Adres markanıza özeldir, başkasıyla paylaşmayın. Sitenizi bizim yönettiğimiz durumda bu adımı biz yaparız.</p>
+            </div>
+        </section>
     @endif
 
     @if ($backupOpen && $manager && $channel === 'whatsapp')
@@ -152,8 +231,6 @@
                     @endif
                     @if ($channel === 'call')
                         <a href="{{ route('panel.leads') }}" wire:navigate class="btn">Adaylar'a git</a>
-                    @elseif ($can['support'] && ! $link?->isConnected())
-                        <button type="button" wire:click="requestConnection" class="btn" data-panel-connect>Bağlantı iste</button>
                     @endif
                 </div>
             </x-ta.empty-state>
