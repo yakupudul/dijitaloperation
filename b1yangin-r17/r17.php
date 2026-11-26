@@ -380,7 +380,7 @@ function b1r17_table_html( $t, $pair ) {
 function b1r17_block( $term, $cfg ) {
 	$tr   = b1r17_is_tr();
 	$pair = ! empty( $cfg['pair'] );
-	$h    = '<div class="b1x e-con-boxed e-flex e-con e-parent"><div class="e-con-inner">';
+	$h    = '<div class="b1x"><div class="b1x-in">';
 	if ( ! empty( $cfg['tables'] ) ) {
 		$h .= '<div class="b1x-specs' . ( $pair ? ' b1x-pair' : '' ) . '">';
 		foreach ( $cfg['tables'] as $t ) {
@@ -462,13 +462,16 @@ add_action( 'wp_head', function () {
 	?>
 <style id="b1-r17">
 .elementor-element-c81cf70 .elementor-button.b1x-on{background:#fff!important;color:#1c1c1c!important;border-color:#fff!important}
-.b1x{--padding-top:40px;--padding-bottom:8px}
-.b1x .e-con-inner{gap:56px}
+.tax-product_category .elementor-element-c81cf70{--min-height:0px;min-height:0!important;padding-top:140px!important;padding-bottom:56px!important}
+.b1x{width:100%;padding:48px 48px 0;box-sizing:border-box;background:#fff}
+.b1x-in{max-width:1344px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+.tax-product_category .elementor-element-3b5f245>.e-con-inner{padding-top:64px}
 .b1x-specs{display:grid;gap:28px;width:100%}
 .b1x-pair{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start}
 .b1x-tw{width:100%;overflow-x:auto;border:1px solid #dfe2e6;border-radius:12px;background:#fff;box-shadow:0 10px 30px -18px rgba(16,24,40,.25)}
 .b1x-t{width:100%;border-collapse:collapse;font-size:15px;line-height:1.45;color:#1c1c1c;margin:0;border:0}
 .b1x-t-wide{min-width:860px}
+.b1x-tw-cmp tbody th{width:22%}
 .b1x-t thead th{background:#24282d;color:#fff;font-weight:600;font-size:16px;line-height:1.3;text-align:left;padding:16px 20px;border:0;border-left:1px solid #3a3f45;vertical-align:middle}
 .b1x-t thead th:first-child{border-left:0}
 .b1x-tw-cmp thead th{text-align:center}
@@ -492,8 +495,8 @@ add_action( 'wp_head', function () {
 .b1x-dots{display:flex;justify-content:center;gap:8px;margin-top:18px;min-height:8px}
 .b1x-dots span{width:8px;height:8px;border-radius:50%;background:#d1d5db;cursor:pointer;transition:background .2s,transform .2s}
 .b1x-dots span.on{background:#ed1c24;transform:scale(1.15)}
-@media(max-width:1024px){.b1x-pair{grid-template-columns:1fr}.b1x-slide{flex-basis:calc((100% - 32px)/3)}.b1x-nav.prev{left:6px}.b1x-nav.next{right:6px}}
-@media(max-width:767px){.b1x{--padding-top:28px}.b1x .e-con-inner{gap:36px}.b1x-t{font-size:14px}.b1x-t thead th{padding:13px 14px;font-size:14px}.b1x-t tbody th,.b1x-t tbody td{padding:10px 14px}.b1x-t-wide{min-width:720px}.b1x-t-wide tbody th,.b1x-t-wide thead th.b1x-c0{position:sticky;left:0;z-index:1;min-width:150px}.b1x-slide{flex-basis:82%}.b1x-nav{width:40px;height:40px}}
+@media(max-width:1024px){.b1x{padding:40px 32px 0}.b1x-pair{grid-template-columns:1fr}.b1x-slide{flex-basis:calc((100% - 32px)/3)}.b1x-nav.prev{left:6px}.b1x-nav.next{right:6px}}
+@media(max-width:767px){.tax-product_category .elementor-element-c81cf70{padding-top:110px!important;padding-bottom:40px!important}.b1x{padding:28px 20px 0}.b1x-in{gap:36px}.b1x-t{font-size:14px}.b1x-t thead th{padding:13px 14px;font-size:14px}.b1x-t tbody th,.b1x-t tbody td{padding:10px 14px}.b1x-t-wide{min-width:720px}.b1x-t-wide tbody th,.b1x-t-wide thead th.b1x-c0{position:sticky;left:0;z-index:1;min-width:150px}.b1x-slide{flex-basis:82%}.b1x-nav{width:40px;height:40px}}
 </style>
 	<?php
 }, 100 );
