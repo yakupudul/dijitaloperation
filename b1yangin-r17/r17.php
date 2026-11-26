@@ -329,7 +329,7 @@ add_action( 'template_redirect', function () {
 /* Vehicle pages are closed: old addresses go to their category; links to them across the site point there too. */
 function b1r17_path() {
 	$p    = (string) wp_parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH );
-	$base = (string) wp_parse_url( home_url(), PHP_URL_PATH );
+	$base = (string) wp_parse_url( get_option( 'home' ), PHP_URL_PATH );
 	if ( $base && 0 === strpos( $p, $base ) ) {
 		$p = substr( $p, strlen( $base ) );
 	}
@@ -352,7 +352,7 @@ add_action( 'template_redirect', function () {
 	if ( is_tax( 'product_category' ) ) {
 		$t = get_queried_object();
 		if ( $t && in_array( (int) $t->term_id, array( 6, 34 ), true ) ) {
-			wp_safe_redirect( home_url( 34 === (int) $t->term_id ? '/tr/products/' : '/products/' ), 301 );
+			wp_safe_redirect( untrailingslashit( get_option( 'home' ) ) . ( 34 === (int) $t->term_id ? '/tr/products/' : '/products/' ), 301 );
 			exit;
 		}
 	}
@@ -363,7 +363,7 @@ add_action( 'template_redirect', function () {
 		return;
 	}
 	ob_start( function ( $html ) {
-		$home = untrailingslashit( home_url() );
+		$home = untrailingslashit( get_option( 'home' ) );
 		$map  = array();
 		foreach ( b1r17_moved() as $path => $tid ) {
 			$l = get_term_link( $tid, 'product_category' );
@@ -371,6 +371,8 @@ add_action( 'template_redirect', function () {
 				$map[ 'href="' . $home . $path . '/"' ] = 'href="' . esc_url( $l ) . '"';
 			}
 		}
+		$map[ 'href="' . $home . '/product-category/fire-trucks/"' ]                = 'href="' . $home . '/products/"';
+		$map[ 'href="' . $home . '/tr/product-category/itfaiye-araclari-tr/"' ] = 'href="' . $home . '/tr/products/"';
 		return strtr( $html, $map );
 	} );
 }, 4 );
