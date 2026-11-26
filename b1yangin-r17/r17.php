@@ -146,57 +146,51 @@ function b1r17_parse( $pid, $tr ) {
 	return $out;
 }
 
-/* Tables for a category, built from its vehicle pages. */
+/* Tables for a category, built from its vehicle pages: one table per vehicle (description, specifications, options). */
 function b1r17_tables( $term, $ids, $tr ) {
-	$data = array();
+	$out = array();
 	foreach ( $ids as $pid ) {
-		if ( get_post( $pid ) ) {
-			$data[ $pid ] = b1r17_parse( $pid, $tr );
-		}
-	}
-	if ( ! $data ) {
-		return array( array(), false );
-	}
-	if ( 1 === count( $data ) ) {
-		$d = reset( $data );
-		$t = array();
-		foreach ( array( 'spec' => $tr ? 'Teknik özellikler' : 'Technical specifications', 'opt' => $tr ? 'Opsiyonlar' : 'Options' ) as $k => $title ) {
-			if ( $d[ $k ] ) {
-				$rows = array();
-				foreach ( $d[ $k ] as $l => $v ) {
-					$rows[] = array( $l, $v );
-				}
-				$t[] = array( 'cols' => array( esc_html( $title ) ), 'rows' => $rows );
-			}
-		}
-		return array( $t, count( $t ) > 1 );
-	}
-	$t = array();
-	foreach ( array( 'spec' => $tr ? 'Teknik özellikler' : 'Technical specifications', 'opt' => $tr ? 'Opsiyonlar' : 'Options' ) as $k => $title ) {
-		$labels = array();
-		foreach ( $data as $d ) {
-			foreach ( array_keys( $d[ $k ] ) as $l ) {
-				$labels[ $l ] = 1;
-			}
-		}
-		if ( ! $labels ) {
+		if ( ! get_post( $pid ) ) {
 			continue;
 		}
-		$cols = array( esc_html( $title ) );
-		foreach ( array_keys( $data ) as $pid ) {
-			$cols[] = esc_html( get_the_title( $pid ) );
-		}
-		$rows = array();
-		foreach ( array_keys( $labels ) as $l ) {
-			$r = array( $l );
-			foreach ( $data as $d ) {
-				$r[] = $d[ $k ][ $l ] ?? '–';
-			}
-			$rows[] = $r;
-		}
-		$t[] = array( 'cols' => $cols, 'rows' => $rows );
+		$d    = b1r17_parse( $pid, $tr );
+		$ov   = $tr ? 'Genel Bakış' : 'Overview';
+		$desc = $d['spec'][ $ov ] ?? '';
+		unset( $d['spec'][ $ov ] );
+		$out[] = array(
+			'title' => get_the_title( $pid ),
+			'desc'  => $desc,
+			'spec'  => $d['spec'],
+			'opt'   => $d['opt'],
+		);
 	}
-	return array( $t, false );
+	return $out;
+}
+
+function b1r17_vehicle_html( $v, $tr, $split ) {
+	$row = function ( $rows ) {
+		$h = '';
+		foreach ( $rows as $l => $val ) {
+			$h .= '<tr><th scope="row">' . esc_html( $l ) . '</th><td>' . esc_html( $val ) . '</td></tr>';
+		}
+		return $h;
+	};
+	$t = function ( $title, $body ) {
+		return '<div class="b1x-tw"><table class="b1x-t"><thead><tr><th colspan="2" scope="colgroup">' . $title . '</th></tr></thead><tbody>' . $body . '</tbody></table></div>';
+	};
+	$desc = $v['desc'] ? '<tr><td colspan="2" class="b1x-desc">' . esc_html( $v['desc'] ) . '</td></tr>' : '';
+	if ( $split ) {
+		$h = $t( esc_html( $tr ? 'Teknik özellikler' : 'Technical specifications' ), $desc . $row( $v['spec'] ) );
+		if ( $v['opt'] ) {
+			$h .= $t( esc_html( $tr ? 'Opsiyonlar' : 'Options' ), $row( $v['opt'] ) );
+		}
+		return $h;
+	}
+	$body = $desc . $row( $v['spec'] );
+	if ( $v['opt'] ) {
+		$body .= '<tr class="b1x-sub"><th colspan="2" scope="colgroup">' . esc_html( $tr ? 'Opsiyonlar' : 'Options' ) . '</th></tr>' . $row( $v['opt'] );
+	}
+	return $t( esc_html( $v['title'] ), $body );
 }
 
 /* Photos for the slider: the vehicles of the category, round-robin so each vehicle shows early. */
@@ -251,41 +245,17 @@ function b1r17_slides( $ids, $extra = array() ) {
 	return $out;
 }
 
-function b1r17_table_html( $t, $pair ) {
-	$cols = $t['cols'];
-	$n    = $pair ? 2 : count( $cols );
-	$h    = '<div class="b1x-tw' . ( $pair ? '' : ' b1x-tw-cmp' ) . '"><table class="b1x-t' . ( $n > 2 ? ' b1x-t-wide' : '' ) . '"><thead><tr>';
-	if ( $pair ) {
-		$h .= '<th colspan="2" scope="colgroup">' . $cols[0] . '</th>';
-	} else {
-		foreach ( $cols as $i => $c ) {
-			$h .= '<th scope="col"' . ( 0 === $i ? ' class="b1x-c0"' : '' ) . '>' . $c . '</th>';
-		}
-	}
-	$h .= '</tr></thead><tbody>';
-	foreach ( $t['rows'] as $r ) {
-		$h .= '<tr><th scope="row">' . esc_html( $r[0] ) . '</th>';
-		if ( 2 === count( $r ) && $n > 2 ) {
-			$h .= '<td colspan="' . ( $n - 1 ) . '">' . esc_html( $r[1] ) . '</td>';
-		} else {
-			for ( $i = 1; $i < count( $r ); $i++ ) {
-				$h .= '<td>' . esc_html( $r[ $i ] ) . '</td>';
-			}
-		}
-		$h .= '</tr>';
-	}
-	return $h . '</tbody></table></div>';
-}
-
 function b1r17_block( $term, $cfg ) {
 	$tr  = b1r17_is_tr();
 	$ids = $cfg['products'] ?? array();
-	list( $tables, $pair ) = b1r17_tables( $term, $ids, $tr );
-	$h = '<div class="b1x"><div class="b1x-in">';
-	if ( $tables ) {
-		$h .= '<div class="b1x-specs' . ( $pair ? ' b1x-pair' : '' ) . '">';
-		foreach ( $tables as $t ) {
-			$h .= b1r17_table_html( $t, 1 === count( $t['cols'] ) );
+	$veh = b1r17_tables( $term, $ids, $tr );
+	$h   = '<div class="b1x"><div class="b1x-in">';
+	if ( 1 === count( $veh ) ) {
+		$h .= '<div class="b1x-specs' . ( $veh[0]['opt'] ? ' b1x-pair' : '' ) . '">' . b1r17_vehicle_html( $veh[0], $tr, true ) . '</div>';
+	} elseif ( $veh ) {
+		$h .= '<div class="b1x-specs b1x-grid">';
+		foreach ( $veh as $v ) {
+			$h .= b1r17_vehicle_html( $v, $tr, false );
 		}
 		$h .= '</div>';
 	}
@@ -418,6 +388,9 @@ add_action( 'wp_head', function () {
 .tax-product_category .elementor-element-3b5f245{display:none!important}
 .b1x-specs{display:grid;gap:28px;width:100%}
 .b1x-pair{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start}
+.b1x-grid{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+.b1x-t td.b1x-desc{background:#fff;border-left:0;color:#3a3f45;padding:16px 20px;line-height:1.6}
+.b1x-t tr.b1x-sub th{background:#e9ebee;font-size:13px;letter-spacing:.04em;padding:9px 20px;color:#3a3f45}
 .b1x-tw{width:100%;overflow-x:auto;border:1px solid #dfe2e6;border-radius:12px;background:#fff;box-shadow:0 10px 30px -18px rgba(16,24,40,.25)}
 .b1x-t{width:100%;border-collapse:collapse;font-size:15px;line-height:1.45;color:#1c1c1c;margin:0;border:0}
 .b1x-t-wide{min-width:860px}
@@ -445,7 +418,7 @@ add_action( 'wp_head', function () {
 .b1x-dots{display:flex;justify-content:center;gap:8px;margin-top:18px;min-height:8px}
 .b1x-dots span{width:8px;height:8px;border-radius:50%;background:#d1d5db;cursor:pointer;transition:background .2s,transform .2s}
 .b1x-dots span.on{background:#ed1c24;transform:scale(1.15)}
-@media(max-width:1024px){.b1x{padding:40px 32px 64px}.b1x-pair{grid-template-columns:1fr}.b1x-slide{flex-basis:calc((100% - 32px)/3)}.b1x-car .b1x-nav.prev{left:6px}.b1x-car .b1x-nav.next{right:6px}}
+@media(max-width:1024px){.b1x{padding:40px 32px 64px}.b1x-pair,.b1x-grid{grid-template-columns:1fr}.b1x-slide{flex-basis:calc((100% - 32px)/3)}.b1x-car .b1x-nav.prev{left:6px}.b1x-car .b1x-nav.next{right:6px}}
 @media(max-width:767px){.tax-product_category .elementor-element-c81cf70{padding-top:110px!important;padding-bottom:40px!important}.b1x{padding:28px 20px 56px}.b1x-in{gap:36px}.b1x-t{font-size:14px}.b1x-t thead th{padding:13px 14px;font-size:14px}.b1x-t tbody th,.b1x-t tbody td{padding:10px 14px}.b1x-t-wide{min-width:700px}.b1x-t-wide tbody th,.b1x-t-wide thead th.b1x-c0{position:sticky;left:0;z-index:1;width:124px;min-width:124px;max-width:124px;box-shadow:1px 0 0 #e5e7eb}.b1x-slide{flex-basis:82%}.b1x-car .b1x-nav{width:40px;height:40px}}
 </style>
 	<?php
