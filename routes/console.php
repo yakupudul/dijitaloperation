@@ -40,6 +40,7 @@ use App\Models\DigitalAsset;
 use App\Models\ScreenCheck;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Panel\Services\PanelChannels;
 use App\Panel\Services\PanelWatch;
 use App\Services\Ads\AdsCatchUp;
 use App\Services\Ads\DormantAdWork;
@@ -72,6 +73,7 @@ use App\Services\Collection\Monitoring\CollectionAccountPresenter;
 use App\Services\Collection\RecoverInterruptedCollections;
 use App\Services\Collection\StartCollectionService;
 use App\Services\ExternalWrites\ExternalWriteService;
+use App\Services\Finance\BillingInfo;
 use App\Services\Finance\FinanceReminders;
 use App\Services\Finance\GmailInvoices;
 use App\Services\Finance\MissingAgreements;
@@ -1973,7 +1975,7 @@ Artisan::command('moxdop:finance:tick', function (): void {
     // Anlaşması olmayan marka: one to-do per served brand without an agreement, ticked once one is entered.
     $deals = app(MissingAgreements::class)->sync();
     // Fatura bilgisi eksik: one to-do per invoiced brand with a gap and one for our own company, ticked once filled.
-    $billing = app(\App\Services\Finance\BillingInfo::class)->sync();
+    $billing = app(BillingInfo::class)->sync();
     $this->info('Fatura bilgisi: '.$billing['added'].' iş yazıldı, '.$billing['closed'].' kapandı');
     $this->info('Anlaşmasız marka: '.$deals['added'].' iş yazıldı, '.$deals['closed'].' kapandı, '.$deals['bound'].' iş markasına bağlandı');
     $this->info('Gmail: '.$read['messages'].' mesaj, '.$read['documents'].' belge · bildirim: '.$told['due'].' bugün, '.$told['late'].' geciken, '.$told['coming'].' yaklaşan');
@@ -2004,3 +2006,14 @@ Schedule::command('moxdop:panel:watch')
 foreach (Schedule::events() as $scheduledEvent) {
     $scheduledEvent->skip(fn (): bool => ScheduledJobs::isOff($scheduledEvent));
 }
+
+// Müşteri paneli: Instagram and Facebook conversations of connected brands, read from Meta (yakup 2026-11-27: "yeni eski
+// farketmez tüm mesajların gelmesi lazım"): old ones once in full, new ones every five minutes under the webhook.
+Artisan::command('moxdop:panel:pull', function () {
+    $this->info(app(PanelChannels::class)->pullAll().' kanal kuyruğa alındı.');
+})->purpose('Müşteri paneli: read Instagram and Facebook conversations of connected brands from Meta.');
+
+Schedule::command('moxdop:panel:pull')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(10)
+    ->name('panel-pull');

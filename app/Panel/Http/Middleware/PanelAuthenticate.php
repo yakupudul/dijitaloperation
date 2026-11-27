@@ -2,10 +2,13 @@
 
 namespace App\Panel\Http\Middleware;
 
+use App\Panel\Models\AccessRole;
 use App\Panel\Support\PanelContext;
+use App\Panel\Support\PanelPermissions;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 /** A panel screen: a signed-in user with an open brand, a changed first password, and the screen's permission. */
@@ -30,8 +33,8 @@ final class PanelAuthenticate
             return redirect()->route('panel.password');
         }
         // New permission keys reach the starting roles once per catalog version, without anyone opening a settings screen.
-        \Illuminate\Support\Facades\Cache::rememberForever('panel.roles.synced.'.md5(implode(',', \App\Panel\Support\PanelPermissions::keys('panel'))), function (): bool {
-            \App\Panel\Models\AccessRole::ensureDefaults();
+        Cache::rememberForever('panel.roles.synced.'.md5(implode(',', PanelPermissions::keys('panel'))), function (): bool {
+            AccessRole::ensureDefaults();
 
             return true;
         });

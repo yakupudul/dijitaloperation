@@ -13,10 +13,10 @@ use App\Panel\Models\PanelPerson;
 use App\Panel\Models\PanelReminder;
 use App\Panel\Models\PanelRequest;
 use App\Panel\Services\PanelBackups;
-use App\Panel\Services\PanelLeads;
-use App\Panel\Services\PanelNotifier;
 use App\Panel\Services\PanelChannelLinks;
 use App\Panel\Services\PanelChannels;
+use App\Panel\Services\PanelLeads;
+use App\Panel\Services\PanelNotifier;
 use App\Panel\Support\PanelPage;
 use App\Panel\Support\PanelStages;
 use Carbon\CarbonImmutable;
@@ -316,7 +316,7 @@ final class InboxPage extends Component
             return;
         }
         $this->choices = [];
-        $this->notify(self::CHANNELS[$this->channel][0].' bağlandı: '.($result['channel']->label ?: 'hazır').'. Yeni gelenler buraya düşecek.');
+        $this->notify(self::CHANNELS[$this->channel][0].' bağlandı: '.($result['channel']->label ?: 'hazır').'. '.(in_array($this->channel, ['instagram', 'facebook'], true) ? 'Eski yazışmalarınız birkaç dakika içinde buraya geliyor, yeni mesajlar da kendiliğinden düşecek.' : 'Yeni gelenler buraya düşecek.'));
     }
 
     /** @return array{id: int, chunk: int} */

@@ -5,6 +5,7 @@ namespace App\Panel\Http\Controllers;
 use App\Panel\Models\PanelAudit;
 use App\Panel\Models\PanelFile;
 use App\Panel\Models\PanelPerson;
+use App\Panel\Models\PanelTicketMessage;
 use App\Panel\Services\PanelLeads;
 use App\Panel\Support\PanelContext;
 use App\Panel\Support\PanelSources;
@@ -31,7 +32,7 @@ final class PanelDownloadController
     public function ticketFile(string $message): StreamedResponse
     {
         abort_unless(strlen($message) <= 18, 404);
-        $row = \App\Panel\Models\PanelTicketMessage::query()->whereNotNull('attachment_path')->findOrFail((int) $message);
+        $row = PanelTicketMessage::query()->whereNotNull('attachment_path')->findOrFail((int) $message);
 
         return Storage::disk((string) config('panel.files_disk'))->download($row->attachment_path, $row->attachment_name);
     }

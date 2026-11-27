@@ -3,6 +3,7 @@
 namespace App\Panel\Services;
 
 use App\Panel\Jobs\ProcessPanelChannelReceipt;
+use App\Panel\Jobs\PullPanelChannelMessages;
 use App\Panel\Models\PanelChannel;
 use App\Panel\Models\PanelConversation;
 use App\Panel\Models\PanelMessage;
@@ -71,10 +72,31 @@ final class PanelChannels
                 $row->token = trim((string) $token);
             }
             $row->save();
-            $this->notifier->brand($brandId, 'channel', PanelChannel::KINDS[$channel][0].' bağlandı. Yeni gelenler Gelen kutusu\'na düşecek.', route('panel.inbox', ['kanal' => $channel]), 'menu.inbox');
+            if (in_array($channel, ['instagram', 'facebook'], true)) {
+                try {
+                    PullPanelChannelMessages::dispatch((int) $row->id, true)->afterCommit();
+                } catch (Throwable $exception) {
+                    report($exception);
+                }
+            }
+            $this->notifier->brand($brandId, 'channel', PanelChannel::KINDS[$channel][0].' bağlandı. Mesajlar Gelen kutusu\'na düşüyor.', route('panel.inbox', ['kanal' => $channel]), 'menu.inbox');
 
             return $row;
         });
+    }
+
+    /**
+     * Every few minutes: each connected Instagram account and Facebook page is read for new messages (a safety net
+     * under the webhook), and one that never had its old conversations brought in gets them in full.
+     */
+    public function pullAll(): int
+    {
+        $rows = $this->context->system(fn () => PanelChannel::query()->whereIn('channel', ['instagram', 'facebook'])->where('status', PanelChannel::CONNECTED)->get());
+        foreach ($rows as $row) {
+            PullPanelChannelMessages::dispatch((int) $row->id, ! isset(((array) $row->meta)['history_at']));
+        }
+
+        return $rows->count();
     }
 
     /** The channel stops feeding the brand; its conversations stay. The brand's users are told. */
@@ -225,6 +247,97 @@ final class PanelChannels
         return [$accepted, $ignored];
     }
 
+    /**
+     * Reads an Instagram account's or a Facebook page's conversations from Meta and keeps every message the panel does
+     * not have yet. Run in full right after connecting (old conversations come in, as Meta keeps them: the newest 20
+     * messages of each), then every few minutes over the newest conversations, so nothing is lost when a webhook is
+     * late or missing. Messages older than the connection are history: they open no lead and ring no bell.
+     *
+     * @return array{conversations: int, messages: int}
+     */
+    public function pull(PanelChannel $channel, bool $all = false): array
+    {
+        return $this->context->system(fn (): array => $this->pullNow($channel, $all));
+    }
+
+    /** @return array{conversations: int, messages: int} */
+    private function pullNow(PanelChannel $channel, bool $all): array
+    {
+        $result = ['conversations' => 0, 'messages' => 0];
+        if (! in_array($channel->channel, ['instagram', 'facebook'], true) || $channel->status !== PanelChannel::CONNECTED || ! $channel->token) {
+            return $result;
+        }
+        $instagram = $channel->channel === 'instagram';
+        $page = (string) ($instagram ? $channel->account_id : $channel->external_id);
+        $self = (string) $channel->external_id;
+        if ($page === '') {
+            return $result;
+        }
+        $since = $channel->connected_at !== null ? CarbonImmutable::instance($channel->connected_at) : CarbonImmutable::now();
+        $parameters = ['platform' => $instagram ? 'instagram' : 'messenger', 'limit' => $all ? 50 : 15,
+            'fields' => 'id,updated_time,participants,messages.limit(50){id,message,created_time,from,to,attachments{mime_type},is_unsupported}'];
+        for ($round = 0; $round < ($all ? 60 : 1); $round++) {
+            try {
+                $body = $this->graph->request('GET', $page.'/conversations', $parameters, (string) $channel->token, $this->appSecret());
+            } catch (WhatsAppGraphException $exception) {
+                $code = (int) ($exception->details['code'] ?? 0);
+                $channel->forceFill(['last_error' => mb_substr('Konuşmalar okunamadı: '.(string) ($exception->details['message'] ?? ''), 0, 500)])->save();
+                if ($code === 190) {
+                    $this->disconnect($channel, 'Meta bu hesabın mesajlarını okutmuyor: yetki süresi dolmuş ya da geri alınmış.');
+                }
+
+                return $result;
+            }
+            foreach ((array) ($body['data'] ?? []) as $conversation) {
+                if (! is_array($conversation)) {
+                    continue;
+                }
+                $result['conversations']++;
+                $names = [];
+                $contact = '';
+                foreach ((array) data_get($conversation, 'participants.data', []) as $participant) {
+                    $id = (string) ($participant['id'] ?? '');
+                    if ($id !== '' && $id !== $self && $id !== $page) {
+                        $contact = $id;
+                        $names[$id] = (string) (($participant['name'] ?? '') ?: (isset($participant['username']) ? '@'.$participant['username'] : ''));
+                    }
+                }
+                $messages = array_reverse((array) data_get($conversation, 'messages.data', []));
+                foreach ($messages as $message) {
+                    if (! is_array($message)) {
+                        continue;
+                    }
+                    $from = (string) data_get($message, 'from.id', '');
+                    $outgoing = $from === $self || $from === $page;
+                    $other = $outgoing ? (string) data_get($message, 'to.data.0.id', $contact) : $from;
+                    $other = $other !== '' ? $other : $contact;
+                    $mime = (string) data_get($message, 'attachments.data.0.mime_type', '');
+                    $type = $mime === '' ? 'text' : (str_starts_with($mime, 'image') ? 'image' : (str_starts_with($mime, 'video') ? 'video' : (str_starts_with($mime, 'audio') ? 'audio' : 'file')));
+                    $text = trim((string) ($message['message'] ?? ''));
+                    $body2 = $text !== '' ? $text : (self::TYPE_LABELS[$type] ?? (($message['is_unsupported'] ?? false) ? 'Desteklenmeyen mesaj' : ''));
+                    $time = strtotime((string) ($message['created_time'] ?? '')) ?: 0;
+                    if ($other === '' || $body2 === '' || $time <= 0) {
+                        continue;
+                    }
+                    $stored = DB::transaction(fn (): bool => $this->store($channel, $other, ($names[$other] ?? '') ?: null, null, [
+                        'id' => (string) ($message['id'] ?? ''), 'outgoing' => $outgoing, 'at' => $time, 'type' => $type, 'body' => $body2, 'referral' => null,
+                    ], $time < $since->getTimestamp()));
+                    if ($stored) {
+                        $result['messages']++;
+                    }
+                }
+            }
+            $after = (string) data_get($body, 'paging.cursors.after', '');
+            if ($after === '' || ! is_string(data_get($body, 'paging.next'))) {
+                break;
+            }
+            $parameters['after'] = $after;
+        }
+        $channel->forceFill(['meta' => array_merge((array) $channel->meta, ['pulled_at' => now()->toIso8601String()] + ($all ? ['history_at' => now()->toIso8601String(), 'history' => $result] : [])), 'last_error' => null])->save();
+
+        return $result;
+    }
+
     private function channel(string $kind, string $externalId): ?PanelChannel
     {
         return $externalId === '' ? null : PanelChannel::query()->where('channel', $kind)->where('external_id', $externalId)->where('status', PanelChannel::CONNECTED)->first();
@@ -235,7 +348,7 @@ final class PanelChannels
      *
      * @param  array{id: string, outgoing: bool, at: int, type: string, body: string, referral: ?array<string, mixed>}  $message
      */
-    private function store(PanelChannel $channel, string $contact, ?string $name, ?string $phone, array $message): bool
+    private function store(PanelChannel $channel, string $contact, ?string $name, ?string $phone, array $message, bool $history = false): bool
     {
         if ($message['id'] === '' || $message['at'] <= 0) {
             return false;
@@ -263,7 +376,13 @@ final class PanelChannels
         if ($conversation->last_message_at === null || $at->gte($conversation->last_message_at)) {
             $conversation->fill(['last_message_at' => $at, 'last_outgoing' => $message['outgoing'], 'last_preview' => mb_substr($message['body'], 0, 140)]);
         }
-        if ($message['outgoing']) {
+        if ($history) {
+            // An old message read at connect time: it shows in the conversation but waits for no one.
+            $conversation->handled_at ??= now();
+            if (! $message['outgoing'] && ($previousIncoming === null || $previousIncoming->lt($at))) {
+                $conversation->last_incoming_at = $at;
+            }
+        } elseif ($message['outgoing']) {
             // The brand answered from its own phone: nothing waits here any more.
             $conversation->handled_at = now();
         } else {
@@ -277,7 +396,7 @@ final class PanelChannels
         $row->fill(['conversation_id' => $conversation->id, 'external_id' => mb_substr($message['id'], 0, 255), 'outgoing' => $message['outgoing'], 'type' => mb_substr($message['type'], 0, 24), 'body' => $message['body'], 'sent_at' => $at])->save();
         $channel->forceFill(['last_event_at' => now()])->save();
 
-        if (! $message['outgoing']) {
+        if (! $message['outgoing'] && ! $history) {
             $this->incoming($channel, $conversation, $message, $previousIncoming);
         }
 

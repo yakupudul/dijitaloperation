@@ -5,8 +5,11 @@ namespace Tests\Feature\Panel;
 use App\Livewire\Panel\InboxPage;
 use App\Models\User;
 use App\Panel\Models\PanelChannel;
+use App\Panel\Models\PanelMessage;
 use App\Panel\Models\PanelNotification;
+use App\Panel\Models\PanelPerson;
 use App\Panel\Models\PanelTicket;
+use App\Panel\Services\PanelChannels;
 use App\Services\WhatsApp\WhatsAppConnection;
 use App\Support\Roles;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -141,10 +144,36 @@ class PanelChannelLinkTest extends PanelTestCase
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '10900000001/subscribed_apps') && ($request['subscribed_fields'] ?? null) === 'feed');
     }
 
+    public function test_instagram_brings_old_conversations_as_history_and_new_ones_as_leads(): void
+    {
+        $channel = app(PanelChannels::class)->connect($this->brandA->id, 'instagram', '17840000001', '10900000001', '@akasyaklinik', 'page-token', null);
+        $old = now()->subDays(30)->toIso8601String();
+        $new = now()->addMinute()->toIso8601String();
+        Http::fake([
+            'graph.facebook.com/*/10900000001/conversations*' => Http::response(['data' => [
+                ['id' => 't1', 'participants' => ['data' => [['username' => 'akasyaklinik', 'id' => '17840000001'], ['username' => 'ayse', 'id' => '555001']]],
+                    'messages' => ['data' => [
+                        ['id' => 'm3', 'message' => 'Yarın gelebilir miyim?', 'created_time' => $new, 'from' => ['id' => '555001'], 'to' => ['data' => [['id' => '17840000001']]]],
+                        ['id' => 'm2', 'message' => 'Merhaba, buyurun', 'created_time' => $old, 'from' => ['id' => '17840000001'], 'to' => ['data' => [['id' => '555001']]]],
+                        ['id' => 'm1', 'message' => 'Fiyat alabilir miyim', 'created_time' => $old, 'from' => ['id' => '555001'], 'to' => ['data' => [['id' => '17840000001']]]],
+                    ]]],
+                ['id' => 't2', 'participants' => ['data' => [['username' => 'akasyaklinik', 'id' => '17840000001'], ['username' => 'mehmet', 'id' => '555002']]],
+                    'messages' => ['data' => [['id' => 'm4', 'message' => 'Teşekkürler', 'created_time' => $old, 'from' => ['id' => '555002'], 'to' => ['data' => [['id' => '17840000001']]]]]]],
+            ], 'paging' => ['cursors' => ['after' => 'x']]]),
+        ]);
+        $result = app(PanelChannels::class)->pull($channel, true);
+        $this->assertSame(['conversations' => 2, 'messages' => 4], $result);
+        $this->assertSame(0, app(PanelChannels::class)->pull($channel->fresh(), true)['messages']);
+        $this->enter($this->managerA, $this->brandA);
+        $this->assertSame(4, PanelMessage::query()->count());
+        $this->assertSame(['@ayse'], PanelPerson::query()->where('name', 'like', '@%')->pluck('name')->all(), 'only the message written after connecting opens a lead');
+        Livewire::test(InboxPage::class)->set('channel', 'instagram')->assertSee('@mehmet')->assertSee('@ayse');
+    }
+
     public function test_the_manager_closes_a_channel_and_the_brand_hears_it_from_itself(): void
     {
         $this->enter($this->managerA, $this->brandA);
-        app(\App\Panel\Services\PanelChannels::class)->connect($this->brandA->id, 'facebook', '10900000001', null, 'Akasya Klinik', 'page-token', null);
+        app(PanelChannels::class)->connect($this->brandA->id, 'facebook', '10900000001', null, 'Akasya Klinik', 'page-token', null);
         Livewire::test(InboxPage::class)->set('channel', 'facebook')->assertSee('Facebook bağlı')->call('unlink')->assertSee('Facebook bağlı değil')->assertDontSee('bağlantısı kesildi');
         $this->assertSame(PanelChannel::DISCONNECTED, PanelChannel::query()->firstOrFail()->status);
         $this->assertTrue(PanelNotification::query()->where('title', 'like', 'Facebook bağlantısı kapatıldı%')->exists());
