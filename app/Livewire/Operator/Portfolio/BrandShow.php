@@ -17,12 +17,14 @@ use App\Models\CoreAssetBinding;
 use App\Models\CoreExternalResource;
 use App\Models\CoreIntegration;
 use App\Models\DigitalAsset;
-use App\Models\Reminder;
 use App\Models\OperatorFile;
+use App\Models\Reminder;
 use App\Models\ResourceAutomation;
 use App\Models\Suggestion;
 use App\Models\User;
+use App\Panel\Support\OperatorAccess;
 use App\Services\Access\Departure;
+use App\Services\Ads\SupersededAdAccounts;
 use App\Services\Brand\BrandDossier;
 use App\Services\Brand\BrandJourney;
 use App\Services\BrandIntelligence\BrandIntelligenceContextWriteService;
@@ -32,13 +34,14 @@ use App\Services\Integrations\BrandAccountCandidates;
 use App\Services\Integrations\ConfirmGoogleResourceBindingService;
 use App\Services\Integrations\ConfirmMetaResourceBindingService;
 use App\Services\Integrations\ResourceAutomationService;
-use App\Services\Operator\BrandOverviewReader;
-use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Operator\BrandOutcome;
+use App\Services\Operator\BrandOverviewReader;
 use App\Services\Operator\BrandShortcuts;
 use App\Services\Operator\BrandWorkplace;
+use App\Services\Operator\BrandWorkspaceReadService;
 use App\Services\Ownership\OwnershipGuard;
 use App\Services\ServiceScope\CustomerServiceScopeReadService;
+use App\Support\AssetIntent;
 use App\Support\Demo\DemoState;
 use App\Support\Integrations\ProviderRegistry;
 use App\Support\Integrations\ResourceBindingPlan;
@@ -47,8 +50,8 @@ use App\Support\Roles;
 use App\Support\ServiceScope;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -75,6 +78,9 @@ class BrandShow extends Component
 
     /** The tab row. */
     public const array TABS = ['ozet' => 'Genel', 'varliklar' => 'Varlıklar', 'karne' => 'Hizmetler', 'strateji' => 'Strateji', 'dosya' => 'Epikriz', 'ayarlar' => 'Ayarlar'];
+
+    /** The customer's side of the brand (yakup 2026-11-27): its panel, requests, monthly report, money and shared files, each a tab of BrandPanelTab. */
+    public const array PANEL_TABS = BrandPanelTab::VIEWS;
 
     /** Ayarlar views. */
     public const array SETTINGS = ['marka' => 'Marka bilgileri', 'dosyalar' => 'Dosyalar'];
@@ -232,7 +238,7 @@ class BrandShow extends Component
             return ['ayarlar', isset(self::SETTINGS[$sub]) ? $sub : 'marka', null];
         }
 
-        return [isset(self::TABS[$tab]) ? $tab : self::OVERVIEW_TAB, '', null];
+        return [isset(self::TABS[$tab]) || isset(self::PANEL_TABS[$tab]) ? $tab : self::OVERVIEW_TAB, '', null];
     }
 
     private function applyTab(string $tab, string $sub): void
@@ -530,8 +536,8 @@ class BrandShow extends Component
             'intent_at' => $intent !== null ? now() : null,
         ])->save();
         BrandOutcome::forget((int) $asset->brand_id);
-        \App\Support\AssetIntent::forget();
-        \App\Services\Ads\SupersededAdAccounts::forget();
+        AssetIntent::forget();
+        SupersededAdAccounts::forget();
         DemoState::flash($intent !== null ? $asset->name.': '.DigitalAsset::INTENTS[$intent].'. Artık uyarı üretmez.' : $asset->name.': not kaldırıldı, yeniden izleniyor.');
     }
 
@@ -659,7 +665,15 @@ class BrandShow extends Component
     {
         $channels = array_map(fn (array $t): string => $t[0], array_filter(self::CHANNEL_TABS, fn (array $t): bool => class_exists($t[1])));
 
-        return ['ozet' => self::TABS['ozet']] + $channels + array_diff_key(self::TABS, ['ozet' => true]);
+        return ['ozet' => self::TABS['ozet']] + $channels + $this->panelTabs() + array_diff_key(self::TABS, ['ozet' => true]);
+    }
+
+    /** @return array<string, string> shown to operators who may open the customer panel section */
+    private function panelTabs(): array
+    {
+        $user = auth()->user();
+
+        return $user instanceof User && OperatorAccess::allowsSection($user, 'client_panel') ? self::PANEL_TABS : [];
     }
 
     /** @return array<string, mixed> header data shared by every tab */

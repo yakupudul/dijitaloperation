@@ -96,7 +96,7 @@
 </head>
 
 <body
-    class="overflow-x-hidden"
+    class="ui2 overflow-x-hidden"
     x-data="{}"
     x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280;
         // Phones fire resize when the address bar hides on scroll; only a real width change may close the menu.
@@ -140,9 +140,9 @@
                 'xl:ml-[64px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
                 'ml-0': $store.sidebar.isMobileOpen
             }">
-            {{-- The screen is one white panel on the gray page (yakup's approved concept 2026-10-20); on a phone it fills the width. --}}
-            <div class="xl:py-2 xl:pr-2">
-            <div class="min-h-dvh bg-white dark:bg-gray-900 xl:min-h-[calc(100dvh-1rem)] xl:rounded-xl xl:border xl:border-gray-200 xl:shadow-card dark:xl:border-gray-800" data-operator-panel>
+            {{-- One white ground; the menu is split from the screen by a hairline (yakup 2026-11-27, the look he approved on the customer panel). --}}
+            <div>
+            <div class="min-h-dvh bg-white dark:bg-gray-900" data-operator-panel>
             @include('operator.layouts.header')
 
             <div class="mx-auto min-w-0 max-w-[1520px] px-4 pb-16 pt-6 md:px-10 md:pt-8">

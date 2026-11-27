@@ -812,3 +812,27 @@ button[data-done], a[data-done] {
 .rich-text ol { list-style: decimal; }
 .rich-text a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 2px; }
 .rich-text[contenteditable]:empty::before { content: attr(data-placeholder); color: var(--color-gray-400); pointer-events: none; }
+
+/* The operator's menu and titles in the white look. */
+body.ui2:not(.dark) { background-color: #fff; }
+.ui2 .menu-item { height: 38px; border-radius: 9px; font-size: 15px; font-weight: 500; }
+.ui2 .menu-item-active { background: var(--color-hover); color: var(--color-primary); font-weight: 600; box-shadow: none; border-color: transparent; }
+.ui2 .menu-item-inactive { color: #2c3138; }
+.ui2 .menu-item-inactive:hover { background: var(--color-soft); color: #15181c; }
+.ui2 .menu-item-icon-active { background: transparent; box-shadow: none; color: var(--color-primary); }
+.ui2 .menu-item-icon-inactive, .ui2 .group:hover .menu-item-icon-inactive { background: transparent; box-shadow: none; }
+.ui2 .page-title { font-family: var(--font-brand), sans-serif; font-weight: 600; letter-spacing: -0.01em; }
+
+/* Dark theme keeps its own inks under the white look's rules. */
+.ui2.dark { color: #e5e7eb; }
+.ui2.dark .card, .ui2.dark .surface, .ui2.dark .card-row, .ui2.dark .data-table th, .ui2.dark .data-table td { border-color: #1f2937; }
+.ui2.dark .metric-strip { background: #1f2937; border-color: #1f2937; }
+.ui2.dark .btn { border-color: #374151; color: #e5e7eb; }
+.ui2.dark .btn:hover { background: rgb(255 255 255 / 0.06); }
+.ui2.dark .seg { border-color: #374151; color: #d1d5db; }
+.ui2.dark .seg-active { border-color: var(--color-primary); color: #fff; }
+.ui2.dark .tab-active, .ui2.dark .link-neutral { border-color: #5eead4; color: #5eead4; }
+.ui2.dark .menu-item-active { background: rgb(255 255 255 / 0.08); color: #5eead4; }
+.ui2.dark .menu-item-icon-active { color: #5eead4; }
+.ui2.dark .menu-item-inactive { color: #d1d5db; }
+.ui2.dark .menu-item-inactive:hover { background: rgb(255 255 255 / 0.05); color: #fff; }

@@ -5,6 +5,7 @@ namespace App\Panel\Services;
 use App\Models\Agreement;
 use App\Models\AgreementPayment;
 use App\Models\FinanceDocument;
+use App\Panel\Models\PanelBrandSetting;
 use App\Services\Access\StartLink;
 use App\Services\Finance\FinanceDocuments;
 use Carbon\CarbonInterface;
@@ -77,6 +78,17 @@ final class PanelAccount
             'debt' => (int) $open->filter(fn (AgreementPayment $p): bool => $p->due_on !== null && $p->due_on->toDateString() <= $today)->sum(fn (AgreementPayment $p): int => $p->open()),
             'late' => $open->filter(fn (AgreementPayment $p): bool => $p->isOverdue())->count(),
         ];
+    }
+
+    /**
+     * A brand that is leaving with an open balance takes nothing out (yakup 2026-11-27: "ödeme yapmamışsa her şeyini
+     * alıp bir anda gidemesin"): lists and files stay readable on screen, exports and downloads wait for the payment.
+     */
+    public function locked(int $brandId): bool
+    {
+        $setting = PanelBrandSetting::query()->where('brand_id', $brandId)->first();
+
+        return $setting?->leaving_at !== null && $this->payments($brandId)['debt'] > 0;
     }
 
     /** @return Collection<int, FinanceDocument> the invoices the operator opened to the panel */

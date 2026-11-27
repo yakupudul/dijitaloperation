@@ -16,11 +16,11 @@
     ];
     $sizeClass = $sizeMap[$size] ?? $sizeMap['md'];
 
-    // The accent (primary) is the one main action of a screen, near-black (dark) a strong row action; others white.
+    // White look (2026-11-28): teal is the main action, every other button is white; yellow stays a small tag only.
     $white = 'border border-gray-300/80 bg-white text-gray-900 shadow-card hover:bg-gray-50 dark:border-gray-700 dark:bg-white/[0.04] dark:text-gray-200 dark:hover:bg-white/[0.08]';
     $variantMap = [
-        'primary' => 'border border-transparent bg-accent font-semibold text-accent-ink shadow-card hover:brightness-95',
-        'dark' => 'border border-gray-900 bg-gray-900 text-white shadow-card hover:bg-gray-700 dark:border-white dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200',
+        'primary' => 'border border-primary bg-primary text-white hover:border-primary-dark hover:bg-primary-dark',
+        'dark' => 'border border-primary bg-primary text-white hover:border-primary-dark hover:bg-primary-dark',
         'outline' => $white,
         'secondary' => $white,
         'danger' => 'border border-error-600 bg-error-600 text-white shadow-card hover:bg-error-700',

@@ -25,7 +25,7 @@ class PanelBrandSetting extends Model
 
     protected function casts(): array
     {
-        return ['is_enabled' => 'boolean', 'modules' => 'array', 'is_read_only' => 'boolean'];
+        return ['is_enabled' => 'boolean', 'modules' => 'array', 'is_read_only' => 'boolean', 'leaving_at' => 'datetime'];
     }
 
     public function moduleOn(string $module): bool

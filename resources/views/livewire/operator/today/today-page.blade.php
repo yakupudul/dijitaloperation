@@ -28,6 +28,8 @@
 
     {{-- Moximu's own line (Aşama 3): the agency's inbox and today's sales steps in one sentence; loads after the page. --}}
     <div data-sales-today><livewire:operator.sales.today-card lazy /></div>
+    {{-- What the customer panels ask today: requests, meeting requests, receipts, renewals, unread reports. --}}
+    <livewire:operator.panel.panel-today-card lazy />
 
     <section data-today-brands>
         <div class="section-head">

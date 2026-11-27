@@ -79,7 +79,7 @@ final class CustomerSignals
             ->filter(fn (AgreementPayment $p): bool => $p->isOverdue() && $today->gt(CarbonImmutable::parse($p->period.'-01', Agreements::TZ)->setDay(self::PAYMENT_DAY)))
             ->sortBy('period')->values();
         if ($late->isNotEmpty()) {
-            $first = $late->first();
+            $first = $late->first()->loadMissing('agreement');
             $sum = (int) $late->sum('amount');
             $out[] = ['key' => 'odeme_gecikti', 'period' => (string) $first->period,
                 'label' => 'Ödeme gelmedi: '.($late->count() > 1 ? $late->count().' ay · ' : $first->periodLabel().' · ').number_format($sum, 0, ',', '.').' ₺',

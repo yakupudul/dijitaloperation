@@ -96,9 +96,9 @@ final class ScreenChecker
         foreach (Brand::query()->operational()->orderBy('id')->limit(5)->get() as $index => $brand) {
             $out[] = ['path' => route('operator.brand', $brand, false), 'label' => 'Marka · '.$brand->name];
             if ($index === 0) {
-                foreach (array_keys(BrandShow::TABS) as $tab) {
+                foreach (BrandShow::TABS + BrandShow::PANEL_TABS as $tab => $tabLabel) {
                     if ($tab !== 'ozet') {
-                        $out[] = ['path' => route('operator.brand', ['brand' => $brand, 'tab' => $tab], false), 'label' => 'Marka · '.$brand->name.' › '.BrandShow::TABS[$tab]];
+                        $out[] = ['path' => route('operator.brand', ['brand' => $brand, 'tab' => $tab], false), 'label' => 'Marka · '.$brand->name.' › '.$tabLabel];
                     }
                 }
                 $out[] = ['path' => route('operator.brand.setup', $brand, false), 'label' => 'Marka · '.$brand->name.' › Kurulum'];

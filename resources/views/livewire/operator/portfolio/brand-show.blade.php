@@ -66,6 +66,8 @@
         @include('livewire.operator.portfolio.partials.brand-overview')
     @elseif ($channelComponent !== null)
         @include('livewire.operator.portfolio.partials.brand-workspace')
+    @elseif (isset(\App\Livewire\Operator\Portfolio\BrandShow::PANEL_TABS[$tab]))
+        <livewire:operator.portfolio.brand-panel-tab :brand-id="(int) $brandModel->id" :view="$tab" :key="'brand-panel-'.$brandModel->id.'-'.$tab" />
     @elseif ($tab === 'karne')
         <livewire:operator.workspace.brand-scorecard-tab :brand-id="(int) $brandModel->id" :key="'brand-scorecard-'.$brandModel->id" />
     @elseif ($tab === 'strateji')

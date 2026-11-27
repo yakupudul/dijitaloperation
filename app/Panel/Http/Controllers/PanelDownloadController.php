@@ -48,6 +48,7 @@ final class PanelDownloadController
     {
         abort_unless(strlen($document) <= 18, 404);
         $row = PanelDocument::query()->findOrFail((int) $document);
+        abort_if(app(PanelAccount::class)->locked((int) $row->brand_id), 403, 'Hesabınızda ödenmemiş tutar olduğu için dosya indirme kapalı. Ödeme sonrası yeniden açılır.');
         $bytes = $drive->bytes($row);
         abort_if($bytes === null, 404);
 
@@ -72,6 +73,7 @@ final class PanelDownloadController
     public function export(Request $request, PanelContext $context): BinaryFileResponse
     {
         abort_unless($context->isManager(), 403);
+        abort_if(app(PanelAccount::class)->locked((int) $context->brandId()), 403, 'Hesabınızda ödenmemiş tutar olduğu için dışa aktarma kapalı. Ödeme sonrası yeniden açılır.');
         $query = PanelPerson::query()->with('assignee:id,name')->orderByDesc('created_at');
         if (array_key_exists((string) $request->query('asama'), PanelStages::labels())) {
             $query->where('stage', (string) $request->query('asama'));

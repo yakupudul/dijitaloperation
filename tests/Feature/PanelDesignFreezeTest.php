@@ -138,12 +138,13 @@ class PanelDesignFreezeTest extends TestCase
     {
         $html = Livewire::withQueryParams(['tab' => 'overview'])->test(BrandShow::class, ['brand' => (string) $this->portfolioBrand->id])->html();
 
-        // Admin audit 2026-11-07 (T1): one flat tab row, Genel · Varlıklar · Hizmetler · Strateji · Epikriz · Ayarlar; no Diğer menu.
+        // Admin audit 2026-11-07 (T1): one flat tab row, no Diğer menu. Since 2026-11-28 (the app prototype yakup approved) the
+        // customer's side follows Genel: Müşteri paneli · Talepler · Aylık rapor · Finans · Dosyalar.
         $this->assertStringContainsString('role="tablist"', $html);
         $this->assertStringContainsString('data-brand-settings-link', $html);
         $this->assertStringNotContainsString('data-brand-more', $html);
         preg_match_all('/role="tab" wire:click="setTab\\(\'([^\']+)\'\\)"/', $html, $matches);
-        $this->assertSame(['ozet', 'varliklar', 'karne', 'strateji', 'dosya', 'ayarlar'], $matches[1] ?? [], 'the brand page tab row');
+        $this->assertSame(['ozet', 'panel', 'talepler', 'rapor', 'finans', 'dosyalar', 'varliklar', 'karne', 'strateji', 'dosya', 'ayarlar'], $matches[1] ?? [], 'the brand page tab row');
         $this->assertStringNotContainsString('Domain (legacy)', $html);
         $this->assertStringNotContainsString('Hosting (legacy)', $html);
     }

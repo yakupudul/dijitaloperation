@@ -6,10 +6,10 @@
     $sidebarOpen = '$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen';
 @endphp
 
-{{-- Operator sidebar: 236 px on the gray page, brand switcher card on top, grouped entries with work badges, Claude card
+{{-- Operator sidebar: 236 px, white, split from the screen by a hairline, brand switcher card on top, grouped entries with work badges, Claude card
      and Sistem pinned at the bottom (menu prototype approved 2026-10-20). --}}
 <aside id="operator-sidebar"
-    class="fixed left-0 top-0 z-99999 flex h-dvh flex-col border-r border-gray-200 bg-page px-3 text-gray-900 transition-all duration-200 ease-in-out xl:border-r-0 dark:border-gray-800 dark:bg-gray-950"
+    class="fixed left-0 top-0 z-99999 flex h-dvh flex-col border-r border-line bg-white px-3 text-gray-900 transition-all duration-200 ease-in-out dark:border-gray-800 dark:bg-gray-950"
     :class="{
         'w-[236px]': {{ $sidebarOpen }},
         'w-[64px]': !$store.sidebar.isExpanded && !$store.sidebar.isHovered,
@@ -22,7 +22,7 @@
     {{-- Workspace: the agency and, under it, every brand it works for (one click to any brand page). --}}
     <div class="relative flex h-16 shrink-0 items-center" x-data="{ open: false, q: '' }" @click.outside="open = false" @keydown.escape.window="open = false" data-brand-switcher>
         <button type="button" @click="open = ! open" :aria-expanded="open" aria-haspopup="menu"
-            class="flex w-full items-center gap-2.5 rounded-[12px] border border-gray-200 bg-white px-2 py-1.5 text-left shadow-card transition hover:border-gray-300 dark:border-gray-800 dark:bg-white/[0.04] dark:hover:border-gray-700"
+            class="flex w-full items-center gap-2.5 rounded-[12px] border border-line bg-white px-2 py-1.5 text-left transition hover:bg-soft dark:border-gray-800 dark:bg-white/[0.04] dark:hover:border-gray-700"
             :class="({{ $sidebarOpen }}) ? '' : 'justify-center'">
             @if (! empty($operatorBranding['logo_url']))
                 <img src="{{ $operatorBranding['logo_url'] }}" alt="" class="h-7 w-7 shrink-0 rounded-md object-contain" />
