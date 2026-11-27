@@ -49,6 +49,7 @@ final class PanelPermissions
                 'menu.leads' => 'Adaylar',
                 'menu.inbox' => 'Gelen kutusu',
                 'menu.performance' => 'Performans',
+                'menu.marketing' => 'Pazarlama (aylık rapor, yapılanlar, yayınlanacaklar, varlıklar)',
                 'menu.support' => 'Destek',
                 'menu.users' => 'Kullanıcılar (kullanıcı ekler, rol verir)',
             ],
@@ -106,7 +107,7 @@ final class PanelPermissions
         return [
             ['scope' => self::SCOPE_PANEL, 'name' => 'Yönetici', 'description' => 'Markanın sahibi ya da yöneticisi: her şeyi görür, kullanıcı ekler.', 'permissions' => self::keys(self::SCOPE_PANEL)],
             ['scope' => self::SCOPE_PANEL, 'name' => 'Satış', 'description' => 'Adaylarla ilgilenir: arar, not yazar, aşamayı ilerletir.', 'permissions' => ['menu.home', 'menu.leads', 'menu.inbox', 'menu.support', 'leads.all', 'leads.phone', 'leads.create', 'leads.edit', 'leads.stage', 'notes.write', 'reminders.write', 'files.view', 'files.upload', 'inbox.web_form', 'inbox.call', 'inbox.whatsapp', 'inbox.instagram', 'inbox.meta_form', 'support.write']],
-            ['scope' => self::SCOPE_PANEL, 'name' => 'İzleyici', 'description' => 'Yalnız görür, değiştirmez; telefonlar gizli.', 'permissions' => ['menu.home', 'menu.leads', 'menu.performance', 'menu.support', 'leads.all']],
+            ['scope' => self::SCOPE_PANEL, 'name' => 'İzleyici', 'description' => 'Yalnız görür, değiştirmez; telefonlar gizli.', 'permissions' => ['menu.home', 'menu.leads', 'menu.performance', 'menu.marketing', 'menu.support', 'leads.all']],
             ['scope' => self::SCOPE_MOXDOP, 'name' => 'Ekip üyesi', 'description' => 'Marka işlerini yürütür; satış ve sistem ayarları kapalı.', 'permissions' => ['today', 'brands']],
         ];
     }

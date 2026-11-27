@@ -5,6 +5,7 @@ use App\Livewire\Panel\HomePage;
 use App\Livewire\Panel\ImportPage;
 use App\Livewire\Panel\InboxPage;
 use App\Livewire\Panel\LeadsPage;
+use App\Livewire\Panel\MarketingPage;
 use App\Livewire\Panel\PerformancePage;
 use App\Livewire\Panel\PersonPage;
 use App\Livewire\Panel\PresetsPage;
@@ -43,6 +44,11 @@ Route::domain((string) config('panel.domain'))->name('panel.')->group(function (
         Route::livewire('/destek', SupportPage::class)->name('support');
         Route::get('/destek/dosya/{message}', [PanelDownloadController::class, 'ticketFile'])->whereNumber('message')->middleware(PanelAuthenticate::class.':menu.support')->name('support.file');
         Route::livewire('/kullanicilar', UsersPage::class)->name('users');
+
+        Route::livewire('/pazarlama', MarketingPage::class)->name('report');
+        Route::livewire('/pazarlama/yaptiklarimiz', MarketingPage::class)->defaults('tab', 'yaptiklarimiz')->name('work');
+        Route::livewire('/pazarlama/yayinlanacaklar', MarketingPage::class)->defaults('tab', 'yayinlanacaklar')->name('upcoming');
+        Route::livewire('/pazarlama/varliklar', MarketingPage::class)->defaults('tab', 'varliklar')->name('assets');
 
         Route::livewire('/hesap', AccountPage::class)->name('services');
         Route::livewire('/hesap/faturalar', AccountPage::class)->defaults('tab', 'faturalar')->name('invoices');

@@ -25,7 +25,7 @@
         <p class="relative z-[100000] bg-gray-900 px-4 py-1.5 text-center text-[13px] text-white" data-panel-viewer>{{ $viewer }}, bu ekranı {{ $panelUser?->name }} olarak görüyorsunuz. Bu bakış kayda geçti.</p>
     @endif
     <div class="min-h-dvh">
-        <aside class="fixed inset-y-0 left-0 z-40 hidden w-[232px] flex-col border-r border-line bg-white px-3 py-3.5 lg:flex" data-panel-menu>
+        <aside class="fixed inset-y-0 left-0 z-40 hidden w-[232px] flex-col print:hidden! border-r border-line bg-white px-3 py-3.5 lg:flex" data-panel-menu>
             <a href="{{ route('panel.home') }}" wire:navigate class="flex items-center gap-2.5 px-1.5 pb-3.5 pt-1">
                 <img src="/images/app/icon-192.png" alt="" width="30" height="30" class="h-[30px] w-[30px] rounded-[7px]">
                 <span class="font-brand text-[19px] font-semibold leading-none tracking-[-0.01em] text-gray-900">Moximu</span>
@@ -76,9 +76,9 @@
             </div>
         </aside>
 
-        <div class="min-w-0 lg:ml-[232px]">
+        <div class="min-w-0 lg:ml-[232px] print:ml-0!">
             <div class="mx-auto max-w-[1240px] px-4 pb-28 lg:px-9 lg:pb-16">
-                <header class="flex h-[60px] items-center gap-3">
+                <header class="flex h-[60px] items-center gap-3 print:hidden">
                     <a href="{{ route('panel.home') }}" wire:navigate class="flex min-w-0 items-center gap-2 lg:hidden">
                         <img src="/images/app/icon-192.png" alt="" width="28" height="28" class="h-7 w-7 shrink-0 rounded-[7px]">
                         <span class="truncate text-[15px] font-semibold text-gray-900">{{ $membership?->brand?->name }}</span>
@@ -111,7 +111,7 @@
                 </header>
 
                 @if ($group)
-                    <div class="pt-3.5" data-panel-head>
+                    <div class="pt-3.5 print:hidden" data-panel-head>
                         <h1 class="text-[23px] font-semibold leading-tight tracking-[-0.02em] text-gray-900 lg:text-[26px]">{{ $group['label'] }}</h1>
                         <p class="mt-1 text-[15px] text-gray-500">{{ $group['key'] === 'home' ? now('Europe/Istanbul')->translatedFormat('j F Y, l') : $group['sub'] }}</p>
                         @if (count($group['tabs']) > 1)
@@ -134,7 +134,7 @@
             </div>
         </div>
 
-        <nav class="fixed inset-x-0 bottom-0 z-40 grid auto-cols-fr grid-flow-col border-t border-line bg-white px-1 pb-[calc(6px+env(safe-area-inset-bottom,0px))] pt-1.5 lg:hidden" aria-label="Ana menü" data-panel-bottom>
+        <nav class="fixed inset-x-0 bottom-0 z-40 grid print:hidden! auto-cols-fr grid-flow-col border-t border-line bg-white px-1 pb-[calc(6px+env(safe-area-inset-bottom,0px))] pt-1.5 lg:hidden" aria-label="Ana menü" data-panel-bottom>
             @foreach ($groups as $entry)
                 @continue($entry['key'] === 'team')
                 <a href="{{ $entry['url'] }}" wire:navigate @if ($entry['active']) aria-current="page" @endif
