@@ -9,6 +9,7 @@ use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\Reminder;
 use App\Support\Demo\DemoMenu;
+use App\Support\Finance\TaxNumber;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -141,6 +142,25 @@ final class BillingInfo
         }
     }
 
+    /**
+     * The message asking a customer for his fatura bilgileri, with the WhatsApp number of the brand when known. The
+     * operator sends it himself; nothing here sends anything.
+     *
+     * @return array{text: string, phone: ?string}
+     */
+    public function request(Brand $brand): array
+    {
+        $missing = self::missingOf($brand->customer);
+        $agreement = Agreement::query()->where('brand_id', $brand->id)->whereIn('status', ['active', 'paused'])->orderByDesc('id')->first();
+        $phone = app(FinanceBoard::class)->phoneOf($agreement);
+        $what = $missing === [] ? 'fatura bilgilerinizi' : implode(', ', $missing).' bilgilerinizi';
+
+        return [
+            'text' => 'Merhaba, faturanızı doğru düzenleyebilmemiz için '.$what.' iletebilir misiniz? Vergi levhanızın fotoğrafı ya da PDF\'i de yeterli olur. Fatura için kullanmamızı istediğiniz e-posta adresi varsa onu da yazabilirsiniz. Teşekkürler.',
+            'phone' => $phone,
+        ];
+    }
+
     public function keepCertificate(Brand $brand, UploadedFile $file): void
     {
         $customer = $this->customerOf($brand);
@@ -269,8 +289,8 @@ final class BillingInfo
         $tax = (string) preg_replace('/\D+/', '', (string) ($input['tax_no'] ?? ''));
         $email = mb_strtolower(trim((string) ($input['billing_email'] ?? '')));
         $errors = [];
-        if ($tax !== '' && ! in_array(strlen($tax), [10, 11], true)) {
-            $errors['tax_no'] = 'Vergi no 10, TC kimlik no 11 hanedir.';
+        if (($taxError = TaxNumber::error($tax)) !== null) {
+            $errors['tax_no'] = $taxError;
         }
         if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             $errors['billing_email'] = 'E-posta adresi geçerli değil.';

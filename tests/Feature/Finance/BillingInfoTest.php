@@ -13,6 +13,7 @@ use App\Models\Brand;
 use App\Models\Reminder;
 use App\Models\User;
 use App\Services\Finance\BillingInfo;
+use App\Services\Finance\CertificateReader;
 use App\Services\Finance\CompanyProfile;
 use App\Services\Finance\CustomerMailGuard;
 use App\Services\Finance\FinanceBoard;
@@ -20,6 +21,7 @@ use App\Services\Finance\FinanceSettings;
 use App\Services\Operator\BrandToday;
 use App\Services\Sales\Agreements;
 use App\Support\Demo\DemoMenu;
+use App\Support\Finance\TaxNumber;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RoleAndPermissionSeeder;
@@ -108,7 +110,8 @@ class BillingInfoTest extends TestCase
     {
         $brand = Brand::factory()->create(['name' => 'Dentocare']);
         $this->job($brand);
-        Livewire::test(FinancePage::class)->call('editBilling', $brand->id)->set('billing.tax_no', '12345')->call('saveBilling')->assertHasErrors('billing.tax_no');
+        Livewire::test(FinancePage::class)->call('editBilling', $brand->id)->set('billing.tax_no', '12345')->call('saveBilling')->assertHasErrors('billing.tax_no')
+            ->set('billing.tax_no', '9971719847')->call('saveBilling')->assertHasErrors('billing.tax_no');
     }
 
     public function test_our_company_details_iban_and_vergi_levhasi_are_kept_in_one_place(): void
@@ -116,7 +119,7 @@ class BillingInfoTest extends TestCase
         Livewire::test(FinancePage::class, ['tab' => 'bilgiler'])->set('tab', 'bilgiler')->assertSee('Şirketimiz')->assertSee('Kapalı')
             ->set('company.title', 'Yakup Udül')
             ->set('company.kind', 'sahis')
-            ->set('company.tax_no', '11111111111')
+            ->set('company.tax_no', '10000000146')
             ->set('company.tax_office', 'Manisa')
             ->set('company.address', 'Manisa')
             ->set('company.holder', 'Yakup Udül')
@@ -127,7 +130,7 @@ class BillingInfoTest extends TestCase
 
         $profile = app(CompanyProfile::class);
         $this->assertSame([], $profile->missing());
-        $this->assertSame('11111111111', app(FinanceSettings::class)->get('own_tax_no'), 'the Gmail filter reads the same vergi no');
+        $this->assertSame('10000000146', app(FinanceSettings::class)->get('own_tax_no'), 'the Gmail filter reads the same vergi no');
         $this->assertContains('yakup udül', app(FinanceSettings::class)->get('own_names'));
         $this->assertStringContainsString('IBAN: TR12 0006 4000 0011 2345 6789 01', $profile->sheet());
         $this->get(route('operator.finance.certificate', ['owner' => 'sirket']))->assertOk()->assertHeader('Content-Type', 'application/pdf');
@@ -198,6 +201,33 @@ class BillingInfoTest extends TestCase
         $this->assertSame('Çankaya', $brand->refresh()->customer->tax_office);
         MoxdopServer::tool(FinanceTool::class, ['action' => 'set_billing', 'data' => ['brand_id' => $brand->id, 'legal_name' => 'Panorama Ltd.']])->assertOk();
         $this->assertSame('Çankaya', $brand->refresh()->customer->tax_office, 'a field not given is kept');
+    }
+
+    public function test_vergi_and_tc_numbers_are_checked_by_their_check_digit(): void
+    {
+        $this->assertTrue(TaxNumber::valid('9971719846'));
+        $this->assertFalse(TaxNumber::valid('9971719847'));
+        $this->assertTrue(TaxNumber::valid('10000000146'));
+        $this->assertFalse(TaxNumber::valid('11111111111'));
+        $this->assertNull(TaxNumber::error(''));
+    }
+
+    public function test_the_levha_text_gives_unvan_daire_and_vergi_no(): void
+    {
+        $read = app(CertificateReader::class)->fromText("VERGİ LEVHASI\nTİCARET ÜNVANI\nPANORAMA ANKARA AĞIZ VE DİŞ SAĞLIĞI HİZMETLERİ LİMİTED ŞİRKETİ\nVERGİ DAİRESİ ÇANKAYA\nVERGİ KİMLİK NO 997 171 9846\nTAKVİM YILI 2025");
+        $this->assertSame('PANORAMA ANKARA AĞIZ VE DİŞ SAĞLIĞI HİZMETLERİ LİMİTED ŞİRKETİ', $read['title']);
+        $this->assertSame('ÇANKAYA', $read['tax_office']);
+        $this->assertSame('9971719846', $read['tax_no']);
+        $this->assertSame(['title' => null, 'tax_office' => null, 'tax_no' => null], app(CertificateReader::class)->read('not a pdf', 'image/jpeg'));
+    }
+
+    public function test_bilgi_iste_gives_a_ready_text_the_operator_sends(): void
+    {
+        $brand = Brand::factory()->create(['name' => 'Panorama']);
+        $brand->customer->forceFill(['legal_name' => null])->save();
+        $this->job($brand);
+        Livewire::test(FinancePage::class)->set('tab', 'bilgiler')->call('askBilling', $brand->id)
+            ->assertSee('faturanızı doğru düzenleyebilmemiz için')->assertSee('Vergi levhanızın');
     }
 
     public function test_customers_are_back_in_the_menu(): void

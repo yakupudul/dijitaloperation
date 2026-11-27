@@ -171,6 +171,19 @@ final class FinanceDocuments
             ]))."\n";
         }
         $zip->addFromString('liste-'.Str::slug($label).'.csv', $csv);
+        // For the muhasebeci: our company details and vergi levhası travel with the papers (2026-11-27).
+        try {
+            $company = app(CompanyProfile::class);
+            if (($sheet = $company->sheet()) !== '') {
+                $zip->addFromString('sirket-bilgileri.txt', $sheet."\n");
+            }
+            $levha = (string) ($company->all()['certificate']['path'] ?? '');
+            if ($levha !== '' && Storage::disk(self::DISK)->exists($levha)) {
+                $zip->addFromString('vergi-levhasi.'.pathinfo($levha, PATHINFO_EXTENSION), (string) Storage::disk(self::DISK)->get($levha));
+            }
+        } catch (\Throwable $error) {
+            report($error);
+        }
         $zip->close();
 
         return $path;

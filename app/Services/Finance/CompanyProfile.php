@@ -3,6 +3,7 @@
 namespace App\Services\Finance;
 
 use App\Services\Access\StartLink;
+use App\Support\Finance\TaxNumber;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -67,8 +68,8 @@ final class CompanyProfile
         $mersis = (string) preg_replace('/\D+/', '', (string) ($input['mersis'] ?? ''));
         $iban = mb_strtoupper((string) preg_replace('/\s+/', '', (string) ($input['iban'] ?? '')));
         $errors = [];
-        if ($tax !== '' && ! in_array(strlen($tax), [10, 11], true)) {
-            $errors['tax_no'] = 'Vergi no 10, TC kimlik no 11 hanedir.';
+        if (($taxError = TaxNumber::error($tax)) !== null) {
+            $errors['tax_no'] = $taxError;
         }
         if ($mersis !== '' && strlen($mersis) !== 16) {
             $errors['mersis'] = 'MERSİS no 16 hanedir.';

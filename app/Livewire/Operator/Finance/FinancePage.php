@@ -10,6 +10,7 @@ use App\Models\Brand;
 use App\Models\FinanceDocument;
 use App\Models\SalesLead;
 use App\Services\Finance\BillingInfo;
+use App\Services\Finance\CertificateReader;
 use App\Services\Finance\CompanyProfile;
 use App\Services\Finance\CustomerMailGuard;
 use App\Services\Finance\FinanceBoard;
@@ -121,6 +122,9 @@ final class FinancePage extends Component
     public $companyCertificate = null;
 
     public $billingCertificate = null;
+
+    /** The brand whose "Bilgi iste" text is open. */
+    public int $billingAsk = 0;
 
     public string $message = '';
 
@@ -476,6 +480,7 @@ final class FinancePage extends Component
         try {
             $this->validate(['companyCertificate' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp']], [], ['companyCertificate' => 'vergi levhası']);
             $profile->keepCertificate($this->companyCertificate);
+            $read = $this->readCertificate($this->companyCertificate);
         } catch (ValidationException $error) {
             $this->companyCertificate = null;
             $this->say((string) collect($error->errors())->flatten()->first(), 'error');
@@ -484,8 +489,9 @@ final class FinancePage extends Component
         }
         $this->companyCertificate = null;
         $this->loadCompany();
+        $filled = $this->fillEmpty($this->company, ['title' => 'title', 'tax_office' => 'tax_office', 'tax_no' => 'tax_no'], $read);
         app(BillingInfo::class)->sync();
-        $this->say('Vergi levhası kaydedildi.');
+        $this->say('Vergi levhası kaydedildi.'.($filled !== [] ? ' Levhadan okunan '.implode(', ', $filled).' alanlara yazıldı; kontrol edip Kaydet\'e bas.' : ''));
     }
 
     public function editBilling(int $brandId): void
@@ -531,6 +537,7 @@ final class FinancePage extends Component
             abort_if($brand === null, 404);
             $this->validate(['billingCertificate' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp']], [], ['billingCertificate' => 'vergi levhası']);
             $billing->keepCertificate($brand, $this->billingCertificate);
+            $read = $this->readCertificate($this->billingCertificate);
         } catch (ValidationException $error) {
             $this->billingCertificate = null;
             $this->say((string) collect($error->errors())->flatten()->first(), 'error');
@@ -538,7 +545,48 @@ final class FinancePage extends Component
             return;
         }
         $this->billingCertificate = null;
-        $this->say($brand->name.': vergi levhası kaydedildi. Unvan, vergi no ve dairesini levhadan yaz.');
+        $filled = $this->fillEmpty($this->billing, ['title' => 'legal_name', 'tax_office' => 'tax_office', 'tax_no' => 'tax_no'], $read);
+        $this->say($brand->name.': vergi levhası kaydedildi.'.($filled !== []
+            ? ' Levhadan okunan '.implode(', ', $filled).' alanlara yazıldı; kontrol edip Kaydet\'e bas.'
+            : ' Dosyadan bilgi okunamadı (fotoğraf ya da tarama olabilir); unvan, vergi no ve daireyi levhadan yaz.'));
+    }
+
+    /** "Bilgi iste": the ready WhatsApp text for a brand whose billing details are missing; the operator sends it. */
+    public function askBilling(int $brandId): void
+    {
+        $this->billingAsk = $this->billingAsk === $brandId ? 0 : $brandId;
+    }
+
+    /** @return array{title: ?string, tax_office: ?string, tax_no: ?string} */
+    private function readCertificate(mixed $file): array
+    {
+        try {
+            return app(CertificateReader::class)->read((string) file_get_contents($file->getRealPath()), (string) $file->getMimeType());
+        } catch (\Throwable) {
+            return ['title' => null, 'tax_office' => null, 'tax_no' => null];
+        }
+    }
+
+    /**
+     * What the levha gave goes only into empty form fields.
+     *
+     * @param  array<string, string>  $form
+     * @param  array<string, string>  $map  read key => form key
+     * @param  array<string, ?string>  $read
+     * @return list<string> labels of what was filled
+     */
+    private function fillEmpty(array &$form, array $map, array $read): array
+    {
+        $labels = ['title' => 'unvan', 'tax_office' => 'vergi dairesi', 'tax_no' => 'vergi no'];
+        $filled = [];
+        foreach ($map as $from => $to) {
+            if (filled($read[$from] ?? null) && blank($form[$to] ?? null)) {
+                $form[$to] = (string) $read[$from];
+                $filled[] = $labels[$from];
+            }
+        }
+
+        return $filled;
     }
 
     public function setCustomerMail(bool $on, CustomerMailGuard $guard): void
@@ -579,6 +627,8 @@ final class FinancePage extends Component
             $data['companySheet'] = $profile->sheet();
             $data['billingRows'] = app(BillingInfo::class)->rows();
             $data['customerMail'] = app(CustomerMailGuard::class)->allowed();
+            $askBrand = $this->billingAsk > 0 ? Brand::query()->with('customer')->find($this->billingAsk) : null;
+            $data['billingRequest'] = $askBrand !== null ? app(BillingInfo::class)->request($askBrand) + ['brand_id' => $askBrand->id] : null;
             $data['billingEditing'] = $this->billingBrand > 0 ? Brand::query()->with('customer')->find($this->billingBrand) : null;
         } elseif ($this->tab === 'anlasmalar') {
             $data['jobs'] = $this->view === 'zam' ? collect() : $board->jobs($this->show);

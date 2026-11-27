@@ -98,8 +98,24 @@
                                         @elseif ($r['missing'] === [])<span class="chip chip-up">Tamam</span>@if ($c?->invoice_kind === 'e_fatura') <span class="chip chip-flat">e-Fatura</span>@endif
                                         @else<span class="chip chip-down">Eksik: {{ implode(', ', $r['missing']) }}</span>@endif
                                     </td>
-                                    <td class="text-right"><button type="button" wire:click="editBilling({{ $r['brand']->id }})" class="btn-quiet">{{ $r['missing'] !== [] ? 'Bilgileri gir' : 'Düzenle' }}</button></td>
+                                    <td class="text-right"><div class="flex justify-end gap-1">
+                                        @if ($r['invoiced'] && $r['missing'] !== [])<button type="button" wire:click="askBilling({{ $r['brand']->id }})" class="btn-quiet" data-finance-billing-ask="{{ $r['brand']->id }}">Bilgi iste</button>@endif
+                                        <button type="button" wire:click="editBilling({{ $r['brand']->id }})" class="btn-quiet">{{ $r['missing'] !== [] ? 'Bilgileri gir' : 'Düzenle' }}</button>
+                                    </div></td>
                                 </tr>
+                                @if ($billingRequest !== null && $billingRequest['brand_id'] === $r['brand']->id)
+                                    <tr wire:key="billing-ask-{{ $r['brand']->id }}"><td colspan="5">
+                                        <div class="max-w-2xl" x-data="{ copied: false }" data-finance-billing-request>
+                                            <p class="whitespace-pre-line rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-800 dark:border-gray-800 dark:bg-transparent dark:text-gray-200" x-ref="ask">{{ $billingRequest['text'] }}</p>
+                                            <div class="mt-2 flex flex-wrap gap-2">
+                                                <button type="button" class="btn" @click="navigator.clipboard.writeText($refs.ask.innerText); copied = true; setTimeout(() => copied = false, 1500)"><span x-show="!copied">Metni kopyala</span><span x-show="copied" x-cloak>Kopyalandı</span></button>
+                                                @if ($billingRequest['phone'])<a class="btn" target="_blank" rel="noopener" href="https://wa.me/{{ $billingRequest['phone'] }}?text={{ rawurlencode($billingRequest['text']) }}">WhatsApp'ta aç</a>@endif
+                                                <button type="button" wire:click="askBilling({{ $r['brand']->id }})" class="btn-quiet">Kapat</button>
+                                            </div>
+                                            <p class="mt-2 text-xs text-gray-500">Mesajı sen gönderirsin. Gelen levhayı "Bilgileri gir"den yüklediğinde alanlar levhadan dolar.</p>
+                                        </div>
+                                    </td></tr>
+                                @endif
                             @endforeach
                         </tbody>
                     </table>
