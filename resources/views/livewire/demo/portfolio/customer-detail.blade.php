@@ -138,6 +138,31 @@
         @endif
     </section>
 
+    {{-- Fatura bilgileri (2026-11-27): kept on the customer, edited on Finans › Fatura bilgileri. --}}
+    @php
+        $billingModel = \App\Models\Customer::query()->find((int) $customer['id']);
+        $billingMissing = \App\Services\Finance\BillingInfo::missingOf($billingModel);
+        $billingBrandId = $brands[0]['id'] ?? null;
+    @endphp
+    <section data-customer-billing>
+        <div class="section-head">
+            <h2 class="section-title">Fatura bilgileri</h2>
+            @if ($billingBrandId && auth()->user()?->hasRole(\App\Support\Roles::ADMIN))<a href="{{ route('operator.finance', ['sekme' => 'bilgiler', 'marka' => $billingBrandId]) }}" wire:navigate class="btn-quiet ml-auto h-7! px-2!">Düzenle</a>@endif
+        </div>
+        <div class="card p-4 text-sm">
+            @if ($billingModel && ($billingModel->legal_name || $billingModel->tax_no))
+                <dl class="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                    @foreach (['Unvan' => $billingModel->legal_name, 'Vergi no' => $billingModel->tax_no, 'Vergi dairesi' => $billingModel->tax_office, 'Fatura adresi' => trim($billingModel->billing_address.' '.$billingModel->billing_city), 'Fatura e-postası' => $billingModel->billing_email, 'Fatura türü' => \App\Services\Finance\CompanyProfile::INVOICE_KINDS[$billingModel->invoice_kind] ?? null] as $k => $v)
+                        @if (filled($v))<div><dt class="text-xs text-gray-500">{{ $k }}</dt><dd class="text-gray-900 dark:text-white">{{ $v }}</dd></div>@endif
+                    @endforeach
+                </dl>
+                @if ($billingMissing !== [])<p class="mt-3 text-xs text-error-600">Eksik: {{ implode(', ', $billingMissing) }}</p>@endif
+            @else
+                <p class="text-gray-500">Henüz girilmedi. Fatura kesilen bir müşteriyse unvan, vergi no, vergi dairesi ve adres gerekir.</p>
+            @endif
+        </div>
+    </section>
+
     <section data-customer-commercial>
         <div class="section-head">
             <h2 class="section-title" title="Ay sonu tahmini bugüne kadarki harcamanın doğrusal uzantısıdır.">Ücret ve reklam bütçesi <span class="section-count">bu ay {{ $commercialSummary['days']['elapsed'] }}/{{ $commercialSummary['days']['total'] }} gün</span></h2>

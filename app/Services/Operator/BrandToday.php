@@ -5,6 +5,7 @@ namespace App\Services\Operator;
 use App\Models\Brand;
 use App\Models\ClaudeNote;
 use App\Models\Reminder;
+use App\Services\Finance\BillingInfo;
 use App\Services\Finance\MissingAgreements;
 use App\Support\AssetIntent;
 use Illuminate\Support\Facades\Cache;
@@ -38,6 +39,8 @@ final class BrandToday
         $byBrand = $todos->whereNotNull('brand_id')->groupBy('brand_id');
         $start = now()->timezone('Europe/Istanbul')->startOfDay();
         $noDeal = $this->safely(fn (): array => app(MissingAgreements::class)->ids()) ?? [];
+        // Fatura bilgisi eksik (2026-11-27): an invoiced brand without unvan / vergi no / dairesi / adres.
+        $noBilling = $this->safely(fn (): array => app(BillingInfo::class)->gapIds()) ?? [];
 
         $rows = [];
         foreach ($brands as $brand) {
@@ -45,9 +48,11 @@ final class BrandToday
             $own = BrandWorkplace::sortReminders($byBrand->get($brand->id, collect()));
             $late = $own->filter(fn (Reminder $r): bool => $r->remind_at !== null && $r->remind_at->timezone('Europe/Istanbul')->lessThan($start))->count();
             $unpaid = isset($noDeal[(int) $brand->id]);
-            $gapCount = count($gaps['bad']) + count($gaps['look']) + count($gaps['missing']) + ($unpaid ? 1 : 0);
+            $billing = $noBilling[(int) $brand->id] ?? [];
+            $gapCount = count($gaps['bad']) + count($gaps['look']) + count($gaps['missing']) + ($unpaid ? 1 : 0) + ($billing !== [] ? 1 : 0);
             $parts = array_values(array_filter([
                 $unpaid ? 'Finans\'ta anlaşması yok, ödemesi takip edilmiyor' : null,
+                $billing !== [] ? 'Fatura bilgisi eksik ('.implode(', ', $billing).')' : null,
                 $gaps['bad'] !== [] ? implode(', ', $gaps['bad']).' kayıpta' : null,
                 $gaps['look'] !== [] ? implode(', ', $gaps['look']).' bakılmalı' : null,
                 $gaps['missing'] !== [] ? implode(', ', $gaps['missing']).' bağlı değil' : null,
@@ -62,7 +67,7 @@ final class BrandToday
                 'late' => $late,
                 'line' => $parts !== [] ? implode('. ', $parts).'.' : ($own->isNotEmpty() ? 'Sistem tarafı yolunda, sırada senin işin var.' : 'Yolunda, senden bir şey beklemiyor.'),
                 'tone' => $gaps['bad'] !== [] || $late > 0 || $unpaid ? 'bad' : ($gapCount > 0 || $own->isNotEmpty() ? 'warn' : 'ok'),
-                'score' => 100 * $late + 40 * count($gaps['bad']) + 12 * count($gaps['look']) + 10 * count($gaps['missing']) + 8 * $own->count() + ($unpaid ? 60 : 0),
+                'score' => 100 * $late + 40 * count($gaps['bad']) + 12 * count($gaps['look']) + 10 * count($gaps['missing']) + 8 * $own->count() + ($unpaid ? 60 : 0) + ($billing !== [] ? 15 : 0),
                 'next' => $own->first()?->title,
                 // The doors change only when an account is bound: kept ten minutes so the list costs no query per brand.
                 'doors' => $this->safely(fn (): array => Cache::remember('brand-today.doors.'.$brand->id, 600, fn (): array => $this->shortcuts->doors($brand))) ?? [],

@@ -247,6 +247,7 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         // Finans (2026-11-12): who agreed what, who paid, what remains; invoices, expenses and dekonts kept as files.
         Route::livewire('/finans', FinancePage::class)->name('operator.finance');
         Route::get('/finans/belge/{document}', [FinanceFilesController::class, 'show'])->where('document', '[0-9]{1,18}')->name('operator.finance.document');
+        Route::get('/finans/levha/{owner}', [FinanceFilesController::class, 'certificate'])->where('owner', 'sirket|[0-9]{1,18}')->name('operator.finance.certificate');
         Route::get('/finans/zip', [FinanceFilesController::class, 'zip'])->middleware('throttle:20,1')->name('operator.finance.zip');
         // Gelen kutusu (Aşama 2, 2026-11-07): WhatsApp, Instagram / Facebook, forms and today's steps in one queue.
         Route::livewire('/gelen-kutusu', InboxPage::class)->name('operator.inbox');

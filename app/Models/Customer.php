@@ -32,6 +32,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'service_started_at',
     'services_received',
     'services',
+    'tax_no',
+    'tax_office',
+    'billing_address',
+    'billing_city',
+    'billing_email',
+    'invoice_kind',
+    'tax_certificate_path',
+    'billing_source',
+    'billing_updated_at',
 ])]
 class Customer extends Model
 {
@@ -137,6 +146,7 @@ class Customer extends Model
             'status' => CustomerStatus::class,
             'service_started_at' => 'date',
             'services' => 'array',
+            'billing_updated_at' => 'datetime',
         ];
     }
 }

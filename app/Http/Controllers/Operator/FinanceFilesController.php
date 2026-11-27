@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Operator;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\FinanceDocument;
+use App\Services\Finance\CompanyProfile;
 use App\Services\Finance\FinanceDocuments;
 use App\Support\Roles;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -41,6 +44,25 @@ final class FinanceFilesController extends Controller
         return response($bytes, 200, [
             'Content-Type' => $document->mime ?: 'application/octet-stream',
             'Content-Disposition' => 'inline; filename="belge-'.$document->id.'"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
+    /** A vergi levhası: ours ("sirket") or a customer's (its id). Admin only, from the private disk. */
+    public function certificate(string $owner, CompanyProfile $company): Response
+    {
+        $this->admin();
+        $path = $owner === 'sirket'
+            ? (string) ($company->all()['certificate']['path'] ?? '')
+            : (string) (Customer::query()->whereKey((int) $owner)->value('tax_certificate_path') ?? '');
+        abort_if($path === '' || ! Storage::disk(FinanceDocuments::DISK)->exists($path), 404);
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mime = ['pdf' => 'application/pdf', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'][$ext] ?? 'application/octet-stream';
+
+        return response(Storage::disk(FinanceDocuments::DISK)->get($path), 200, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="vergi-levhasi.'.$ext.'"',
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'private, no-store',
         ]);

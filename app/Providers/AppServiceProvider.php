@@ -291,6 +291,12 @@ class AppServiceProvider extends ServiceProvider
                 app(ResourceAutomationService::class)->resumeForCustomer((int) $customer->id);
             }
         });
+        // Müşterilere e-posta (yakup 2026-11-27): no mail reaches a customer's address while Finans' switch is off.
+        Event::listen(\Illuminate\Mail\Events\MessageSending::class, [\App\Services\Finance\CustomerMailGuard::class, 'handle']);
+        foreach (['saved', 'deleted'] as $event) {
+            Event::listen('eloquent.'.$event.': '.Customer::class, fn () => \App\Services\Finance\CustomerMailGuard::forget());
+            Event::listen('eloquent.'.$event.': '.\App\Models\CustomerContact::class, fn () => \App\Services\Finance\CustomerMailGuard::forget());
+        }
     }
 
     /**

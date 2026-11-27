@@ -91,6 +91,14 @@ final class StartLink
             $party[$key] = mb_substr(trim((string) ($input[$key] ?? '')), 0, $key === 'address' ? 400 : 160);
         }
         $link->forceFill(['start' => ['party' => $party] + (array) $link->start])->save();
+        // What the customer wrote fills the empty fields of his fatura bilgileri on Finans (the operator's entry wins).
+        if ($link->brand !== null) {
+            try {
+                app(\App\Services\Finance\BillingInfo::class)->fromStartLink($link->brand, $party);
+            } catch (\Throwable $error) {
+                report($error);
+            }
+        }
     }
 
     /** "Okudum, kabul ediyorum": the accepted text, the time and the address it came from are kept; the agreement gets its contract day. */

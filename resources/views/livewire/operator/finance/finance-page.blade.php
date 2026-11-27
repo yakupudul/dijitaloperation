@@ -20,7 +20,7 @@
                     <x-operator.date-range-picker :range="$dateRange" :last-day="\App\Livewire\Operator\Finance\FinancePage::dateFilterToday()" :max-day="$maxDay" :caption="$rangeCaption" :compare="false" :show-last-day="false" :calendar="true" data-finance-range />
                     <button type="button" wire:click="shift(1)" class="btn-quiet h-11 px-2" aria-label="Sonraki dönem">›</button>
                 </div>
-            @elseif ($tab !== 'anlasmalar')
+            @elseif (! in_array($tab, ['anlasmalar', 'bilgiler'], true))
                 <x-operator.date-range-picker :range="$dateRange" :last-day="\App\Livewire\Operator\Finance\FinancePage::dateFilterToday()" :compare="false" :show-last-day="false" :calendar="true" all-label="Tüm zamanlar" class="w-full sm:w-auto" data-finance-range />
             @endif
             <button type="button" wire:click="newExpense" class="btn" data-finance-new-expense>Gider ekle</button>
@@ -51,6 +51,32 @@
                     <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
                     <a href="{{ route('operator.brand', ['brand' => $mb->id]) }}" wire:navigate class="min-w-0 flex-1 truncate text-sm text-gray-900 hover:underline dark:text-white">{{ $mb->name }}</a>
                     <button type="button" wire:click="newJob({{ $mb->id }})" class="btn shrink-0">Anlaşmayı gir</button>
+                </div>
+            @endforeach
+        </section>
+    @endif
+
+    {{-- Fatura bilgileri (yakup 2026-11-27): an invoiced brand without unvan / vergi no / dairesi / adres, or our own company with gaps, is said here. --}}
+    @if ($billingGaps->isNotEmpty() || ($tab === 'bu-ay' && $companyMissing !== []))
+        <section class="card mt-4 border-warning-300 dark:border-warning-500/40" data-finance-billing-gaps>
+            <div class="card-row">
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">Fatura bilgisi eksik</p>
+                    <p class="text-[13px] text-gray-500">Fatura keserken, sözleşmede ve ödeme hatırlatmasında bu bilgiler kullanılır.</p>
+                </div>
+            </div>
+            @if ($companyMissing !== [])
+                <div class="card-row" data-finance-company-gap>
+                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
+                    <p class="min-w-0 flex-1 truncate text-sm text-gray-900 dark:text-white">Şirketimiz <span class="text-gray-500">· {{ implode(', ', $companyMissing) }}</span></p>
+                    <button type="button" wire:click="$set('tab', 'bilgiler')" class="btn shrink-0">Şirket bilgilerini gir</button>
+                </div>
+            @endif
+            @foreach ($billingGaps as $g)
+                <div class="card-row" wire:key="finance-billing-gap-{{ $g['brand']->id }}" data-finance-billing-gap="{{ $g['brand']->id }}">
+                    <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-warning-500" aria-hidden="true"></span>
+                    <p class="min-w-0 flex-1 truncate text-sm text-gray-900 dark:text-white">{{ $g['brand']->name }} <span class="text-gray-500">· {{ implode(', ', $g['missing']) }}</span></p>
+                    <button type="button" wire:click="editBilling({{ $g['brand']->id }})" class="btn shrink-0">Bilgileri gir</button>
                 </div>
             @endforeach
         </section>
@@ -215,6 +241,17 @@
                                                     <p class="mt-2 text-xs text-gray-500">Mesajı sen gönderirsin; sistem kendiliğinden kimseye yazmaz.</p>
                                                 </div>
                                             @elseif ($rowPanel === 'invoice')
+                                                @if ($invoiceSheet !== null)
+                                                    <div class="mb-3 max-w-2xl" x-data="{ copied: false }" data-finance-invoice-sheet>
+                                                        <p class="mb-1 text-xs font-medium text-gray-600 dark:text-gray-400">{{ $invoiceSheet['e_fatura'] ? 'e-Fatura' : 'e-Arşiv' }} portalına yazılacaklar</p>
+                                                        <p class="whitespace-pre-line rounded-lg border border-gray-200 bg-white p-3 text-sm text-gray-800 dark:border-gray-800 dark:bg-transparent dark:text-gray-200" x-ref="sheet">{{ $invoiceSheet['text'] }}</p>
+                                                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                                                            <button type="button" class="btn" @click="navigator.clipboard.writeText($refs.sheet.innerText); copied = true; setTimeout(() => copied = false, 1500)"><span x-show="!copied">Bilgileri kopyala</span><span x-show="copied" x-cloak>Kopyalandı</span></button>
+                                                            @if ($invoiceSheet['missing'] !== [] && $openPayment->agreement?->brand_id)<button type="button" wire:click="editBilling({{ $openPayment->agreement->brand_id }})" class="btn-quiet">Eksik: {{ implode(', ', $invoiceSheet['missing']) }} · gir</button>@endif
+                                                        </div>
+                                                        @if ($invoiceSheet['e_fatura'])<p class="mt-2 text-xs text-gray-500">Bu müşteri e-Fatura mükellefi: faturayı e-Arşiv değil e-Fatura olarak kes.</p>@endif
+                                                    </div>
+                                                @endif
                                                 <div class="flex flex-wrap items-center gap-3" data-finance-invoice-upload>
                                                     <label class="btn cursor-pointer">Fatura dosyasını seç<input type="file" wire:model="files" multiple accept=".pdf,.xml,.zip,.jpg,.jpeg,.png" class="sr-only"></label>
                                                     <span class="text-xs text-gray-500" wire:loading.remove wire:target="files">PDF, XML ya da ZIP. Bu satıra bağlanır.</span>
@@ -605,14 +642,17 @@
             <section class="card mt-4 p-4" data-finance-settings>
                 <h2 class="section-title">Ayarlar</h2>
                 <form wire:submit="saveSettings" class="mt-3 flex flex-wrap items-end gap-3">
-                    <div class="w-56"><label class="{{ $label }}" for="own-tax">Kendi vergi / TC kimlik no'n</label><input id="own-tax" type="text" inputmode="numeric" wire:model="settings.own_tax_no" class="{{ $input }}" placeholder="Faturalarında satıcı olarak geçen no"></div>
                     <div class="w-44"><label class="{{ $label }}" for="inflation">Yıllık enflasyon (%)</label><input id="inflation" type="text" inputmode="decimal" wire:model="settings.inflation" class="{{ $input }}" placeholder="örn. 33"></div>
                     <div class="w-28"><label class="{{ $label }}" for="vat">KDV (%)</label><input id="vat" type="text" inputmode="numeric" wire:model="settings.vat" class="{{ $input }}"></div>
                     <button type="submit" class="btn">Kaydet</button>
                 </form>
-                @if ($err('settings.own_tax_no'))<p class="mt-1 text-xs text-error-600">{{ $err('settings.own_tax_no') }}</p>@endif
-                <p class="mt-2 max-w-[80ch] text-xs text-gray-500">Vergi no'n, bir faturayı senin kestiğini anlamak için kullanılır; boşsa ilk kestiğin faturadan kendiliğinden öğrenilir. Enflasyon oranı yalnız Zam görünümündeki hesap içindir.</p>
+                <p class="mt-2 max-w-[80ch] text-xs text-gray-500">Kendi vergi no'n ve şirket bilgilerin <button type="button" wire:click="$set('tab', 'bilgiler')" class="underline">Fatura bilgileri</button> sekmesinde. Enflasyon oranı yalnız Zam görünümündeki hesap içindir.</p>
             </section>
         @endif
+    @endif
+
+    {{-- ───────────── Fatura bilgileri ───────────── --}}
+    @if ($tab === 'bilgiler')
+        @include('livewire.operator.finance.billing')
     @endif
 </div>

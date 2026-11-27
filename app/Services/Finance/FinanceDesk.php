@@ -53,6 +53,8 @@ final class FinanceDesk
             'spend' => collect($data['spend'])->except(['docs'])->all(),
             'upcoming' => collect($data['upcoming'])->map(fn (array $u): array => ['kind' => $u['kind'], 'title' => $u['title'], 'detail' => $u['detail']])->all(),
             'brands_without_agreement' => app(MissingAgreements::class)->brands()->map(fn ($b): array => ['brand_id' => (int) $b->id, 'name' => (string) $b->name])->all(),
+            'brands_missing_billing' => app(BillingInfo::class)->gaps()->map(fn (array $r): array => ['brand_id' => (int) $r['brand']->id, 'name' => (string) $r['brand']->name, 'missing' => $r['missing']])->all(),
+            'company_missing' => app(CompanyProfile::class)->missing(),
             'documents_waiting' => $data['fresh'], 'receipts_waiting' => $data['receipts']->count(),
             'url' => route('operator.finance'),
         ];

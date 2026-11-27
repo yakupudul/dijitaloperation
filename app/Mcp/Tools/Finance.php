@@ -2,10 +2,15 @@
 
 namespace App\Mcp\Tools;
 
+use App\Models\Brand;
 use App\Models\FinanceDocument;
+use App\Services\Finance\BillingInfo;
+use App\Services\Finance\CompanyProfile;
+use App\Services\Finance\CustomerMailGuard;
 use App\Services\Finance\FinanceDesk;
 use App\Services\Finance\FinanceDocuments;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -14,7 +19,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tool;
 
 #[Name('finance')]
-#[Description('Finans: payment tracking of every paid job (who agreed what, who paid, what remains), the operator\'s expenses and invoices. Use it when the operator tells you in words to add, change or record something ("Ahmet Usta web sitesi 30.000, üç taksit", "Panorama 12.000 yatırdı", "Dentocare ücreti ocaktan beri 16.000"). action=summary (a month: rows, late, spend, upcoming), jobs (find a job and its open rows by name), add_job (brand_id or party; kind monthly/term/one_time/yearly; fee or installments), record_payment (money that came in fills the oldest open rows; vat auto decides KDV dahil/hariç), unpay, update_job (fee with fee_since, due_day, title, note, installments, status), add_expense, unread_papers (Gmail papers no rule could read: mail, text if any, a day-long file_url; read each — open the file_url when there is no text — and answer with read_paper), read_paper (data: id, mine = the paper is issued by or to Moximu / Yakup Udül, then kind invoice|receipt|other, doc_no, doc_date, seller, seller_tax_no, buyer, buyer_tax_no, amount (with taxes), vat, currency, summary; write only what the paper says). Amounts are TL without KDV for jobs, with KDV for expenses. Never guess a fee the operator did not say. Every write answers with what was done; preview=true only shows what would happen.')]
+#[Description('Finans: payment tracking of every paid job (who agreed what, who paid, what remains), the operator\'s expenses and invoices. Use it when the operator tells you in words to add, change or record something ("Ahmet Usta web sitesi 30.000, üç taksit", "Panorama 12.000 yatırdı", "Dentocare ücreti ocaktan beri 16.000"). action=summary (a month: rows, late, spend, upcoming), jobs (find a job and its open rows by name), add_job (brand_id or party; kind monthly/term/one_time/yearly; fee or installments), record_payment (money that came in fills the oldest open rows; vat auto decides KDV dahil/hariç), unpay, update_job (fee with fee_since, due_day, title, note, installments, status), add_expense, unread_papers (Gmail papers no rule could read: mail, text if any, a day-long file_url; read each — open the file_url when there is no text — and answer with read_paper), read_paper (data: id, mine = the paper is issued by or to Moximu / Yakup Udül, then kind invoice|receipt|other, doc_no, doc_date, seller, seller_tax_no, buyer, buyer_tax_no, amount (with taxes), vat, currency, summary; write only what the paper says), billing (our company details and every running brand\'s fatura bilgileri with what is missing), set_billing (data: brand_id + any of legal_name, tax_no, tax_office, billing_address, billing_city, billing_email, invoice_kind e_arsiv|e_fatura; empty fields are kept), set_company (data: any of title, kind sahis|limited|anonim, tax_no, tax_office, mersis, trade_registry, address, city, phone, email, kep, invoice_kind, iban, bank, holder; empty fields are kept). Write billing and company details only from what the operator said or a document he gave. Amounts are TL without KDV for jobs, with KDV for expenses. Never guess a fee the operator did not say. Every write answers with what was done; preview=true only shows what would happen.')]
 class Finance extends Tool
 {
     private const array WRITES = ['add_job' => 'finance_job', 'record_payment' => 'finance_payment', 'unpay' => 'finance_unpay', 'update_job' => 'finance_job_update', 'add_expense' => 'finance_expense'];
@@ -22,7 +27,7 @@ class Finance extends Tool
     public function handle(Request $request, FinanceDesk $desk): Response
     {
         $validated = $request->validate([
-            'action' => ['required', 'in:summary,jobs,add_job,record_payment,unpay,update_job,add_expense,unread_papers,read_paper'],
+            'action' => ['required', 'in:summary,jobs,add_job,record_payment,unpay,update_job,add_expense,unread_papers,read_paper,billing,set_billing,set_company'],
             'month' => ['nullable', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/'],
             'q' => ['nullable', 'string', 'max:120'],
             'ended' => ['nullable', 'boolean'],
@@ -45,6 +50,9 @@ class Finance extends Tool
         if ($action === 'read_paper') {
             return $this->readPaper((array) ($validated['data'] ?? []));
         }
+        if (in_array($action, ['billing', 'set_billing', 'set_company'], true)) {
+            return $this->billing($action, (array) ($validated['data'] ?? []), (bool) ($validated['preview'] ?? false), $json);
+        }
         try {
             $preview = $desk->preview(self::WRITES[$action], (array) ($validated['data'] ?? []));
             if ($validated['preview'] ?? false) {
@@ -56,6 +64,55 @@ class Finance extends Tool
         }
 
         return Response::text($result['text']."\n".implode("\n", $preview['lines'])."\n".$result['url']);
+    }
+
+    /** Fatura bilgileri by word: read, or fill only the fields given (an empty field never wipes a kept one). */
+    private function billing(string $action, array $data, bool $preview, \Closure $json): Response
+    {
+        $billing = app(BillingInfo::class);
+        $company = app(CompanyProfile::class);
+        $url = route('operator.finance', ['sekme' => 'bilgiler']);
+        if ($action === 'billing') {
+            $all = $company->all();
+            unset($all['certificate']);
+
+            return Response::text($json([
+                'company' => $all + ['has_certificate' => filled($company->all()['certificate']['path'] ?? null), 'missing' => $company->missing()],
+                'customer_mail_allowed' => app(CustomerMailGuard::class)->allowed(),
+                'brands' => $billing->rows()->map(fn (array $r): array => ['brand_id' => (int) $r['brand']->id, 'brand' => (string) $r['brand']->name, 'invoiced' => $r['invoiced'], 'missing' => $r['missing'],
+                    'legal_name' => $r['customer']?->legal_name, 'tax_no' => $r['customer']?->tax_no, 'tax_office' => $r['customer']?->tax_office, 'billing_address' => $r['customer']?->billing_address,
+                    'billing_city' => $r['customer']?->billing_city, 'billing_email' => $r['customer']?->billing_email, 'invoice_kind' => $r['customer']?->invoice_kind,
+                    'has_certificate' => filled($r['customer']?->tax_certificate_path)])->all(),
+                'url' => $url,
+            ]));
+        }
+        $given = array_filter($data, fn ($v): bool => is_scalar($v) && trim((string) $v) !== '');
+        try {
+            if ($action === 'set_company') {
+                $input = array_merge($company->all(), array_intersect_key($given, array_flip([...CompanyProfile::TEXT, 'tax_no', 'iban', 'bank', 'holder'])));
+                unset($input['certificate']);
+                if ($preview) {
+                    return Response::text('Şirket bilgileri şöyle olacak:'."\n".$json($input)."\n(Önizleme: bir şey yazılmadı.)");
+                }
+                $company->save($input);
+
+                return Response::text('Şirket bilgileri kaydedildi.'.(($m = $company->missing()) !== [] ? ' Eksik: '.implode(', ', $m).'.' : '')."\n".$url);
+            }
+            $brand = Brand::query()->with('customer')->find((int) ($data['brand_id'] ?? 0));
+            if ($brand === null) {
+                return Response::error('brand_id ile bir marka ver.');
+            }
+            $input = array_merge($billing->form($brand), array_intersect_key($given, array_flip(BillingInfo::FIELDS)));
+            if ($preview) {
+                return Response::text($brand->name.' fatura bilgileri şöyle olacak:'."\n".$json($input)."\n(Önizleme: bir şey yazılmadı.)");
+            }
+            $customer = $billing->save($brand, $input, 'claude');
+            $missing = BillingInfo::missingOf($customer);
+
+            return Response::text($brand->name.': fatura bilgileri kaydedildi.'.($missing !== [] ? ' Eksik: '.implode(', ', $missing).'.' : '')."\n".route('operator.finance', ['sekme' => 'bilgiler', 'marka' => $brand->id]));
+        } catch (ValidationException $error) {
+            return Response::error((string) collect($error->errors())->flatten()->implode(' '));
+        }
     }
 
     /** What a subscription round read on a paper no rule could read: ours comes into sight, another's stays a mark. */
@@ -85,14 +142,14 @@ class Finance extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'action' => $schema->string()->enum(['summary', 'jobs', 'add_job', 'record_payment', 'unpay', 'update_job', 'add_expense', 'unread_papers', 'read_paper'])->required(),
+            'action' => $schema->string()->enum(['summary', 'jobs', 'add_job', 'record_payment', 'unpay', 'update_job', 'add_expense', 'unread_papers', 'read_paper', 'billing', 'set_billing', 'set_company'])->required(),
             'month' => $schema->string()->description('summary: YYYY-MM (empty = this month).'),
             'q' => $schema->string()->description('jobs: part of the payer, brand or job name (empty = every running job).'),
             'ended' => $schema->boolean()->description('jobs: include ended jobs.'),
             'preview' => $schema->boolean()->description('Writes: true = only say what would happen.'),
             'data' => $schema->object()->description('The write\'s fields. add_job: brand_id | party (+ party_phone), title, kind, fee, term_months, due_day, starts_on, installments [{due_on, amount, label}], tax_no, note, services [seo_gbp|seo|gbp|google_ads|meta_ads|web|other], no_invoice (true: the payer takes no invoice, the fee is the money as it comes, no KDV), next_fee + next_fee_when (a raise agreed for later and what it waits on, e.g. 30000 / "Google Ads başlayınca"). '
                 .'record_payment: agreement_id, amount, date, vat (auto|yes|no), note. unpay: payment_id. update_job: agreement_id + any of fee, fee_since, due_day, title, note, party, party_phone, tax_no, no_invoice, next_fee, next_fee_when, installments, status (active|paused|ended). '
-                .'add_expense: counterparty, amount, currency (TRY|USD|EUR|GBP), doc_date, category (yazilim|sunucu|reklam|yapay_zeka|dis_hizmet|iletisim|ofis|vergi|diger), brand_id, rebill, note. Dates YYYY-MM-DD.'),
+                .'add_expense: counterparty, amount, currency (TRY|USD|EUR|GBP), doc_date, category (yazilim|sunucu|reklam|yapay_zeka|dis_hizmet|iletisim|ofis|vergi|diger), brand_id, rebill, note. Dates YYYY-MM-DD. set_billing / set_company: see the action list.'),
         ];
     }
 }

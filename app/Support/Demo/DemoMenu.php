@@ -57,6 +57,8 @@ final class DemoMenu
                 $item(__('operator.nav.brands'), 'operator.brands', 'brands', [
                     $child($tr ? 'Portföy' : 'Portfolio', 'operator.portfolio', $tr ? 'Markalar' : 'Brands'),
                     $child($tr ? 'Web siteleri' : 'Websites', 'operator.websites', $tr ? 'Markalar' : 'Brands'),
+                    // Müşteriler (yakup 2026-11-27 "müşteriler alanına menüden ulaşamıyorum"): the paying side of the brands, with fatura bilgileri.
+                    $child($tr ? 'Müşteriler' : 'Customers', 'operator.customers', $tr ? 'Markalar' : 'Brands'),
                     $child($tr ? 'Onarım masası' : 'Repair desk', 'operator.repair', $tr ? 'İşler' : 'Work'),
                     $child($tr ? 'İçerik' : 'Content', 'operator.content', $tr ? 'İşler' : 'Work'),
                     $child($tr ? 'Bağlantılar' : 'Links', 'operator.links', $tr ? 'İşler' : 'Work'),

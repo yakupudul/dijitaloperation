@@ -112,7 +112,9 @@ class PanelDesignFreezeTest extends TestCase
             ['/library/website-standards', '/library/services', '/settings/query-rules', '/settings/books'],
             ['/settings/ai', '/settings/ai-operations', '/settings/mcp', '/settings/security', '/settings/system-health', '/settings/jobs', '/settings/changes', '/settings/improvements', '/settings/releases'],
         ], $settingsTabs->groupBy('group')->map(fn ($tabs): array => $tabs->pluck('url')->all())->values()->slice(1)->values()->all(), 'Bağlantı Düzeni 2.3 (2026-11-11): Ayarlar in three groups, Ajans / Kurallar / Makine; Roller and Müşteri paneli joined Ajans with the client panel (2026-11-20)');
-        $this->assertNull(OperatorMenu::sectionTabs('operator.customers'));
+        // Müşteriler is a Markalar tab again (yakup 2026-11-27: "müşteriler alanına menüden ulaşamıyorum").
+        $customerTabs = OperatorMenu::sectionTabs('operator.customers');
+        $this->assertSame('/customers', collect($customerTabs)->firstWhere('active', true)['url'] ?? null);
         $this->assertSame(['/brands', '/portfoy', '/websites'], array_slice(array_column(OperatorMenu::sectionTabs('operator.portfolio'), 'url'), 0, 3), 'Portföy and Web siteleri are tabs of Markalar since 2026-11-09');
 
         $this->get(route('operator.integrations.accounts'))->assertOk()->assertSee('aria-current="page"', false)->assertDontSee('/data-center"', false);

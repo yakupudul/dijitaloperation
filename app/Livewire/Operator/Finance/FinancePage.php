@@ -9,6 +9,9 @@ use App\Models\AgreementPayment;
 use App\Models\Brand;
 use App\Models\FinanceDocument;
 use App\Models\SalesLead;
+use App\Services\Finance\BillingInfo;
+use App\Services\Finance\CompanyProfile;
+use App\Services\Finance\CustomerMailGuard;
 use App\Services\Finance\FinanceBoard;
 use App\Services\Finance\FinanceDocuments;
 use App\Services\Finance\FinanceSettings;
@@ -43,7 +46,7 @@ final class FinancePage extends Component
     /** Papers listed on one screen; a longer stretch says so and asks for a narrower one. */
     public const int LIST_LIMIT = 300;
 
-    public const array TABS = ['bu-ay' => 'Özet', 'anlasmalar' => 'Anlaşmalar', 'giderler' => 'Giderler', 'faturalar' => 'Faturalar'];
+    public const array TABS = ['bu-ay' => 'Özet', 'anlasmalar' => 'Anlaşmalar', 'giderler' => 'Giderler', 'faturalar' => 'Faturalar', 'bilgiler' => 'Fatura bilgileri'];
 
     #[Url(as: 'sekme', except: 'bu-ay')]
     public string $tab = 'bu-ay';
@@ -104,6 +107,21 @@ final class FinancePage extends Component
     /** @var array{own_tax_no: string, inflation: string, vat: string} */
     public array $settings = ['own_tax_no' => '', 'inflation' => '', 'vat' => '20'];
 
+    /** Fatura bilgileri: the brand whose billing form is open (a to-do's link opens it straight away). */
+    #[Url(as: 'marka', except: 0)]
+    public int $billingBrand = 0;
+
+    /** @var array<string, string> */
+    public array $company = [];
+
+    /** @var array<string, string> */
+    public array $billing = [];
+
+    /** A vergi levhası being uploaded for our company or for the open brand. */
+    public $companyCertificate = null;
+
+    public $billingCertificate = null;
+
     public string $message = '';
 
     public function mount(FinanceSettings $settings): void
@@ -111,6 +129,11 @@ final class FinancePage extends Component
         abort_unless((bool) auth()->user()?->hasRole(Roles::ADMIN), 403);
         $this->check();
         $all = $settings->all();
+        $this->loadCompany();
+        if ($this->billingBrand > 0) {
+            $this->tab = 'bilgiler';
+            $this->editBilling($this->billingBrand);
+        }
         $this->settings = ['own_tax_no' => $all['own_tax_no'], 'inflation' => $all['inflation'] > 0 ? rtrim(rtrim(number_format($all['inflation'], 1, ',', ''), '0'), ',') : '', 'vat' => (string) $all['vat']];
     }
 
@@ -426,14 +449,109 @@ final class FinancePage extends Component
 
     public function saveSettings(FinanceSettings $settings): void
     {
-        $tax = (string) preg_replace('/\D+/', '', $this->settings['own_tax_no']);
-        if ($tax !== '' && ! in_array(strlen($tax), [10, 11], true)) {
-            $this->addError('settings.own_tax_no', 'Vergi no 10, TC kimlik no 11 hanedir.');
+        $settings->put(['inflation' => (float) str_replace(',', '.', $this->settings['inflation']), 'vat' => (int) $this->settings['vat']]);
+        $this->say('Ayarlar kaydedildi.');
+    }
+
+    // ── Fatura bilgileri ──
+
+    public function saveCompany(CompanyProfile $profile): void
+    {
+        try {
+            $profile->save($this->company);
+        } catch (ValidationException $error) {
+            $this->setErrorBag(collect($error->errors())->mapWithKeys(fn (array $m, string $k): array => ['company.'.$k => $m])->all());
 
             return;
         }
-        $settings->put(['own_tax_no' => $tax, 'inflation' => (float) str_replace(',', '.', $this->settings['inflation']), 'vat' => (int) $this->settings['vat']]);
-        $this->say('Ayarlar kaydedildi.');
+        $this->resetValidation();
+        $this->loadCompany();
+        app(BillingInfo::class)->sync();
+        $missing = $profile->missing();
+        $this->say('Şirket bilgileri kaydedildi.'.($missing !== [] ? ' Eksik: '.implode(', ', $missing).'.' : ''));
+    }
+
+    public function updatedCompanyCertificate(CompanyProfile $profile): void
+    {
+        try {
+            $this->validate(['companyCertificate' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp']], [], ['companyCertificate' => 'vergi levhası']);
+            $profile->keepCertificate($this->companyCertificate);
+        } catch (ValidationException $error) {
+            $this->companyCertificate = null;
+            $this->say((string) collect($error->errors())->flatten()->first(), 'error');
+
+            return;
+        }
+        $this->companyCertificate = null;
+        $this->loadCompany();
+        app(BillingInfo::class)->sync();
+        $this->say('Vergi levhası kaydedildi.');
+    }
+
+    public function editBilling(int $brandId): void
+    {
+        $brand = Brand::query()->with('customer')->find($brandId);
+        if ($brand === null) {
+            $this->billingBrand = 0;
+
+            return;
+        }
+        $this->resetValidation();
+        $this->billingBrand = $brand->id;
+        $this->billing = app(BillingInfo::class)->form($brand);
+        $this->tab = 'bilgiler';
+    }
+
+    public function closeBilling(): void
+    {
+        $this->billingBrand = 0;
+        $this->billing = [];
+        $this->resetValidation();
+    }
+
+    public function saveBilling(BillingInfo $billing): void
+    {
+        $brand = Brand::query()->with('customer')->findOrFail($this->billingBrand);
+        try {
+            $billing->save($brand, $this->billing);
+        } catch (ValidationException $error) {
+            $this->setErrorBag(collect($error->errors())->mapWithKeys(fn (array $m, string $k): array => ['billing.'.$k => $m])->all());
+
+            return;
+        }
+        $missing = BillingInfo::missingOf($brand->fresh('customer')->customer);
+        $this->closeBilling();
+        $this->say($brand->name.': fatura bilgileri kaydedildi.'.($missing !== [] ? ' Eksik: '.implode(', ', $missing).'.' : ''));
+    }
+
+    public function updatedBillingCertificate(BillingInfo $billing): void
+    {
+        $brand = Brand::query()->with('customer')->find($this->billingBrand);
+        try {
+            abort_if($brand === null, 404);
+            $this->validate(['billingCertificate' => ['required', 'file', 'max:10240', 'mimes:pdf,jpg,jpeg,png,webp']], [], ['billingCertificate' => 'vergi levhası']);
+            $billing->keepCertificate($brand, $this->billingCertificate);
+        } catch (ValidationException $error) {
+            $this->billingCertificate = null;
+            $this->say((string) collect($error->errors())->flatten()->first(), 'error');
+
+            return;
+        }
+        $this->billingCertificate = null;
+        $this->say($brand->name.': vergi levhası kaydedildi. Unvan, vergi no ve dairesini levhadan yaz.');
+    }
+
+    public function setCustomerMail(bool $on, CustomerMailGuard $guard): void
+    {
+        $guard->set($on);
+        $this->say($on ? 'Müşterilere e-posta gönderimi açıldı.' : 'Müşterilere e-posta gönderimi kapalı: sistem hiçbir müşteri adresine e-posta göndermez.');
+    }
+
+    private function loadCompany(): void
+    {
+        $all = app(CompanyProfile::class)->all();
+        $this->company = collect($all)->except('certificate')->map(fn ($v): string => (string) $v)->all();
+        $this->company['iban'] = CompanyProfile::formatIban($this->company['iban']);
     }
 
     public function render(FinanceBoard $board, GmailInvoices $gmail): View
@@ -443,6 +561,8 @@ final class FinancePage extends Component
         $data['maxDay'] = CarbonImmutable::now(Agreements::TZ)->addYear()->endOfYear()->toDateString();
         $data['fresh'] = FinanceDocument::query()->where('status', 'new')->where('direction', '!=', FinanceDocument::RECEIPT)->count();
         $data['missingAgreements'] = in_array($this->tab, ['bu-ay', 'anlasmalar'], true) ? app(MissingAgreements::class)->brands() : collect();
+        $data['billingGaps'] = $this->tab === 'bu-ay' ? app(BillingInfo::class)->gaps() : collect();
+        $data['companyMissing'] = in_array($this->tab, ['bu-ay', 'bilgiler'], true) ? app(CompanyProfile::class)->missing() : [];
         if ($this->tab === 'bu-ay') {
             [$from, $to] = $this->overviewDays();
             $data['board'] = $board->period($from, $to);
@@ -452,6 +572,14 @@ final class FinancePage extends Component
             $data['openPayment'] = $this->openRow > 0 ? AgreementPayment::query()->with('agreement.brand')->find($this->openRow) : null;
             $data['reminder'] = $data['openPayment'] !== null && $this->rowPanel === 'remind'
                 ? ['text' => $board->reminderText($data['openPayment']), 'phone' => $board->phoneOf($data['openPayment']->agreement)] : null;
+            $data['invoiceSheet'] = $data['openPayment'] !== null && $this->rowPanel === 'invoice' ? app(BillingInfo::class)->invoiceSheet($data['openPayment']) : null;
+        } elseif ($this->tab === 'bilgiler') {
+            $profile = app(CompanyProfile::class);
+            $data['companyAll'] = $profile->all();
+            $data['companySheet'] = $profile->sheet();
+            $data['billingRows'] = app(BillingInfo::class)->rows();
+            $data['customerMail'] = app(CustomerMailGuard::class)->allowed();
+            $data['billingEditing'] = $this->billingBrand > 0 ? Brand::query()->with('customer')->find($this->billingBrand) : null;
         } elseif ($this->tab === 'anlasmalar') {
             $data['jobs'] = $this->view === 'zam' ? collect() : $board->jobs($this->show);
             $data['raises'] = $this->view === 'zam' ? $board->raises() : null;

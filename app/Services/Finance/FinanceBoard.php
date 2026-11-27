@@ -319,12 +319,15 @@ final class FinanceBoard
         $money = ($plain ? '' : 'KDV dahil ').number_format($gross, 0, ',', '.').' TL';
         $what = $payment->title().' '.($agreement !== null && filled($agreement->title) ? mb_strtolower((string) $agreement->title).' ' : '').'ödemesi';
         $late = $payment->daysLate();
+        // Where to pay (Şirketimiz › IBAN), so the customer does not have to ask.
+        $bank = app(CompanyProfile::class)->all();
+        $account = $bank['iban'] !== '' ? "\n\nHesap: ".($bank['holder'] !== '' ? $bank['holder'].' · ' : '').CompanyProfile::formatIban($bank['iban']) : '';
 
         return match (true) {
             $late >= 10 => "Merhaba, {$what} ({$money}) {$late} gündür açık görünüyor. Bugün içinde tamamlayabilir misiniz? Bir aksaklık varsa birlikte çözelim.",
             $late >= 1 => "Merhaba, {$what} ({$money}) için küçük bir hatırlatma yapmak istedim. Uygun olduğunuzda gönderebilir misiniz? Teşekkürler.",
             default => "Merhaba, {$what} ({$money}) ".($payment->due_on?->locale('tr')->isoFormat('D MMMM') ?? 'bu hafta').' tarihinde. Bilginize, iyi çalışmalar.',
-        };
+        }.$account;
     }
 
     /** The WhatsApp number of the payer when one is known (the job's own, else the brand's sales record). */

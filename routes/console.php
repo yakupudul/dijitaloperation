@@ -1972,6 +1972,9 @@ Artisan::command('moxdop:finance:tick', function (): void {
     $told = $hour >= 9 && $hour < 20 ? app(FinanceReminders::class)->run() : ['due' => 0, 'late' => 0, 'coming' => 0];
     // Anlaşması olmayan marka: one to-do per served brand without an agreement, ticked once one is entered.
     $deals = app(MissingAgreements::class)->sync();
+    // Fatura bilgisi eksik: one to-do per invoiced brand with a gap and one for our own company, ticked once filled.
+    $billing = app(\App\Services\Finance\BillingInfo::class)->sync();
+    $this->info('Fatura bilgisi: '.$billing['added'].' iş yazıldı, '.$billing['closed'].' kapandı');
     $this->info('Anlaşmasız marka: '.$deals['added'].' iş yazıldı, '.$deals['closed'].' kapandı, '.$deals['bound'].' iş markasına bağlandı');
     $this->info('Gmail: '.$read['messages'].' mesaj, '.$read['documents'].' belge · bildirim: '.$told['due'].' bugün, '.$told['late'].' geciken, '.$told['coming'].' yaklaşan');
 })->purpose('Finans: read invoices from Gmail and tell the phone about payments due, late and coming.');
