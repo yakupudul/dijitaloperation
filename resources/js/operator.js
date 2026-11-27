@@ -559,3 +559,57 @@ document.addEventListener('visibilitychange', () => {
         followPushTarget();
     }
 });
+
+/**
+ * The small message editor (support requests on the panel and their answers on the operator side): bold, italic,
+ * lists and links over a contenteditable box. The HTML goes to the Livewire property named in `model`; the server
+ * cleans it again before it is kept.
+ */
+window.richEditor = (model) => ({
+    linking: false,
+    url: '',
+    range: null,
+    init() {
+        this.$watch('$wire.' + model, (value) => {
+            if (!value && this.$refs.box.innerHTML !== '') this.$refs.box.innerHTML = '';
+        });
+    },
+    sync() {
+        const box = this.$refs.box;
+        const empty = box.textContent.trim() === '' && !box.querySelector('li');
+        this.$wire.set(model, empty ? '' : box.innerHTML, false);
+    },
+    run(command) {
+        this.$refs.box.focus();
+        document.execCommand(command, false, null);
+        this.sync();
+    },
+    paste(event) {
+        const text = (event.clipboardData || window.clipboardData).getData('text/plain');
+        document.execCommand('insertText', false, text);
+        this.sync();
+    },
+    askLink() {
+        const selection = window.getSelection();
+        this.range = selection.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+        this.linking = true;
+        this.$nextTick(() => this.$refs.url.focus());
+    },
+    addLink() {
+        let url = this.url.trim();
+        if (url !== '' && !/^(https?:\/\/|mailto:|tel:)/i.test(url)) url = 'https://' + url;
+        this.$refs.box.focus();
+        if (this.range) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(this.range);
+        }
+        if (url !== '') {
+            if (window.getSelection().isCollapsed) document.execCommand('insertText', false, url);
+            else document.execCommand('createLink', false, url);
+        }
+        this.linking = false;
+        this.url = '';
+        this.sync();
+    },
+});

@@ -42,6 +42,10 @@ Route::domain((string) config('panel.domain'))->name('panel.')->group(function (
         Route::post('/gelen-kutusu/yedek/{import}/parca', [PanelImportController::class, 'chunk'])->middleware(PanelAuthenticate::class.':manager')->name('inbox.backup.chunk');
         Route::livewire('/performans', PerformancePage::class)->name('performance');
         Route::livewire('/destek', SupportPage::class)->name('support');
+        Route::livewire('/destek/dosyalar', SupportPage::class)->defaults('tab', 'dosyalar')->name('files');
+        Route::livewire('/destek/toplantilar', SupportPage::class)->defaults('tab', 'toplantilar')->name('meetings');
+        Route::livewire('/destek/duyurular', SupportPage::class)->defaults('tab', 'duyurular')->name('announcements');
+        Route::get('/destek/belge/{document}', [PanelDownloadController::class, 'document'])->whereNumber('document')->middleware(PanelAuthenticate::class.':menu.support')->name('document');
         Route::get('/destek/dosya/{message}', [PanelDownloadController::class, 'ticketFile'])->whereNumber('message')->middleware(PanelAuthenticate::class.':menu.support')->name('support.file');
         Route::livewire('/kullanicilar', UsersPage::class)->name('users');
 

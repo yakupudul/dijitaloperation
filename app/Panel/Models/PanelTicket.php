@@ -22,6 +22,8 @@ class PanelTicket extends Model
 
     public const array CATEGORIES = ['question' => 'Soru', 'problem' => 'Sorun', 'wish' => 'İstek', 'connection' => 'Bağlantı isteği'];
 
+    public const array ORIGINS = ['panel' => 'Panelden', 'phone' => 'Telefonda istendi', 'whatsapp' => 'WhatsApp\'tan'];
+
     protected $fillable = ['panel_user_id', 'subject', 'category', 'status', 'last_message_at'];
 
     protected function casts(): array
@@ -32,6 +34,11 @@ class PanelTicket extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(PanelTicketMessage::class, 'ticket_id');
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(PanelDocument::class, 'ticket_id');
     }
 
     public function user(): BelongsTo

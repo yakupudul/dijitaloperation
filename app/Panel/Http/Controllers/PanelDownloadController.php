@@ -3,10 +3,12 @@
 namespace App\Panel\Http\Controllers;
 
 use App\Panel\Models\PanelAudit;
+use App\Panel\Models\PanelDocument;
 use App\Panel\Models\PanelFile;
 use App\Panel\Models\PanelPerson;
 use App\Panel\Models\PanelTicketMessage;
 use App\Panel\Services\PanelAccount;
+use App\Panel\Services\PanelDrive;
 use App\Panel\Services\PanelLeads;
 use App\Panel\Support\PanelContext;
 use App\Panel\Support\PanelSources;
@@ -14,8 +16,10 @@ use App\Panel\Support\PanelStages;
 use App\Panel\Support\Xlsx;
 use App\Services\Finance\FinanceDocuments;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -37,6 +41,21 @@ final class PanelDownloadController
         $row = PanelTicketMessage::query()->whereNotNull('attachment_path')->findOrFail((int) $message);
 
         return Storage::disk((string) config('panel.files_disk'))->download($row->attachment_path, $row->attachment_name);
+    }
+
+    /** A file on the brand's shelf or on a request, read from Drive once it stands there. */
+    public function document(string $document, PanelDrive $drive): Response
+    {
+        abort_unless(strlen($document) <= 18, 404);
+        $row = PanelDocument::query()->findOrFail((int) $document);
+        $bytes = $drive->bytes($row);
+        abort_if($bytes === null, 404);
+
+        return response($bytes, 200, [
+            'Content-Type' => (string) ($row->mime ?: 'application/octet-stream'),
+            'Content-Disposition' => 'attachment; filename="'.addcslashes(Str::ascii((string) $row->name), '"\\').'"; filename*=UTF-8\'\''.rawurlencode((string) $row->name),
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     /** An invoice the operator opened to the panel, for the brand's manager. */

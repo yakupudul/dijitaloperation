@@ -37,7 +37,10 @@
                                 <span class="font-medium text-gray-900 dark:text-white">{{ $message->operator_id ? ($message->operator?->name ?? 'Moximu') : ($message->user?->name ?? 'Kullanıcı') }}</span>
                                 <time class="ml-auto tabular-nums">{{ $message->created_at->timezone($tz)->translatedFormat('j F Y, H:i') }}</time>
                             </p>
-                            <p class="mt-1.5 whitespace-pre-line text-sm leading-6 text-gray-800 dark:text-gray-200">{{ $message->body }}</p>
+                            <div class="rich-text mt-1.5 text-sm leading-6 text-gray-800 dark:text-gray-200">{!! $message->html() !!}</div>
+                            @foreach ($message->documents as $file)
+                                <a href="{{ route('operator.settings.panel-support.document', $file->id) }}" class="mr-3 mt-2 inline-block text-[13px] font-medium text-gray-900 underline dark:text-white">{{ $file->name }}</a>
+                            @endforeach
                             @if ($message->attachment_path)
                                 <a href="{{ route('operator.settings.panel-support.file', $message->id) }}" class="mt-2 inline-block text-[13px] font-medium text-gray-900 underline dark:text-white">{{ $message->attachment_name }}</a>
                             @endif

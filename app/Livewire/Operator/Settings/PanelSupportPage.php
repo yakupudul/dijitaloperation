@@ -107,7 +107,7 @@ final class PanelSupportPage extends Component
 
         return view('livewire.operator.settings.panel-support', [
             'ticket' => $ticket,
-            'messages' => $ticket ? $panel->system(fn () => $ticket->messages()->with(['user:id,name', 'operator:id,name'])->orderBy('id')->get()) : collect(),
+            'messages' => $ticket ? $panel->system(fn () => $ticket->messages()->with(['user:id,name', 'operator:id,name', 'documents'])->orderBy('id')->get()) : collect(),
             'tickets' => $this->tab === 'talepler' && ! $ticket ? $panel->system(fn () => PanelTicket::query()->with('brand:id,name', 'user:id,name')
                 ->when($this->status === 'waiting', fn ($q) => $q->where('status', PanelTicket::OPEN))
                 ->when($this->status === 'done', fn ($q) => $q->where('status', '!=', PanelTicket::OPEN))

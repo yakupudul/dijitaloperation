@@ -83,7 +83,10 @@ use App\Livewire\Operator\Settings\AiWorkersPage;
 use App\Livewire\Operator\Settings\BooksPage;
 use App\Livewire\Operator\Settings\ImprovementsPage;
 use App\Livewire\Operator\Settings\McpKeysPage;
+use App\Livewire\Operator\Settings\PanelSupportPage;
+use App\Livewire\Operator\Settings\PanelUsersPage;
 use App\Livewire\Operator\Settings\ReleasesPage;
+use App\Livewire\Operator\Settings\RolesPage;
 use App\Livewire\Operator\Settings\ScheduledJobsPage;
 use App\Livewire\Operator\Settings\SectorPacksPage;
 use App\Livewire\Operator\Settings\SecurityCardPage;
@@ -98,9 +101,17 @@ use App\Livewire\Operator\Website\WebsitesIndex;
 use App\Livewire\Operator\Winners\LibrariesPage;
 use App\Livewire\Operator\Work\WorkPage;
 use App\Models\SalesLead;
+use App\Models\User;
+use App\Panel\Models\PanelDocument;
+use App\Panel\Models\PanelTicketMessage;
+use App\Panel\Services\PanelDrive;
+use App\Panel\Support\OperatorAccess;
+use App\Panel\Support\PanelContext;
 use App\Support\Ai\AiProviderCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 // MoxDOP v2 (Faz 0): retired operator screens. Old bookmarks land on Bugün instead of a 404.
 foreach ([
@@ -217,17 +228,30 @@ Route::middleware(['web', 'auth', EnsureDemoAppAccess::class])
         Route::livewire('/settings/system-health', SystemHealthPage::class)->name('operator.settings.system-health');
         Route::livewire('/settings/ai-operations', AiOperationsPage::class)->name('operator.settings.ai-operations');
         Route::livewire('/settings/users', UsersPage::class)->name('operator.settings.users');
-        Route::livewire('/settings/roles', \App\Livewire\Operator\Settings\RolesPage::class)->name('operator.settings.roles');
-        Route::livewire('/settings/panel-users', \App\Livewire\Operator\Settings\PanelUsersPage::class)->name('operator.settings.panel-users');
-        Route::livewire('/settings/panel-support', \App\Livewire\Operator\Settings\PanelSupportPage::class)->name('operator.settings.panel-support');
+        Route::livewire('/settings/roles', RolesPage::class)->name('operator.settings.roles');
+        Route::livewire('/settings/panel-users', PanelUsersPage::class)->name('operator.settings.panel-users');
+        Route::livewire('/settings/panel-support', PanelSupportPage::class)->name('operator.settings.panel-support');
         Route::get('/settings/panel-support/file/{message}', function (string $message) {
             abort_unless(strlen($message) <= 18, 404);
             $user = auth()->user();
-            abort_unless($user instanceof \App\Models\User && \App\Panel\Support\OperatorAccess::allowsSection($user, 'client_panel'), 403);
-            $row = app(\App\Panel\Support\PanelContext::class)->system(fn () => \App\Panel\Models\PanelTicketMessage::query()->whereNotNull('attachment_path')->findOrFail((int) $message));
+            abort_unless($user instanceof User && OperatorAccess::allowsSection($user, 'client_panel'), 403);
+            $row = app(PanelContext::class)->system(fn () => PanelTicketMessage::query()->whereNotNull('attachment_path')->findOrFail((int) $message));
 
-            return \Illuminate\Support\Facades\Storage::disk((string) config('panel.files_disk'))->download($row->attachment_path, $row->attachment_name);
+            return Storage::disk((string) config('panel.files_disk'))->download($row->attachment_path, $row->attachment_name);
         })->whereNumber('message')->name('operator.settings.panel-support.file');
+        Route::get('/settings/panel-support/belge/{document}', function (string $document) {
+            $user = auth()->user();
+            abort_unless($user instanceof User && OperatorAccess::allowsSection($user, 'client_panel') && strlen($document) <= 18, 403);
+            $row = app(PanelContext::class)->system(fn () => PanelDocument::query()->findOrFail((int) $document));
+            $bytes = app(PanelDrive::class)->bytes($row);
+            abort_if($bytes === null, 404);
+
+            return response($bytes, 200, [
+                'Content-Type' => (string) ($row->mime ?: 'application/octet-stream'),
+                'Content-Disposition' => 'attachment; filename="'.addcslashes(Str::ascii((string) $row->name), '"\\').'"; filename*=UTF-8\'\''.rawurlencode((string) $row->name),
+                'X-Content-Type-Options' => 'nosniff',
+            ]);
+        })->whereNumber('document')->name('operator.settings.panel-support.document');
         Route::livewire('/settings/mcp', McpKeysPage::class)->name('operator.settings.mcp');
         Route::livewire('/settings/security', SecurityCardPage::class)->name('operator.settings.security');
         Route::livewire('/settings/jobs', ScheduledJobsPage::class)->name('operator.settings.jobs');
