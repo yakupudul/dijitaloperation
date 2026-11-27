@@ -188,7 +188,7 @@ final class PanelChannelLinks
     /** @param array{id: string, token: string, name: string, ig: ?array{id: string, username: string}} $page */
     private function bindPage(int $brandId, int $panelUserId, string $channel, array $page, string $secret): PanelChannel
     {
-        $result = $this->call('POST', $page['id'].'/subscribed_apps', ['subscribed_fields' => self::FIELDS[$channel]], $page['token'], $secret);
+        $result = $this->subscribePage($channel, $page, $secret);
         if (($result['success'] ?? false) !== true) {
             throw $this->fail('Meta, sayfanın '.($channel === 'meta_form' ? 'formlarını' : 'mesajlarını').' panele açmayı onaylamadı. Biraz sonra yeniden deneyin.');
         }
@@ -296,6 +296,30 @@ final class PanelChannelLinks
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Installs our app on the Page. Instagram direct messages come through the app's Instagram webhook, which only needs
+     * the app installed on the Page: Meta asks pages_messaging for the Page's own "messages" field, so for Instagram a
+     * refusal there falls back to a field that needs only pages_manage_metadata.
+     *
+     * @param  array{id: string, token: string, name: string, ig: ?array{id: string, username: string}}  $page
+     * @return array<string, mixed>
+     */
+    private function subscribePage(string $channel, array $page, string $secret): array
+    {
+        $fields = $channel === 'instagram' ? [self::FIELDS[$channel], 'feed', 'name'] : [self::FIELDS[$channel]];
+        foreach ($fields as $index => $field) {
+            try {
+                return $this->call('POST', $page['id'].'/subscribed_apps', ['subscribed_fields' => $field], $page['token'], $secret);
+            } catch (ValidationException $exception) {
+                if ($index === count($fields) - 1) {
+                    throw $exception;
+                }
+            }
+        }
+
+        return [];
+    }
+
     private function call(string $method, string $path, array $parameters, string $token, string $secret): array
     {
         try {

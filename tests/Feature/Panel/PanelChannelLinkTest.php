@@ -122,6 +122,25 @@ class PanelChannelLinkTest extends PanelTestCase
         Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '10900000001/subscribed_apps') && ($request['subscribed_fields'] ?? null) === 'messages');
     }
 
+    public function test_instagram_without_pages_messaging_still_installs_the_app_on_the_page(): void
+    {
+        $granted = collect(['pages_show_list', 'pages_manage_metadata', 'business_management', 'instagram_basic', 'instagram_manage_messages'])->map(fn ($p) => ['permission' => $p, 'status' => 'granted'])->all();
+        Http::fake([
+            'graph.facebook.com/*/debug_token*' => Http::response($this->debugToken(['instagram_basic'])),
+            'graph.facebook.com/*/oauth/access_token*' => Http::response(['access_token' => 'long-user-token']),
+            'graph.facebook.com/*/me/permissions*' => Http::response(['data' => $granted]),
+            'graph.facebook.com/*/me/accounts*' => Http::response(['data' => [
+                ['id' => '10900000001', 'name' => 'Akasya Klinik', 'access_token' => 'page-token', 'instagram_business_account' => ['id' => '17840000001', 'username' => 'akasyaklinik']],
+            ]]),
+            'graph.facebook.com/*/10900000001/subscribed_apps*' => Http::sequence()
+                ->push(['error' => ['message' => '(#200) To subscribe to the messages field, one of these permissions is needed: pages_messaging', 'type' => 'OAuthException', 'code' => 200]], 403)
+                ->push(['success' => true]),
+        ]);
+        $this->enter($this->managerA, $this->brandA);
+        Livewire::test(InboxPage::class)->set('channel', 'instagram')->call('linkMeta', 'user-token')->assertSee('Instagram bağlı')->assertSee('@akasyaklinik');
+        Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '10900000001/subscribed_apps') && ($request['subscribed_fields'] ?? null) === 'feed');
+    }
+
     public function test_the_manager_closes_a_channel_and_the_brand_hears_it_from_itself(): void
     {
         $this->enter($this->managerA, $this->brandA);
