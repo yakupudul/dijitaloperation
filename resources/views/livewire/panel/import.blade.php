@@ -10,7 +10,7 @@
     <header class="space-y-3">
         <a href="{{ route('panel.leads') }}" wire:navigate class="link-neutral text-[13px]">Adaylar</a>
         <div>
-            <h1 class="page-title">Excel'den yükle</h1>
+            <h2 class="text-[21px] font-semibold leading-7 tracking-[-0.02em] text-gray-900">Excel'den yükle</h2>
             <p class="page-sub">Elinizdeki listeyi tek seferde alın. Aynı telefon numarası ikinci kez eklenmez, var olan kayıt güncellenir.</p>
         </div>
     </header>

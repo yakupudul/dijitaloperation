@@ -6,7 +6,7 @@
     <header class="space-y-4">
         <a href="{{ route('panel.leads') }}" wire:navigate class="link-neutral text-[13px]">Adaylar</a>
         <div class="min-w-0">
-            <h1 class="page-title">Hazır listeler</h1>
+            <h2 class="text-[21px] font-semibold leading-7 tracking-[-0.02em] text-gray-900">Hazır listeler</h2>
             <p class="page-sub">Bir kez yazın, sonra seçin. Buradaki her şey yalnız sizin markanızın kullanıcılarına görünür.</p>
         </div>
     </header>

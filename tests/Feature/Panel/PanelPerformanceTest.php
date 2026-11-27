@@ -29,7 +29,7 @@ class PanelPerformanceTest extends PanelTestCase
         $this->assertSame([3, 2, 2, 1, 1], array_column($data['funnel'], 'value'), 'a lost person still counts for the steps they reached');
         $this->assertSame(30, $data['response']);
         $this->assertSame(1, $data['unanswered']);
-        $this->assertSame([['label' => 'Fiyat', 'value' => 1]], $data['lost']);
+        $this->assertSame([['key' => 'price', 'label' => 'Fiyat', 'value' => 1]], $data['lost']);
         $web = collect($data['sources'])->firstWhere('label', 'Web formu');
         $this->assertSame([2, 1, 1, 50], [$web['leads'], $web['appointments'], $web['customers'], $web['rate']]);
         $this->assertSame('1 sa 30 dk', PanelPerformance::duration(90));

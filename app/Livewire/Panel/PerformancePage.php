@@ -47,6 +47,7 @@ final class PerformancePage extends Component
             'from' => $from,
             'to' => $to->copy()->subSecond(),
             'showTeam' => $team,
+            'canOpenLeads' => $this->may('menu.leads'),
             'names' => $team ? PanelMembership::query()->with('user:id,name')->where('brand_id', $this->panel()->brandId())->get()->pluck('user.name', 'panel_user_id') : collect(),
         ]);
     }

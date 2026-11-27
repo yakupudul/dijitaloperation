@@ -5,8 +5,7 @@
 @endphp
 <div class="space-y-6" data-panel-performance>
     <header>
-        <h1 class="page-title">Performans</h1>
-        <p class="page-sub">{{ $from->translatedFormat('j F') }} ile {{ $to->translatedFormat('j F Y') }} arasında gelen adaylara ne oldu.</p>
+        <p class="text-[15px] text-gray-500">{{ $from->translatedFormat('j F') }} ile {{ $to->translatedFormat('j F Y') }} arasında gelen adaylara ne oldu.</p>
     </header>
 
     <div class="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 md:mx-0 md:px-0">
@@ -43,18 +42,24 @@
                                 <span class="text-gray-800">{{ $step['label'] }}</span>
                                 <span class="tabular-nums text-gray-900"><span class="font-semibold">{{ $n($step['value']) }}</span> <span class="text-gray-500">%{{ $step['share'] }}</span></span>
                             </div>
-                            <div class="mt-1 h-2 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-brand-500" style="width: {{ max($step['value'] > 0 ? 2 : 0, $step['share']) }}%"></div></div>
+                            <div class="mt-1 h-2 overflow-hidden rounded-full bg-gray-100"><div class="h-full rounded-full bg-primary" style="width: {{ max($step['value'] > 0 ? 2 : 0, $step['share']) }}%"></div></div>
                         </li>
                     @endforeach
                 </ol>
             </section>
 
             <section data-panel-lost>
-                <h2 class="mb-3 text-[15px] font-semibold text-gray-900">Olumsuz kapananlar neden gitti</h2>
+                <h2 class="mb-1 text-[17px] font-semibold text-gray-900">Müşteri olmayanlar neden olmadı</h2>
+                <p class="mb-3 text-sm text-gray-500">Bir nedene basınca o kişilerin listesi açılır; notlarını okuyup ay sonunda neyi değiştireceğinize karar verin.</p>
                 @forelse ($data['lost'] as $row)
-                    <div class="flex items-baseline justify-between gap-3 border-b border-gray-100 py-2 text-sm last:border-b-0">
-                        <span class="text-gray-800">{{ $row['label'] }}</span><span class="font-semibold tabular-nums text-gray-900">{{ $n($row['value']) }}</span>
-                    </div>
+                    @php($share = $data['lost_total'] > 0 ? (int) round($row['value'] * 100 / $data['lost_total']) : 0)
+                    <a @if ($canOpenLeads) href="{{ route('panel.leads', ['asama' => 'lost', 'neden' => $row['key'], 'donem' => $period]) }}" wire:navigate @endif class="block border-b border-line py-2.5 last:border-b-0 hover:bg-soft" wire:key="lost-{{ $row['key'] }}">
+                        <span class="flex items-baseline justify-between gap-3 text-sm">
+                            <span class="text-gray-800">{{ $row['label'] }}</span>
+                            <span class="tabular-nums text-gray-900"><span class="font-semibold">{{ $n($row['value']) }}</span> <span class="text-gray-500">%{{ $share }}</span></span>
+                        </span>
+                        <span class="mt-1 block h-1.5 overflow-hidden rounded-full bg-soft"><span class="block h-full rounded-full bg-primary" style="width: {{ max(2, $share) }}%"></span></span>
+                    </a>
                 @empty
                     <p class="text-sm text-gray-500">Bu dönemde olumsuz kapanan aday yok.</p>
                 @endforelse

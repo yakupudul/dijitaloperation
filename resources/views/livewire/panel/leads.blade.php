@@ -24,10 +24,7 @@
 @endphp
 <div class="space-y-6">
     <header class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-            <h1 class="page-title">Adaylar</h1>
-            <p class="page-sub">{{ $total }} kayıt, {{ (int) ($counts[PanelStages::NEW] ?? 0) }} tanesi aranmayı bekliyor.</p>
-        </div>
+        <p class="min-w-0 self-center text-[15px] text-gray-500">{{ $total }} kayıt, {{ (int) ($counts[PanelStages::NEW] ?? 0) }} tanesi aranmayı bekliyor.</p>
         <div class="flex w-full flex-wrap gap-2 sm:w-auto">
             @if ($isManager)
                 <a href="{{ route('panel.export.leads', array_filter(['asama' => $stage])) }}" class="btn flex-1 sm:flex-none" data-panel-export>Excel'e aktar</a>
@@ -101,8 +98,8 @@
 
     <div class="flex flex-wrap items-center gap-2">
         <div class="flex gap-1 rounded-full border border-gray-200 p-0.5">
-            <button type="button" wire:click="$set('view', 'table')" @class(['h-8 rounded-full px-3 text-[13px] font-medium', 'bg-gray-900 text-white' => $view !== 'board', 'text-gray-600' => $view === 'board'])>Liste</button>
-            <button type="button" wire:click="$set('view', 'board')" @class(['h-8 rounded-full px-3 text-[13px] font-medium', 'bg-gray-900 text-white' => $view === 'board', 'text-gray-600' => $view !== 'board'])>Pano</button>
+            <button type="button" wire:click="$set('view', 'table')" @class(['h-8 rounded-full px-3 text-[13px] font-medium', 'bg-primary text-white' => $view !== 'board', 'text-gray-600' => $view === 'board'])>Liste</button>
+            <button type="button" wire:click="$set('view', 'board')" @class(['h-8 rounded-full px-3 text-[13px] font-medium', 'bg-primary text-white' => $view === 'board', 'text-gray-600' => $view !== 'board'])>Pano</button>
         </div>
         <input type="search" wire:model.live.debounce.400ms="search" placeholder="Ad{{ $showPhone ? ', telefon' : '' }} ya da konu ara" class="{{ $input }} sm:w-64" aria-label="Ara">
         <select wire:model.live="stage" class="{{ $input }} sm:w-auto" aria-label="Aşama">
@@ -112,6 +109,17 @@
         <select wire:model.live="source" class="{{ $input }} sm:w-auto" aria-label="Kaynak">
             <option value="">Tüm kaynaklar</option>
             @foreach (PanelSources::labels() as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+        </select>
+        @if ($stage === PanelStages::LOST)
+            <select wire:model.live="lostReason" class="{{ $input }} sm:w-auto" aria-label="Neden" data-panel-reason-filter>
+                <option value="">Tüm nedenler</option>
+                @foreach (PanelStages::lostReasons() as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
+                <option value="none">Neden yazılmamış</option>
+            </select>
+        @endif
+        <select wire:model.live="period" class="{{ $input }} sm:w-auto" aria-label="Dönem" data-panel-period-filter>
+            <option value="">Tüm zamanlar</option>
+            @foreach (LeadsPage::PERIODS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach
         </select>
         @if ($team->isNotEmpty())
             <select wire:model.live="assignee" class="{{ $input }} sm:w-auto" aria-label="İlgilenen">

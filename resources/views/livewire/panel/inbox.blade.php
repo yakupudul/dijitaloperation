@@ -21,18 +21,15 @@
 @endphp
 <div class="space-y-5" data-panel-inbox>
     <header class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-            <h1 class="page-title">Gelen kutusu</h1>
-            <p class="page-sub">Size yazan ve arayan herkes tek ekranda. Buradan mesaj gönderilmez; cevabı kendi telefonunuzdan yazarsınız.</p>
-        </div>
+        <p class="min-w-0 max-w-[80ch] self-center text-[15px] text-gray-500">Size yazan ve arayan herkes tek ekranda. Buradan mesaj gönderilmez; cevabı kendi telefonunuzdan yazarsınız.</p>
         @if ($manager && $channel === 'whatsapp')
             <button type="button" wire:click="$toggle('backupOpen')" class="btn w-full sm:w-auto" data-panel-backup-open>WhatsApp yedeği yükle</button>
         @endif
     </header>
 
-    <nav class="no-scrollbar flex gap-1 overflow-x-auto border-b border-gray-200" aria-label="Kanallar">
+    <nav class="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 lg:mx-0 lg:flex-wrap lg:px-0" aria-label="Kanallar">
         @foreach ($tabs as $key => $name)
-            <button type="button" wire:click="$set('channel', '{{ $key }}')" @class(['tab', 'tab-active' => $channel === $key]) @if ($channel === $key) aria-current="page" @endif>{{ $name }}</button>
+            <button type="button" wire:click="$set('channel', '{{ $key }}')" @class(['seg', 'seg-active' => $channel === $key]) @if ($channel === $key) aria-current="page" @endif>{{ $name }}</button>
         @endforeach
     </nav>
 

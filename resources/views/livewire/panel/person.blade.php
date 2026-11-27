@@ -40,7 +40,7 @@
         <a href="{{ route('panel.leads') }}" wire:navigate class="link-neutral text-[13px]">Adaylar</a>
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
-                <h1 class="page-title">{{ $person->name }}</h1>
+                <h2 class="text-[21px] font-semibold leading-7 tracking-[-0.02em] text-gray-900">{{ $person->name }}</h2>
                 <p class="page-sub">{{ collect([PanelStages::label($person->stage), $person->lost_reason ? (PanelStages::lostReasons()[$person->lost_reason] ?? null) : null, $person->assignee ? $person->assignee->name.' ilgileniyor' : null])->filter()->implode(', ') }}</p>
             </div>
             @if ($showPhone && $digits !== '')

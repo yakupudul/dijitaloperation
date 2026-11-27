@@ -63,8 +63,9 @@ final class PanelPerformance
             'funnel' => $funnel,
             'sources' => $breakdown($rows->groupBy(fn ($person): string => PanelSources::label($person->source))),
             'interests' => array_slice($breakdown($rows->groupBy(fn ($person): string => trim((string) $person->interest) !== '' ? (string) $person->interest : 'Belirtilmemiş')), 0, 12),
-            'lost' => $rows->where('stage', PanelStages::LOST)->groupBy(fn ($person): string => PanelStages::lostReasons()[$person->lost_reason] ?? 'Belirtilmemiş')
-                ->map(fn (Collection $set, string $label): array => ['label' => $label, 'value' => $set->count()])->sortByDesc('value')->values()->all(),
+            'lost' => $rows->where('stage', PanelStages::LOST)->groupBy(fn ($person): string => isset(PanelStages::lostReasons()[$person->lost_reason]) ? (string) $person->lost_reason : 'none')
+                ->map(fn (Collection $set, string $key): array => ['key' => $key, 'label' => PanelStages::lostReasons()[$key] ?? 'Neden yazılmamış', 'value' => $set->count()])->sortByDesc('value')->values()->all(),
+            'lost_total' => $rows->where('stage', PanelStages::LOST)->count(),
             'team' => $rows->groupBy(fn ($person): int => (int) $person->assigned_user_id)->map(fn (Collection $set, int $userId): array => [
                 'user' => $userId, 'leads' => $set->count(), 'appointments' => $count($set, 2), 'customers' => $count($set, 4),
                 'waiting' => $set->where('stage', PanelStages::NEW)->count(),

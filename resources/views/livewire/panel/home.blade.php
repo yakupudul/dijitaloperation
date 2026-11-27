@@ -2,13 +2,8 @@
     use App\Panel\Support\PhoneKey;
     $tz = 'Europe/Istanbul';
 @endphp
-<div class="space-y-10">
-    <header>
-        <h1 class="page-title">Ana sayfa</h1>
-        <p class="page-sub">{{ now($tz)->translatedFormat('j F Y, l') }}</p>
-    </header>
-
-    <section class="metric-strip -mt-4 grid-cols-2 lg:grid-cols-4" data-panel-numbers>
+<div class="space-y-8">
+    <section class="metric-strip grid-cols-2 lg:grid-cols-4" data-panel-numbers>
         @foreach ($numbers as [$label, $value, $stage])
             <a @if ($canOpenLeads) href="{{ route('panel.leads', array_filter(['asama' => $stage])) }}" wire:navigate @endif class="block bg-white px-5 py-4 hover:bg-gray-50">
                 <span class="block text-[13px] text-gray-500">{{ $label }}</span>
@@ -18,7 +13,7 @@
     </section>
 
     @if ($stale > 0)
-        <p class="-mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800" data-panel-stale>
+        <p class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-800" data-panel-stale>
             <span class="min-w-0 flex-1">{{ $stale }} aday {{ \App\Panel\Services\PanelWatch::STALE_DAYS }} gündür aranmadı, not da yazılmadı.</span>
             @if ($canOpenLeads)<a href="{{ route('panel.leads', ['durgun' => 1]) }}" wire:navigate class="font-medium text-gray-900 underline">Listeyi aç</a>@endif
         </p>

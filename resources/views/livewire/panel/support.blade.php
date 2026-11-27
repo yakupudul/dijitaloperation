@@ -7,10 +7,7 @@
 @endphp
 <div class="space-y-6">
     <header class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-            <h1 class="page-title">Destek</h1>
-            <p class="page-sub">Moximu'ya yazın, cevabı ve duyuruları burada görün.</p>
-        </div>
+        <p class="min-w-0 self-center text-[15px] text-gray-500">Moximu'ya yazın, cevabı ve duyuruları burada görün.</p>
         @if ($canWrite && $tab === 'talepler' && ! $ticket)
             <button type="button" wire:click="$set('adding', true)" class="btn-primary w-full sm:w-auto">Talep aç</button>
         @endif

@@ -1,9 +1,8 @@
 @php($input = 'mt-1.5 h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-base text-gray-900 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 sm:text-sm')
 <div class="space-y-10">
     <header class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-            <h1 class="page-title">Kullanıcılar</h1>
-            <p class="page-sub">{{ $rows->count() }} kişi, {{ $rows->where('is_active', true)->count() }} tanesi girebiliyor.</p>
+        <div class="min-w-0 self-center">
+            <p class="text-[15px] text-gray-500">{{ $rows->count() }} kişi, {{ $rows->where('is_active', true)->count() }} tanesi girebiliyor.</p>
         </div>
         <button type="button" wire:click="$set('adding', true)" class="btn-primary w-full sm:w-auto">Kullanıcı ekle</button>
     </header>

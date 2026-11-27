@@ -12,6 +12,7 @@ use App\Panel\Support\PanelPage;
 use App\Panel\Support\PanelSources;
 use App\Panel\Support\PanelStages;
 use App\Panel\Support\PhoneKey;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
@@ -35,6 +36,9 @@ final class LeadsPage extends Component
         'appointment' => 'Randevu', 'created' => 'Kayıt',
     ];
 
+    /** The same periods Performans counts by, so a number there opens the same people here. */
+    public const array PERIODS = ['7' => 'Son 7 gün', '30' => 'Son 30 gün', '90' => 'Son 90 gün', 'ay' => 'Bu ay', 'gecen' => 'Geçen ay'];
+
     public const array DEFAULT_COLUMNS = ['phone', 'stage', 'source', 'interest', 'assignee', 'last_activity'];
 
     #[Url(as: 'gorunum')]
@@ -51,6 +55,14 @@ final class LeadsPage extends Component
 
     #[Url(as: 'kisi')]
     public string $assignee = '';
+
+    /** Why a lost lead was lost ("none": closed without a reason). */
+    #[Url(as: 'neden')]
+    public string $lostReason = '';
+
+    /** When the person arrived: a key of PERIODS. */
+    #[Url(as: 'donem')]
+    public string $period = '';
 
     /** Only open leads nobody touched for two weeks (the link on Ana sayfa). */
     #[Url(as: 'durgun')]
@@ -81,7 +93,7 @@ final class LeadsPage extends Component
 
     public function updated(string $name): void
     {
-        if (in_array($name, ['search', 'stage', 'source', 'assignee'], true)) {
+        if (in_array($name, ['search', 'stage', 'source', 'assignee', 'lostReason', 'period'], true)) {
             $this->resetPage();
         }
     }
@@ -173,6 +185,16 @@ final class LeadsPage extends Component
         if (array_key_exists($this->stage, PanelStages::labels())) {
             $query->where('stage', $this->stage);
         }
+        if ($this->stage === PanelStages::LOST && $this->lostReason !== '') {
+            if ($this->lostReason === 'none') {
+                $query->whereNull('lost_reason');
+            } elseif (array_key_exists($this->lostReason, PanelStages::lostReasons())) {
+                $query->where('lost_reason', $this->lostReason);
+            }
+        }
+        if (($range = self::range($this->period)) !== null) {
+            $query->where('created_at', '>=', $range[0])->where('created_at', '<', $range[1]);
+        }
         if ($this->stale) {
             PanelWatch::stale($query);
         }
@@ -186,6 +208,26 @@ final class LeadsPage extends Component
         }
 
         return $query;
+    }
+
+    /**
+     * The start and end (UTC) of a period key, in Turkey's days.
+     *
+     * @return array{0: CarbonInterface, 1: CarbonInterface}|null
+     */
+    public static function range(string $period): ?array
+    {
+        if (! isset(self::PERIODS[$period])) {
+            return null;
+        }
+        $now = now('Europe/Istanbul');
+        [$from, $to] = match ($period) {
+            'ay' => [$now->copy()->startOfMonth(), $now->copy()->addDay()->startOfDay()],
+            'gecen' => [$now->copy()->subMonthNoOverflow()->startOfMonth(), $now->copy()->startOfMonth()],
+            default => [$now->copy()->subDays((int) $period - 1)->startOfDay(), $now->copy()->addDay()->startOfDay()],
+        };
+
+        return [$from->utc(), $to->utc()];
     }
 
     public function render(PanelLeads $leads, PanelPresets $presets): View
