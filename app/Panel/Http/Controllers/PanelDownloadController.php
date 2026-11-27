@@ -6,11 +6,13 @@ use App\Panel\Models\PanelAudit;
 use App\Panel\Models\PanelFile;
 use App\Panel\Models\PanelPerson;
 use App\Panel\Models\PanelTicketMessage;
+use App\Panel\Services\PanelAccount;
 use App\Panel\Services\PanelLeads;
 use App\Panel\Support\PanelContext;
 use App\Panel\Support\PanelSources;
 use App\Panel\Support\PanelStages;
 use App\Panel\Support\Xlsx;
+use App\Services\Finance\FinanceDocuments;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -35,6 +37,17 @@ final class PanelDownloadController
         $row = PanelTicketMessage::query()->whereNotNull('attachment_path')->findOrFail((int) $message);
 
         return Storage::disk((string) config('panel.files_disk'))->download($row->attachment_path, $row->attachment_name);
+    }
+
+    /** An invoice the operator opened to the panel, for the brand's manager. */
+    public function invoice(string $invoice, PanelContext $context, PanelAccount $account): StreamedResponse
+    {
+        abort_unless(strlen($invoice) <= 18 && $context->isManager(), 404);
+        $doc = $account->invoice((int) $context->brandId(), (int) $invoice);
+        abort_if($doc === null || ! Storage::disk(FinanceDocuments::DISK)->exists((string) $doc->path), 404);
+        PanelAudit::record('account.invoice', $context->brandId(), 'panel', (int) Auth::guard('client')->id(), ['document_id' => $doc->id]);
+
+        return Storage::disk(FinanceDocuments::DISK)->download((string) $doc->path, 'fatura-'.($doc->doc_date?->format('Y-m-d') ?? $doc->id).'.'.pathinfo((string) $doc->path, PATHINFO_EXTENSION));
     }
 
     public function export(Request $request, PanelContext $context): BinaryFileResponse

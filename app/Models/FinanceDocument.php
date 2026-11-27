@@ -22,7 +22,7 @@ class FinanceDocument extends Model
 
     public const array DIRECTIONS = [self::OUT => 'Kestiğim fatura', self::IN => 'Gider', self::RECEIPT => 'Dekont'];
 
-    public const array SOURCES = ['upload' => 'Yükleme', 'gmail' => 'Gmail', 'whatsapp' => 'WhatsApp', 'manual' => 'Elle'];
+    public const array SOURCES = ['upload' => 'Yükleme', 'gmail' => 'Gmail', 'whatsapp' => 'WhatsApp', 'manual' => 'Elle', 'panel' => 'Müşteri paneli'];
 
     /** new: read, waiting for a look. filed: where it belongs is settled. ignored: not a finance document. */
     public const array STATUSES = ['new' => 'Yeni', 'filed' => 'Yerinde', 'ignored' => 'Yok sayıldı'];

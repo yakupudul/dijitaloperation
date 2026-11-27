@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Panel\AccountPage;
 use App\Livewire\Panel\HomePage;
 use App\Livewire\Panel\ImportPage;
 use App\Livewire\Panel\InboxPage;
@@ -42,5 +43,11 @@ Route::domain((string) config('panel.domain'))->name('panel.')->group(function (
         Route::livewire('/destek', SupportPage::class)->name('support');
         Route::get('/destek/dosya/{message}', [PanelDownloadController::class, 'ticketFile'])->whereNumber('message')->middleware(PanelAuthenticate::class.':menu.support')->name('support.file');
         Route::livewire('/kullanicilar', UsersPage::class)->name('users');
+
+        Route::livewire('/hesap', AccountPage::class)->name('services');
+        Route::livewire('/hesap/faturalar', AccountPage::class)->defaults('tab', 'faturalar')->name('invoices');
+        Route::livewire('/hesap/odemeler', AccountPage::class)->defaults('tab', 'odemeler')->name('payments');
+        Route::livewire('/hesap/yenilemeler', AccountPage::class)->defaults('tab', 'yenilemeler')->name('renewals');
+        Route::get('/hesap/fatura/{invoice}', [PanelDownloadController::class, 'invoice'])->whereNumber('invoice')->middleware(PanelAuthenticate::class.':manager')->name('invoice');
     });
 });
