@@ -397,7 +397,8 @@
                     <section class="card p-4" data-inbox-customer>
                         <div class="flex items-start justify-between gap-2">
                             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Müşteri</h3>
-                            @if ($detail['brand'] !== null)<a href="{{ route('operator.brand', ['brand' => $detail['brand']->id]) }}" wire:navigate class="link-primary text-xs">Marka →</a>@elseif ($selected->customer !== null)<a href="{{ route('operator.customer', ['customerId' => $selected->customer->id]) }}" wire:navigate class="link-primary text-xs">Müşteri →</a>@endif
+                            @if ($detail['brand'] !== null)<span class="flex shrink-0 gap-3"><a href="{{ route('operator.brand', ['brand' => $detail['brand']->id]) }}" wire:navigate class="link-primary text-xs">Marka →</a>
+                                <a href="{{ route('operator.brand', ['brand' => $detail['brand']->id, 'tab' => 'talepler', 'yeni' => 'whatsapp']) }}" wire:navigate class="link-primary text-xs" title="Müşterinin burada istediği işi talep olarak kaydet; müşteri de panelinde görür." data-inbox-to-ticket>Talebe çevir</a></span>@elseif ($selected->customer !== null)<a href="{{ route('operator.customer', ['customerId' => $selected->customer->id]) }}" wire:navigate class="link-primary text-xs">Müşteri →</a>@endif
                         </div>
                         @if ($detail['terms'] !== null)
                             @php $terms = $detail['terms']; $agreement = $terms['agreement']; @endphp

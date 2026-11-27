@@ -79,6 +79,12 @@ final class BrandPanelTab extends Component
     {
         $this->brandId = $brandId;
         $this->view = isset(self::VIEWS[$view]) ? $view : 'panel';
+        // "Talebe çevir" on the inbox opens the form here, already marked with where the request came from.
+        $from = (string) request()->query('yeni', '');
+        if ($this->view === 'talepler' && in_array($from, ['phone', 'whatsapp'], true)) {
+            $this->adding = true;
+            $this->form['origin'] = $from;
+        }
     }
 
     private function panel(): PanelContext
